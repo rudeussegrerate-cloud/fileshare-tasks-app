@@ -81,22 +81,60 @@ export const send = mutation({
     fileName: v.string(),
     contentType: v.optional(v.string()),
     size: v.optional(v.number()),
-    task: v.string(),
+    objet: v.string(),
+    tasks: v.array(v.string()),
     extractedText: v.optional(v.string()),
     recipientId: v.id("users"),
+    onBehalfOfType: v.union(v.literal("internal"), v.literal("external")),
+    onBehalfOfUserId: v.optional(v.id("users")),
+    onBehalfOfName: v.optional(v.string()),
+    onBehalfOfFunction: v.optional(v.string()),
+    onBehalfOfDepartment: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
     const sender = await ctx.db.get(userId);
     if (!sender) throw new Error("Compte introuvable.");
 
-    const task = args.task.trim();
-    if (!task) throw new Error("Précisez la tâche à réaliser sur ce document.");
+    const objet = args.objet.trim();
+    if (!objet) throw new Error("Précisez l'objet de l'envoi.");
+
+    const tasks = args.tasks.map((t) => t.trim()).filter(Boolean);
+    if (tasks.length === 0) {
+      throw new Error("Sélectionnez au moins une tâche à réaliser.");
+    }
 
     const recipient = await ctx.db.get(args.recipientId);
     if (!recipient) throw new Error("Destinataire introuvable.");
     if (recipient._id === userId) {
       throw new Error("Vous ne pouvez pas vous envoyer un document à vous-même.");
+    }
+
+    // Resolve "de la part de"
+    let onBehalfOfName = args.onBehalfOfName?.trim() || undefined;
+    let onBehalfOfFunction = args.onBehalfOfFunction?.trim() || undefined;
+    let onBehalfOfDepartment = args.onBehalfOfDepartment?.trim() || undefined;
+    let onBehalfOfUserId = args.onBehalfOfUserId;
+
+    if (args.onBehalfOfType === "internal") {
+      if (!onBehalfOfUserId) {
+        throw new Error("Choisissez la personne au nom de qui vous envoyez.");
+      }
+      const onBehalfUser = await ctx.db.get(onBehalfOfUserId);
+      if (!onBehalfUser) throw new Error("Personne introuvable.");
+      onBehalfOfName = displayName(onBehalfUser);
+      onBehalfOfFunction = onBehalfUser.fonction ?? undefined;
+      if (onBehalfUser.departmentId) {
+        const dept = await ctx.db.get(onBehalfUser.departmentId);
+        onBehalfOfDepartment = dept?.name ?? undefined;
+      }
+    } else {
+      if (!onBehalfOfName) {
+        throw new Error(
+          "Indiquez le nom de la personne au nom de qui vous envoyez.",
+        );
+      }
+      onBehalfOfUserId = undefined;
     }
 
     const senderDepartmentId = sender.departmentId ?? null;
@@ -117,7 +155,14 @@ export const send = mutation({
       storageId: args.storageId,
       contentType: args.contentType,
       size: args.size,
-      task,
+      objet,
+      tasks,
+      task: tasks.join(" · "),
+      onBehalfOfType: args.onBehalfOfType,
+      onBehalfOfUserId,
+      onBehalfOfName,
+      onBehalfOfFunction,
+      onBehalfOfDepartment,
       extractedText: args.extractedText?.slice(0, 40000),
       summaryStatus: "en_attente",
       senderId: userId,
@@ -147,7 +192,8 @@ export const getForSummary = internalQuery({
     if (!document) return null;
     return {
       fileName: document.fileName,
-      task: document.task,
+      task: document.tasks?.join(" · ") ?? document.task ?? "",
+      objet: document.objet ?? "",
       extractedText: document.extractedText ?? "",
     };
   },

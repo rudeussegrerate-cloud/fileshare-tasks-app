@@ -115,12 +115,53 @@ export function DocumentDetailDialog({
 
             <Separator />
 
+            {documentOrNull.objet ? (
+              <section>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Objet de l&apos;envoi
+                </h4>
+                <div className="mt-2 rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
+                  {documentOrNull.objet}
+                </div>
+              </section>
+            ) : null}
+
+            {documentOrNull.onBehalfOfName ? (
+              <section>
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  De la part de
+                </h4>
+                <div className="mt-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground">
+                  <span className="font-medium">{documentOrNull.onBehalfOfName}</span>
+                  {documentOrNull.onBehalfOfFunction
+                    ? ` · ${documentOrNull.onBehalfOfFunction}`
+                    : ""}
+                  {documentOrNull.onBehalfOfDepartment
+                    ? ` · ${documentOrNull.onBehalfOfDepartment}`
+                    : ""}
+                </div>
+              </section>
+            ) : null}
+
             <section>
               <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Tâche demandée au destinataire
+                Tâches demandées au destinataire
               </h4>
-              <div className="mt-2 rounded-lg border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-sm leading-relaxed text-foreground">
-                {documentOrNull.task}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(documentOrNull.tasks && documentOrNull.tasks.length > 0
+                  ? documentOrNull.tasks
+                  : documentOrNull.task
+                    ? [documentOrNull.task]
+                    : []
+                ).map((t: string) => (
+                  <Badge
+                    key={t}
+                    variant="outline"
+                    className="border-brand-sky/30 bg-brand-soft text-xs font-medium text-brand-sky"
+                  >
+                    {t}
+                  </Badge>
+                ))}
               </div>
             </section>
 

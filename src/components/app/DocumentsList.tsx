@@ -53,9 +53,15 @@ export function DocumentsList({
         mode === "inbox"
           ? `${document.senderName} ${document.senderDepartmentName ?? ""}`
           : `${document.recipientName} ${document.recipientDepartmentName ?? ""}`;
+      const tasksText =
+        document.tasks && document.tasks.length > 0
+          ? document.tasks.join(" ")
+          : (document.task ?? "");
       return (
         document.fileName.toLowerCase().includes(needle) ||
-        document.task.toLowerCase().includes(needle) ||
+        tasksText.toLowerCase().includes(needle) ||
+        (document.objet ?? "").toLowerCase().includes(needle) ||
+        (document.onBehalfOfName ?? "").toLowerCase().includes(needle) ||
         counterpart.toLowerCase().includes(needle)
       );
     });
@@ -195,9 +201,21 @@ export function DocumentsList({
                       {formatDateTime(document.createdAt)} ·{" "}
                       {formatBytes(document.size)}
                     </p>
-                    <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-foreground/80">
-                      <span className="font-medium text-brand-sky">Tâche : </span>
-                      {document.task}
+                    {document.objet ? (
+                      <p className="mt-2 line-clamp-1 text-xs leading-relaxed text-foreground/80">
+                        <span className="font-medium text-brand-sky">
+                          Objet :{" "}
+                        </span>
+                        {document.objet}
+                      </p>
+                    ) : null}
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground/80">
+                      <span className="font-medium text-brand-sky">
+                        Tâches :{" "}
+                      </span>
+                      {document.tasks && document.tasks.length > 0
+                        ? document.tasks.join(" · ")
+                        : (document.task ?? "—")}
                     </p>
                     {document.summary ? (
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground italic">

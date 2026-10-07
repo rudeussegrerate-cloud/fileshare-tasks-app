@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
@@ -27,10 +29,33 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, StepDots, formatBytes, initialsOf } from "./shared";
 
-const STEPS = ["Document", "Département", "Destinataire", "Tâche & envoi"];
+const STEPS = ["Document", "Département", "Destinataire", "Détails & envoi"];
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp";
+
+/** Tâches prédéfinies (cases à cocher multiples) */
+export const PREDEFINED_TASKS = [
+  "Pour compte rendu",
+  "Pour compétence",
+  "Pour signature",
+  "Pour études",
+  "Pour avis",
+  "Pour documentation",
+  "Pour information",
+  "Suite a votre demande",
+  "Prière de m'en parler",
+  "Prière de nous représenter",
+  "Pour affichage",
+  "Pour attribution",
+  "Pour suite a donner",
+  "Pour exploitation",
+  "Réunion a ce sujet",
+  "Après visa",
+  "Urgent",
+  "Pour classement",
+  "Pour large diffusion",
+] as const;
 
 export function SendDocument({
   onSent,
@@ -52,7 +77,26 @@ export function SendDocument({
     null,
   );
   const [recipientId, setRecipientId] = useState<Id<"users"> | null>(null);
-  const [task, setTask] = useState("");
+
+  // Objet de l'envoi
+  const [objet, setObjet] = useState("");
+
+  // Tâches (multi-sélection)
+  const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+
+  // De la part de
+  const [onBehalfType, setOnBehalfType] = useState<"internal" | "external">(
+    "internal",
+  );
+  const [onBehalfDepartmentId, setOnBehalfDepartmentId] =
+    useState<Id<"departments"> | null>(null);
+  const [onBehalfUserId, setOnBehalfUserId] = useState<Id<"users"> | null>(
+    null,
+  );
+  const [onBehalfName, setOnBehalfName] = useState("");
+  const [onBehalfFunction, setOnBehalfFunction] = useState("");
+  const [onBehalfDepartmentText, setOnBehalfDepartmentText] = useState("");
+
   const [sending, setSending] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -60,11 +104,26 @@ export function SendDocument({
 
   const selectedDepartment = departments?.find((d) => d._id === departmentId);
   const selectableMembers =
-    selectedDepartment?.members.filter((member) => member._id !== me?.user._id) ??
-    [];
+    selectedDepartment?.members.filter(
+      (member) => member._id !== me?.user._id,
+    ) ?? [];
   const selectedRecipient = selectedDepartment?.members.find(
     (member) => member._id === recipientId,
   );
+
+  const onBehalfDepartment = departments?.find(
+    (d) => d._id === onBehalfDepartmentId,
+  );
+  const onBehalfMembers = onBehalfDepartment?.members ?? [];
+  const selectedOnBehalfUser = onBehalfMembers.find(
+    (m) => m._id === onBehalfUserId,
+  );
+
+  const toggleTask = (task: string) => {
+    setSelectedTasks((prev) =>
+      prev.includes(task) ? prev.filter((t) => t !== task) : [...prev, task],
+    );
+  };
 
   const handleFile = async (next: File | null) => {
     if (!next) return;
@@ -87,7 +146,14 @@ export function SendDocument({
     setExtractedText("");
     setDepartmentId(null);
     setRecipientId(null);
-    setTask("");
+    setObjet("");
+    setSelectedTasks([]);
+    setOnBehalfType("internal");
+    setOnBehalfDepartmentId(null);
+    setOnBehalfUserId(null);
+    setOnBehalfName("");
+    setOnBehalfFunction("");
+    setOnBehalfDepartmentText("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
@@ -99,12 +165,20 @@ export function SendDocument({
         ? Boolean(departmentId)
         : step === 2
           ? Boolean(recipientId)
-          : task.trim().length > 3;
+          : (() => {
+              if (!objet.trim()) return false;
+              if (selectedTasks.length === 0) return false;
+              if (onBehalfType === "internal") {
+                return Boolean(onBehalfUserId);
+              }
+              return onBehalfName.trim().length > 0;
+            })();
 
   const handleSend = async () => {
-    // Chefs ne peuvent envoyer qu'aux membres de leur propre département.
     if (
-      me?.isChef && !me?.isAdmin && me?.user.departmentId &&
+      me?.isChef &&
+      !me?.isAdmin &&
+      me?.user.departmentId &&
       departmentId !== me.user.departmentId
     ) {
       toast.error(
@@ -133,9 +207,23 @@ export function SendDocument({
         fileName: file.name,
         contentType: file.type || undefined,
         size: file.size,
-        task: task.trim(),
+        objet: objet.trim(),
+        tasks: selectedTasks,
         extractedText: extractedText || undefined,
         recipientId,
+        onBehalfOfType: onBehalfType,
+        onBehalfOfUserId:
+          onBehalfType === "internal" ? onBehalfUserId ?? undefined : undefined,
+        onBehalfOfName:
+          onBehalfType === "external" ? onBehalfName.trim() : undefined,
+        onBehalfOfFunction:
+          onBehalfType === "external"
+            ? onBehalfFunction.trim() || undefined
+            : undefined,
+        onBehalfOfDepartment:
+          onBehalfType === "external"
+            ? onBehalfDepartmentText.trim() || undefined
+            : undefined,
       });
 
       toast.success("Document envoyé !", {
@@ -146,7 +234,9 @@ export function SendDocument({
     } catch (error) {
       console.error(error);
       toast.error(
-        error instanceof Error ? error.message : "Impossible d'envoyer le document.",
+        error instanceof Error
+          ? error.message
+          : "Impossible d'envoyer le document.",
       );
     } finally {
       setSending(false);
@@ -182,8 +272,8 @@ export function SendDocument({
           Envoyer un document
         </h2>
         <p className="text-xs text-muted-foreground">
-          Transmettez un fichier et indiquez la tâche que le destinataire doit
-          réaliser sur ce document.
+          Transmettez un fichier, précisez l&apos;objet, la personne au nom de
+          qui vous envoyez et les tâches à réaliser.
         </p>
       </div>
 
@@ -275,7 +365,9 @@ export function SendDocument({
                 type="file"
                 accept={ACCEPT}
                 className="hidden"
-                onChange={(event) => void handleFile(event.target.files?.[0] ?? null)}
+                onChange={(event) =>
+                  void handleFile(event.target.files?.[0] ?? null)
+                }
               />
               <input
                 ref={cameraInputRef}
@@ -283,7 +375,9 @@ export function SendDocument({
                 accept="image/*"
                 capture="environment"
                 className="hidden"
-                onChange={(event) => void handleFile(event.target.files?.[0] ?? null)}
+                onChange={(event) =>
+                  void handleFile(event.target.files?.[0] ?? null)
+                }
               />
 
               <div className="flex items-start gap-2 rounded-lg border border-brand-sky/25 bg-brand-soft/60 px-4 py-3 text-xs text-muted-foreground">
@@ -303,8 +397,8 @@ export function SendDocument({
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
                   Règle fondamentale : le destinataire se choisit toujours en
-                  deux temps — d'abord le département, puis un membre de ce
-                  département. Cela évite les erreurs d'affectation.
+                  deux temps — d&apos;abord le département, puis un membre de ce
+                  département. Cela évite les erreurs d&apos;affectation.
                 </p>
               </div>
               {departments === undefined ? (
@@ -344,7 +438,9 @@ export function SendDocument({
                         <p className="text-xs text-muted-foreground">
                           {department.members.length} membre
                           {department.members.length > 1 ? "s" : ""}
-                          {department.chief ? ` · chef : ${department.chief.name}` : ""}
+                          {department.chief
+                            ? ` · chef : ${department.chief.name}`
+                            : ""}
                         </p>
                       </button>
                     );
@@ -416,22 +512,216 @@ export function SendDocument({
           ) : null}
 
           {step === 3 ? (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="task">
-                  Tâche à réaliser sur ce document
-                </Label>
+                <Label htmlFor="objet">Objet de l&apos;envoi</Label>
                 <Textarea
-                  id="task"
-                  value={task}
-                  onChange={(event) => setTask(event.target.value)}
-                  placeholder="Ex : Vérifier les montants du budget, corriger les écarts puis renvoyer le fichier validé avant vendredi."
-                  rows={4}
+                  id="objet"
+                  value={objet}
+                  onChange={(e) => setObjet(e.target.value)}
+                  placeholder="Ex : Transmission du rapport trimestriel pour validation et signature"
+                  rows={2}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Soyez précis : le destinataire verra cette consigne en même
-                  temps que le résumé automatique.
+                  Indiquez pourquoi vous envoyez ce document.
                 </p>
+              </div>
+
+              <div className="space-y-3">
+                <Label>De la part de qui</Label>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOnBehalfType("internal");
+                      setOnBehalfName("");
+                      setOnBehalfFunction("");
+                      setOnBehalfDepartmentText("");
+                    }}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      onBehalfType === "internal"
+                        ? "border-brand bg-brand text-primary-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                    )}
+                  >
+                    Personne du service
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOnBehalfType("external");
+                      setOnBehalfDepartmentId(null);
+                      setOnBehalfUserId(null);
+                    }}
+                    className={cn(
+                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      onBehalfType === "external"
+                        ? "border-brand bg-brand text-primary-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                    )}
+                  >
+                    Personne externe / autre
+                  </button>
+                </div>
+
+                {onBehalfType === "internal" ? (
+                  <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        1. Département
+                      </p>
+                      {departments === undefined ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {departments.map((d) => (
+                            <button
+                              key={d._id}
+                              type="button"
+                              onClick={() => {
+                                setOnBehalfDepartmentId(d._id);
+                                setOnBehalfUserId(null);
+                              }}
+                              className={cn(
+                                "rounded-lg border px-3 py-1.5 text-xs transition-colors",
+                                onBehalfDepartmentId === d._id
+                                  ? "border-brand bg-brand-soft text-brand"
+                                  : "border-border hover:border-brand-sky/50",
+                              )}
+                            >
+                              {d.name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {onBehalfDepartmentId ? (
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-muted-foreground">
+                          2. Personne
+                        </p>
+                        {onBehalfMembers.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            Aucun membre dans ce département.
+                          </p>
+                        ) : (
+                          <ul className="max-h-40 space-y-1 overflow-y-auto">
+                            {onBehalfMembers.map((member) => {
+                              const active = member._id === onBehalfUserId;
+                              return (
+                                <li key={member._id}>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setOnBehalfUserId(member._id)
+                                    }
+                                    className={cn(
+                                      "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all",
+                                      active
+                                        ? "border-brand bg-brand-soft"
+                                        : "border-border hover:border-brand-sky/50",
+                                    )}
+                                  >
+                                    <span className="flex size-7 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-primary-foreground">
+                                      {initialsOf(member.name)}
+                                    </span>
+                                    <span className="min-w-0 flex-1 truncate">
+                                      {member.name}
+                                      {member.fonction
+                                        ? ` · ${member.fonction}`
+                                        : ""}
+                                    </span>
+                                    {active ? (
+                                      <CheckCircle2 className="size-4 shrink-0 text-brand" />
+                                    ) : null}
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="onBehalfName">
+                        Nom <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        id="onBehalfName"
+                        value={onBehalfName}
+                        onChange={(e) => setOnBehalfName(e.target.value)}
+                        placeholder="Nom complet"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="onBehalfFunction">Fonction</Label>
+                      <Input
+                        id="onBehalfFunction"
+                        value={onBehalfFunction}
+                        onChange={(e) => setOnBehalfFunction(e.target.value)}
+                        placeholder="Ex : Directeur commercial"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="onBehalfDept">
+                        Département{" "}
+                        <span className="text-muted-foreground">
+                          (optionnel)
+                        </span>
+                      </Label>
+                      <Input
+                        id="onBehalfDept"
+                        value={onBehalfDepartmentText}
+                        onChange={(e) =>
+                          setOnBehalfDepartmentText(e.target.value)
+                        }
+                        placeholder="Ex : Direction générale"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <Label>
+                  Tâches à réaliser{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (plusieurs choix possibles)
+                  </span>
+                </Label>
+                <div className="grid max-h-56 gap-2 overflow-y-auto rounded-xl border border-border bg-card p-3 sm:grid-cols-2">
+                  {PREDEFINED_TASKS.map((task) => {
+                    const checked = selectedTasks.includes(task);
+                    return (
+                      <label
+                        key={task}
+                        className={cn(
+                          "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                          checked
+                            ? "border-brand bg-brand-soft"
+                            : "border-transparent hover:bg-muted/50",
+                        )}
+                      >
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={() => toggleTask(task)}
+                        />
+                        <span>{task}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {selectedTasks.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {selectedTasks.length} tâche
+                    {selectedTasks.length > 1 ? "s" : ""} sélectionnée
+                    {selectedTasks.length > 1 ? "s" : ""}
+                  </p>
+                ) : null}
               </div>
 
               <div className="rounded-xl border border-border bg-brand-soft/40 p-4">
@@ -455,6 +745,28 @@ export function SendDocument({
                     <dt className="text-muted-foreground">Destinataire</dt>
                     <dd className="text-right font-medium">
                       {selectedRecipient?.name}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Objet</dt>
+                    <dd className="line-clamp-2 text-right font-medium">
+                      {objet.trim() || "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">De la part de</dt>
+                    <dd className="text-right font-medium">
+                      {onBehalfType === "internal"
+                        ? (selectedOnBehalfUser?.name ?? "—")
+                        : onBehalfName.trim() || "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Tâches</dt>
+                    <dd className="text-right font-medium">
+                      {selectedTasks.length > 0
+                        ? selectedTasks.join(" · ")
+                        : "—"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">

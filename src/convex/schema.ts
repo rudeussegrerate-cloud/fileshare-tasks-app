@@ -104,7 +104,18 @@ const schema = defineSchema(
       storageId: v.id("_storage"),
       contentType: v.optional(v.string()),
       size: v.optional(v.number()),
-      task: v.string(),
+      // Objet de l'envoi (pourquoi ce document est transmis)
+      objet: v.string(),
+      // Tâches prédéfinies sélectionnées (cases à cocher multiples)
+      tasks: v.array(v.string()),
+      // Champ legacy conservé pour compatibilité (jointure des tâches)
+      task: v.optional(v.string()),
+      // De la part de qui
+      onBehalfOfType: v.union(v.literal("internal"), v.literal("external")),
+      onBehalfOfUserId: v.optional(v.id("users")),
+      onBehalfOfName: v.optional(v.string()),
+      onBehalfOfFunction: v.optional(v.string()),
+      onBehalfOfDepartment: v.optional(v.string()),
       // text pulled from the file on the client, used to build the summary
       extractedText: v.optional(v.string()),
       summary: v.optional(v.string()),
