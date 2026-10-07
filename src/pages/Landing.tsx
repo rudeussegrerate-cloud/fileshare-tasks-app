@@ -1,3 +1,4 @@
+import { BrandLogo, Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import {
@@ -142,19 +143,7 @@ export default function Landing() {
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-3 lg:px-6">
-          <div className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-brand text-primary-foreground shadow-sm">
-              <FileText className="size-4" />
-            </span>
-            <span className="leading-tight">
-              <span className="block text-sm font-semibold tracking-tight">
-                ScanDoc
-              </span>
-              <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
-                Fichiers inter-départements
-              </span>
-            </span>
-          </div>
+          <BrandLogo />
           <nav className="hidden items-center gap-7 md:flex">
             {SECTIONS.map((section) => (
               <a

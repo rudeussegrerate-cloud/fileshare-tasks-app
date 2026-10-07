@@ -20,7 +20,6 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import {
   Building2,
-  FileText,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -33,6 +32,7 @@ import {
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
+import { BrandLogo } from "@/components/Logo";
 import { initialsOf } from "./shared";
 
 export type AppView =
@@ -60,23 +60,7 @@ const NAV_ITEMS: Array<{
 ];
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <span className="flex size-9 items-center justify-center rounded-sm bg-brand text-primary-foreground">
-        <FileText className="size-4" />
-      </span>
-      {!compact ? (
-        <span className="leading-tight">
-          <span className="block text-[15px] font-semibold text-foreground">
-            ScanDoc
-          </span>
-          <span className="block text-xs text-muted-foreground">
-            Échange de documents
-          </span>
-        </span>
-      ) : null}
-    </div>
-  );
+  return <BrandLogo compact={compact} />;
 }
 
 function NavList({
