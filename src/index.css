@@ -42,50 +42,54 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Thème classique, doux, lisible (seniors / usage administratif) */
+/*
+  Thème inspiré de foadgestion-degs.org
+  - Or / moutarde institutionnel
+  - Fond blanc / gris très clair
+  - Texte sombre lisible
+  - Style administratif classique
+*/
 :root {
-  --radius: 0.4rem;
-  /* Fond papier doux */
-  --background: oklch(0.97 0.008 85);
-  --foreground: oklch(0.22 0.02 250);
-  --card: oklch(0.995 0.003 85);
-  --card-foreground: oklch(0.22 0.02 250);
-  --popover: oklch(0.995 0.003 85);
-  --popover-foreground: oklch(0.22 0.02 250);
-  /* Bleu marine classique */
-  --primary: oklch(0.38 0.07 250);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.94 0.01 85);
-  --secondary-foreground: oklch(0.28 0.03 250);
-  --muted: oklch(0.94 0.008 85);
-  /* Texte secondaire plus contrasté (lisibilité seniors) */
-  --muted-foreground: oklch(0.42 0.02 250);
-  --accent: oklch(0.93 0.015 230);
-  --accent-foreground: oklch(0.28 0.04 250);
-  --destructive: oklch(0.5 0.18 25);
-  --border: oklch(0.82 0.015 85);
-  --input: oklch(0.82 0.015 85);
-  --ring: oklch(0.45 0.08 250);
+  --radius: 0.25rem;
+  --background: #f7f7f5;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --popover: #ffffff;
+  --popover-foreground: #1a1a1a;
+  /* Or FOAD */
+  --primary: #b8860b;
+  --primary-foreground: #ffffff;
+  --secondary: #f0ebe0;
+  --secondary-foreground: #3d2e0a;
+  --muted: #f0ebe0;
+  --muted-foreground: #4a4a4a;
+  --accent: #f5f0e6;
+  --accent-foreground: #3d2e0a;
+  --destructive: #8b2500;
+  --border: #d4cfc4;
+  --input: #cfc9bc;
+  --ring: #b8860b;
 
-  --brand: oklch(0.38 0.07 250);
-  --brand-deep: oklch(0.28 0.06 250);
-  --brand-sky: oklch(0.48 0.09 245);
-  --brand-accent: oklch(0.55 0.08 200);
-  --brand-soft: oklch(0.94 0.015 230);
+  --brand: #b8860b;
+  --brand-deep: #8b6914;
+  --brand-sky: #c9a227;
+  --brand-accent: #5c4033;
+  --brand-soft: #f5f0e6;
 
-  --chart-1: oklch(0.55 0.12 250);
-  --chart-2: oklch(0.55 0.1 180);
-  --chart-3: oklch(0.5 0.08 80);
-  --chart-4: oklch(0.6 0.1 40);
-  --chart-5: oklch(0.5 0.1 20);
-  --sidebar: oklch(0.99 0.004 85);
-  --sidebar-foreground: oklch(0.22 0.02 250);
-  --sidebar-primary: oklch(0.38 0.07 250);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.94 0.015 230);
-  --sidebar-accent-foreground: oklch(0.28 0.04 250);
-  --sidebar-border: oklch(0.85 0.012 85);
-  --sidebar-ring: oklch(0.45 0.08 250);
+  --chart-1: #b8860b;
+  --chart-2: #5c4033;
+  --chart-3: #2e5a3c;
+  --chart-4: #8b4513;
+  --chart-5: #4a6fa5;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1a1a;
+  --sidebar-primary: #b8860b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f5f0e6;
+  --sidebar-accent-foreground: #3d2e0a;
+  --sidebar-border: #d4cfc4;
+  --sidebar-ring: #b8860b;
 }
 
 @theme inline {
@@ -97,37 +101,37 @@
 }
 
 .dark {
-  --background: oklch(0.18 0.015 250);
-  --foreground: oklch(0.95 0.01 85);
-  --card: oklch(0.22 0.015 250);
-  --card-foreground: oklch(0.95 0.01 85);
-  --popover: oklch(0.22 0.015 250);
-  --popover-foreground: oklch(0.95 0.01 85);
-  --primary: oklch(0.7 0.08 245);
-  --primary-foreground: oklch(0.18 0.02 250);
-  --secondary: oklch(0.28 0.02 250);
-  --secondary-foreground: oklch(0.95 0.01 85);
-  --muted: oklch(0.28 0.02 250);
-  --muted-foreground: oklch(0.75 0.02 85);
-  --accent: oklch(0.3 0.03 245);
-  --accent-foreground: oklch(0.95 0.01 85);
-  --destructive: oklch(0.65 0.18 25);
-  --border: oklch(1 0 0 / 14%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.65 0.08 245);
-  --brand: oklch(0.65 0.08 245);
-  --brand-deep: oklch(0.55 0.08 245);
-  --brand-sky: oklch(0.7 0.09 240);
-  --brand-accent: oklch(0.65 0.08 200);
-  --brand-soft: oklch(0.28 0.03 245);
-  --sidebar: oklch(0.2 0.015 250);
-  --sidebar-foreground: oklch(0.95 0.01 85);
-  --sidebar-primary: oklch(0.7 0.08 245);
-  --sidebar-primary-foreground: oklch(0.18 0.02 250);
-  --sidebar-accent: oklch(0.28 0.03 245);
-  --sidebar-accent-foreground: oklch(0.95 0.01 85);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.65 0.08 245);
+  --background: #1c1914;
+  --foreground: #f5f0e6;
+  --card: #262218;
+  --card-foreground: #f5f0e6;
+  --popover: #262218;
+  --popover-foreground: #f5f0e6;
+  --primary: #d4a84b;
+  --primary-foreground: #1c1914;
+  --secondary: #3d3528;
+  --secondary-foreground: #f5f0e6;
+  --muted: #3d3528;
+  --muted-foreground: #c9c0b0;
+  --accent: #3d3528;
+  --accent-foreground: #f5f0e6;
+  --destructive: #c45c3a;
+  --border: #4a4034;
+  --input: #4a4034;
+  --ring: #d4a84b;
+  --brand: #d4a84b;
+  --brand-deep: #b8860b;
+  --brand-sky: #e0b84a;
+  --brand-accent: #c9a88a;
+  --brand-soft: #3d3528;
+  --sidebar: #221e18;
+  --sidebar-foreground: #f5f0e6;
+  --sidebar-primary: #d4a84b;
+  --sidebar-primary-foreground: #1c1914;
+  --sidebar-accent: #3d3528;
+  --sidebar-accent-foreground: #f5f0e6;
+  --sidebar-border: #4a4034;
+  --sidebar-ring: #d4a84b;
 }
 
 @layer base {
@@ -142,12 +146,12 @@
     @apply bg-background text-foreground;
     line-height: 1.55;
     letter-spacing: 0.01em;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   }
   button:not([disabled]),
   [role="button"]:not([disabled]) {
     cursor: pointer;
   }
-  /* Cibles tactiles plus grandes */
   button,
   a,
   [role="button"],
@@ -159,5 +163,9 @@
   label {
     font-size: 0.95rem;
     font-weight: 600;
+  }
+  h1, h2, h3 {
+    color: var(--brand-deep);
+    font-weight: 700;
   }
 }

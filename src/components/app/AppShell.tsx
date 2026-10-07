@@ -67,10 +67,10 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
       </span>
       {!compact ? (
         <span className="leading-tight">
-          <span className="block text-base font-bold tracking-tight text-foreground">
+          <span className="block text-base font-bold tracking-wide text-brand">
             ScanDoc
           </span>
-          <span className="block text-xs text-muted-foreground">
+          <span className="block text-xs font-medium uppercase tracking-wide text-brand-deep/80">
             Échange de documents
           </span>
         </span>
@@ -101,10 +101,10 @@ function NavList({
             type="button"
             onClick={() => onSelect(item.key)}
             className={cn(
-              "flex w-full items-center gap-3 rounded-md px-3 py-3 text-base font-semibold transition-colors min-h-12",
+              "flex w-full items-center gap-3 rounded-sm px-3 py-3 text-base font-semibold transition-colors min-h-12 border-l-4",
               active
-                ? "bg-brand text-primary-foreground"
-                : "text-foreground hover:bg-brand-soft",
+                ? "border-brand bg-brand text-primary-foreground"
+                : "border-transparent text-foreground hover:bg-brand-soft hover:border-brand/40",
             )}
           >
             <Icon className="size-5" />
