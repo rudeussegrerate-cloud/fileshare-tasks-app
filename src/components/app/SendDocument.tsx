@@ -283,15 +283,15 @@ export function SendDocument({
         </p>
       </div>
 
-      <Card className="border-border/80 shadow-none">
+      <Card className="border-border/80 ">
         <CardContent className="space-y-6 pt-6">
           <StepDots steps={STEPS} current={step} />
 
           {step === 0 ? (
             <div className="space-y-4">
               {file ? (
-                <div className="flex items-center gap-4 rounded-xl border border-border bg-brand-soft/50 p-4">
-                  <div className="flex size-11 items-center justify-center rounded-lg bg-card text-brand shadow-sm">
+                <div className="flex items-center gap-4 rounded-sm border border-border bg-brand-soft/50 p-4">
+                  <div className="flex size-11 items-center justify-center rounded-sm bg-card text-brand ">
                     <FileText className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -369,7 +369,7 @@ export function SendDocument({
                 }
               />
 
-              <div className="flex items-start gap-2 rounded-lg border border-brand-sky/25 bg-brand-soft/60 px-4 py-3 text-xs text-muted-foreground">
+              <div className="flex items-start gap-2 rounded-sm border border-brand-sky/25 bg-brand-soft/60 px-4 py-3 text-xs text-muted-foreground">
                 <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p>
                   Le contenu du document est analysé automatiquement pour
@@ -382,7 +382,7 @@ export function SendDocument({
 
           {step === 1 ? (
             <div className="space-y-4">
-              <div className="flex items-start gap-2 rounded-lg border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
+              <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
                   Règle fondamentale : le destinataire se choisit toujours en
@@ -407,14 +407,14 @@ export function SendDocument({
                           setRecipientId(null);
                         }}
                         className={cn(
-                          "rounded-xl border p-4 text-left transition-all",
+                          "rounded-sm border p-4 text-left transition-all",
                           active
-                            ? "border-brand bg-brand-soft shadow-sm ring-1 ring-brand/20"
+                            ? "border-brand bg-brand-soft  "
                             : "border-border bg-card hover:border-brand-sky/50",
                         )}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex size-9 items-center justify-center rounded-lg bg-brand text-primary-foreground">
+                          <div className="flex size-9 items-center justify-center rounded-sm bg-brand text-primary-foreground">
                             <Building2 className="size-4" />
                           </div>
                           {active ? (
@@ -463,9 +463,9 @@ export function SendDocument({
                           type="button"
                           onClick={() => setRecipientId(member._id)}
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all",
+                            "flex w-full items-center gap-3 rounded-sm border p-3 text-left transition-all",
                             active
-                              ? "border-brand bg-brand-soft shadow-sm ring-1 ring-brand/20"
+                              ? "border-brand bg-brand-soft  "
                               : "border-border bg-card hover:border-brand-sky/50",
                           )}
                         >
@@ -555,7 +555,7 @@ export function SendDocument({
                 </div>
 
                 {onBehalfType === "internal" ? (
-                  <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                  <div className="space-y-3 rounded-sm border border-border bg-card p-4">
                     <div className="space-y-2">
                       <p className="text-xs font-medium text-muted-foreground">
                         1. Département
@@ -573,7 +573,7 @@ export function SendDocument({
                                 setOnBehalfUserId(null);
                               }}
                               className={cn(
-                                "rounded-lg border px-3 py-1.5 text-xs transition-colors",
+                                "rounded-sm border px-3 py-1.5 text-xs transition-colors",
                                 onBehalfDepartmentId === d._id
                                   ? "border-brand bg-brand-soft text-brand"
                                   : "border-border hover:border-brand-sky/50",
@@ -606,7 +606,7 @@ export function SendDocument({
                                       setOnBehalfUserId(member._id)
                                     }
                                     className={cn(
-                                      "flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-all",
+                                      "flex w-full items-center gap-2 rounded-sm border px-3 py-2 text-left text-sm transition-all",
                                       active
                                         ? "border-brand bg-brand-soft"
                                         : "border-border hover:border-brand-sky/50",
@@ -634,7 +634,7 @@ export function SendDocument({
                     ) : null}
                   </div>
                 ) : (
-                  <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                  <div className="space-y-3 rounded-sm border border-border bg-card p-4">
                     <div className="space-y-2">
                       <Label htmlFor="onBehalfName">
                         Nom <span className="text-destructive">*</span>
@@ -682,14 +682,14 @@ export function SendDocument({
                     (plusieurs choix possibles)
                   </span>
                 </Label>
-                <div className="grid max-h-56 gap-2 overflow-y-auto rounded-xl border border-border bg-card p-3 sm:grid-cols-2">
+                <div className="grid max-h-56 gap-2 overflow-y-auto rounded-sm border border-border bg-card p-3 sm:grid-cols-2">
                   {PREDEFINED_TASKS.map((task) => {
                     const checked = selectedTasks.includes(task);
                     return (
                       <label
                         key={task}
                         className={cn(
-                          "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                          "flex cursor-pointer items-center gap-2 rounded-sm border px-3 py-2 text-sm transition-colors",
                           checked
                             ? "border-brand bg-brand-soft"
                             : "border-transparent hover:bg-muted/50",
@@ -727,7 +727,7 @@ export function SendDocument({
                 ) : null}
               </div>
 
-              <div className="rounded-xl border border-border bg-brand-soft/40 p-4">
+              <div className="rounded-sm border border-border bg-brand-soft/40 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Récapitulatif
                 </p>

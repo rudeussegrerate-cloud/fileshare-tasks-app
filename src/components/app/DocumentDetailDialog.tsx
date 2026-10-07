@@ -81,7 +81,7 @@ export function DocumentDetailDialog({
           <>
             <DialogHeader>
               <div className="flex items-start gap-3">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-sm bg-brand-soft text-brand">
                   <Icon className="size-5" />
                 </div>
                 <div className="min-w-0">
@@ -104,7 +104,7 @@ export function DocumentDetailDialog({
 
             <Separator />
 
-            <section className="space-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+            <section className="space-y-2 rounded-sm border border-border bg-card px-4 py-3 text-sm">
               <p>
                 <span className="text-muted-foreground">Expéditeur : </span>
                 <span className="font-medium">{documentOrNull.senderName}</span>
@@ -128,7 +128,7 @@ export function DocumentDetailDialog({
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Objet
                 </p>
-                <p className="rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed">
+                <p className="rounded-sm border border-border bg-card px-4 py-3 text-sm leading-relaxed">
                   <span className="text-muted-foreground">Objet : </span>
                   {documentOrNull.objet}
                 </p>
@@ -136,7 +136,7 @@ export function DocumentDetailDialog({
             ) : null}
 
             {documentOrNull.onBehalfOfName ? (
-              <section className="space-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+              <section className="space-y-2 rounded-sm border border-border bg-card px-4 py-3 text-sm">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   De la part de
                 </p>
@@ -196,7 +196,7 @@ export function DocumentDetailDialog({
                   </Badge>
                 ) : null}
               </div>
-              <div className="mt-2 rounded-lg border border-border bg-card px-4 py-3">
+              <div className="mt-2 rounded-sm border border-border bg-card px-4 py-3">
                 {documentOrNull.summaryStatus === "en_attente" ? (
                   <p className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Loader2 className="size-4 animate-spin" />

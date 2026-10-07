@@ -79,7 +79,7 @@ export function DocumentsList({
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-brand-soft text-brand">
+          <div className="flex size-9 items-center justify-center rounded-sm bg-brand-soft text-brand">
             {mode === "inbox" ? (
               <Inbox className="size-4" />
             ) : (
@@ -174,9 +174,9 @@ export function DocumentsList({
                 <button
                   type="button"
                   onClick={() => onOpen(document._id)}
-                  className="group flex w-full items-start gap-4 rounded-xl border border-border bg-card p-4 text-left transition-all hover:border-brand-sky/50 hover:shadow-sm"
+                  className="group flex w-full items-start gap-4 rounded-sm border border-border bg-card p-4 text-left transition-all hover:border-brand-sky/50 hover:"
                 >
-                  <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-sm bg-brand-soft text-brand">
                     <Icon className="size-5" />
                   </div>
                   <div className="min-w-0 flex-1">

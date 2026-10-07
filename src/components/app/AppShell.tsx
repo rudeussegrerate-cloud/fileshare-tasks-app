@@ -62,15 +62,15 @@ const NAV_ITEMS: Array<{
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex size-9 items-center justify-center rounded-md bg-brand text-primary-foreground">
+      <span className="flex size-9 items-center justify-center rounded-sm bg-brand text-primary-foreground">
         <FileText className="size-4" />
       </span>
       {!compact ? (
         <span className="leading-tight">
-          <span className="block text-base font-bold tracking-wide text-brand">
+          <span className="block text-[17px] font-bold text-brand">
             ScanDoc
           </span>
-          <span className="block text-xs font-medium uppercase tracking-wide text-brand-deep/80">
+          <span className="block text-xs text-muted-foreground">
             Échange de documents
           </span>
         </span>
@@ -101,10 +101,10 @@ function NavList({
             type="button"
             onClick={() => onSelect(item.key)}
             className={cn(
-              "flex w-full items-center gap-3 rounded-sm px-3 py-3 text-base font-semibold transition-colors min-h-12 border-l-4",
+              "flex w-full items-center gap-2 px-3 py-2.5 text-[15px] font-semibold border border-transparent min-h-10",
               active
-                ? "border-brand bg-brand text-primary-foreground"
-                : "border-transparent text-foreground hover:bg-brand-soft hover:border-brand/40",
+                ? "bg-brand text-primary-foreground border-brand-deep"
+                : "text-foreground hover:bg-secondary border-transparent",
             )}
           >
             <Icon className="size-5" />
@@ -216,7 +216,7 @@ export function AppShell({
               pendingAccounts={me?.pendingAccounts ?? 0}
             />
           </div>
-          <div className="rounded-xl border border-border bg-brand-soft/50 p-3">
+          <div className="rounded-sm border border-border bg-brand-soft/50 p-3">
             <p className="text-xs font-medium text-foreground">
               {me?.isRoot
                 ? "Vous désignez les comptes de DG et supervisez toute l'organisation."

@@ -102,7 +102,7 @@ export function DashboardHome({
       </div>
 
       {me.isAdmin && me.pendingAccounts > 0 ? (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div className="flex items-start gap-3 rounded-sm border border-amber-200 bg-amber-50 px-4 py-3">
           <UserCheck className="mt-0.5 size-4 shrink-0 text-amber-600" />
           <div className="text-sm">
             <p className="font-medium text-amber-900">
@@ -126,7 +126,7 @@ export function DashboardHome({
       ) : null}
 
       {!me.department ? (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+        <div className="flex items-start gap-3 rounded-sm border border-amber-200 bg-amber-50 px-4 py-3">
           <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
           <div className="text-sm">
             <p className="font-medium text-amber-900">
@@ -155,11 +155,11 @@ export function DashboardHome({
         {cards.map((card) => {
           const Icon = card.icon;
           return (
-            <Card key={card.label} className="border-border/80 shadow-none">
+            <Card key={card.label} className="border-border/80 ">
               <CardContent className="flex items-center gap-4 pt-6">
                 <div
                   className={cn(
-                    "flex size-11 items-center justify-center rounded-xl",
+                    "flex size-11 items-center justify-center rounded-sm",
                     card.tone,
                   )}
                 >
@@ -178,7 +178,7 @@ export function DashboardHome({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="border-border/80 shadow-none lg:col-span-2">
+        <Card className="border-border/80  lg:col-span-2">
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
             <CardTitle className="text-base">Documents récents reçus</CardTitle>
             <Button
@@ -192,7 +192,7 @@ export function DashboardHome({
           </CardHeader>
           <CardContent>
             {recentReceived.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              <p className="rounded-sm border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
                 Aucun document reçu pour l'instant.
               </p>
             ) : (
@@ -204,9 +204,9 @@ export function DashboardHome({
                       <button
                         type="button"
                         onClick={() => onOpen(document._id)}
-                        className="flex w-full items-center gap-3 rounded-lg border border-border/70 bg-card px-3 py-2.5 text-left transition-colors hover:border-brand-sky/50"
+                        className="flex w-full items-center gap-3 rounded-sm border border-border/70 bg-card px-3 py-2.5 text-left transition-colors hover:border-brand-sky/50"
                       >
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
+                        <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-brand-soft text-brand">
                           <Icon className="size-4" />
                         </span>
                         <span className="min-w-0 flex-1">
@@ -229,7 +229,7 @@ export function DashboardHome({
         </Card>
 
         <div className="space-y-4">
-          <Card className="border-border/80 shadow-none">
+          <Card className="border-border/80 ">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Actions rapides</CardTitle>
             </CardHeader>
@@ -265,7 +265,7 @@ export function DashboardHome({
             </CardContent>
           </Card>
 
-          <Card className="border-border/80 shadow-none">
+          <Card className="border-border/80 ">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Suivi de mes envois</CardTitle>
             </CardHeader>
@@ -291,7 +291,7 @@ export function DashboardHome({
                   key={document._id}
                   type="button"
                   onClick={() => onOpen(document._id)}
-                  className="flex w-full items-center justify-between gap-2 rounded-lg border border-border/60 px-3 py-2 text-left text-xs transition-colors hover:border-brand-sky/50"
+                  className="flex w-full items-center justify-between gap-2 rounded-sm border border-border/60 px-3 py-2 text-left text-xs transition-colors hover:border-brand-sky/50"
                 >
                   <span className="min-w-0 flex-1 truncate font-medium">
                     {document.fileName}
