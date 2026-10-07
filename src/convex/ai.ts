@@ -4,31 +4,29 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 
-const SYSTEM_PROMPT = `Tu es un assistant administratif spécialisé dans l'analyse de documents professionnels.
-On te fournit le contenu d'un document transmis entre services d'une entreprise, l'objet de l'envoi et les tâches demandées au destinataire.
+const SYSTEM_PROMPT = `Tu es un assistant administratif. On te fournit le contenu d'un document professionnel transmis entre services, avec l'objet de l'envoi et les tâches demandées.
 
-Ta mission : expliquer CE QUE CONTIENT le document, de façon claire, précise et utile, EN FRANÇAIS.
-Le destinataire doit comprendre le fond du document SANS avoir à tout lire.
+Rédige EN FRANÇAIS un texte clair qui explique ce que contient le document.
 
-Structure obligatoire (utilise exactement ces titres) :
+Format obligatoire :
 
-Nature du document :
-- Type (lettre, rapport, facture, note, contrat, etc.) et sujet principal.
+1) Une phrase d'introduction qui commence par l'une de ces formules (choisis la plus adaptée) :
+   - "Ce document contient ..."
+   - "Ce document explique ..."
+   - "Ce document présente ..."
+   - "Ce document décrit ..."
+   - "Ce document concerne ..."
+   Cette phrase doit résumer en une fois le type et le sujet du document (ex. : "Ce document présente le rapport trimestriel des ventes du service commercial.").
 
-Contenu détaillé :
-- 5 à 8 puces ("- ") qui décrivent les informations concrètes présentes : faits, montants, dates, personnes, décisions, demandes, conclusions, annexes mentionnées, etc.
-- Sois factuel et spécifique (chiffres, noms, délais quand ils sont dans le texte).
+2) Ensuite, 3 à 4 points importants tirés du contenu, sous forme de puces "- " :
+   - faits, chiffres, dates, décisions, demandes ou conclusions réellement présents dans le texte ;
+   - phrases courtes et concrètes ;
+   - ne rien inventer.
 
-Points importants :
-- 2 à 4 puces sur ce qui mérite particulièrement l'attention du destinataire.
+3) Une dernière ligne optionnelle si une tâche ou un objet est fourni :
+   "Action attendue : ..." (reformulation brève).
 
-Action attendue :
-- Reformule l'objet et/ou les tâches demandées en une ou deux phrases.
-
-Règles :
-- Ne rien inventer. Si une info n'est pas dans le texte, ne l'affirme pas.
-- Si le contenu est incomplet ou partiel, le préciser et ne résumer que ce qui est présent.
-- Langage professionnel, simple et direct.`;
+Règles : ne rien inventer ; si le texte est incomplet, le préciser ; rester factuel et professionnel.`;
 
 /** Fallback used when the AI is unavailable: an extractive digest. */
 function extractiveSummary(text: string) {
@@ -41,19 +39,18 @@ function extractiveSummary(text: string) {
     .map((s) => s.trim())
     .filter((s) => s.length > 25);
 
-  const picked = sentences.slice(0, 8);
+  const picked = sentences.slice(0, 4);
   if (picked.length === 0) {
     return (
-      "Nature du document :\n- Contenu textuel partiel.\n\nContenu détaillé :\n- " +
-      cleaned.slice(0, 500)
+      "Ce document contient un extrait de texte limité.\n\n" +
+      "- " +
+      cleaned.slice(0, 400)
     );
   }
-  const bullets = picked.map((s) => `- ${s.slice(0, 280)}`).join("\n");
-  return (
-    "Nature du document :\n- Extrait automatique du contenu (IA indisponible).\n\n" +
-    "Contenu détaillé :\n" +
-    bullets
-  );
+  const intro =
+    "Ce document contient les éléments suivants extraits de son contenu :";
+  const bullets = picked.map((s) => `- ${s.slice(0, 220)}`).join("\n");
+  return `${intro}\n\n${bullets}`;
 }
 
 /**
