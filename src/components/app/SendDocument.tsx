@@ -82,6 +82,7 @@ export function SendDocument({
 
   // Tâches (multi-sélection)
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+  const [customTask, setCustomTask] = useState("");
 
   // De la part de
   const [onBehalfType, setOnBehalfType] = useState<"internal" | "external">(
@@ -124,6 +125,11 @@ export function SendDocument({
     );
   };
 
+  const effectiveTasks = [
+    ...selectedTasks,
+    ...(customTask.trim() ? [customTask.trim()] : []),
+  ];
+
   const handleFile = async (next: File | null) => {
     if (!next) return;
     if (next.size > MAX_FILE_BYTES) {
@@ -147,6 +153,7 @@ export function SendDocument({
     setRecipientId(null);
     setObjet("");
     setSelectedTasks([]);
+    setCustomTask("");
     setOnBehalfType("internal");
     setOnBehalfDepartmentId(null);
     setOnBehalfUserId(null);
@@ -166,7 +173,7 @@ export function SendDocument({
           ? Boolean(recipientId)
           : (() => {
               if (!objet.trim()) return false;
-              if (selectedTasks.length === 0) return false;
+              if (selectedTasks.length === 0 && !customTask.trim()) return false;
               if (onBehalfType === "internal") {
                 return Boolean(onBehalfUserId);
               }
@@ -207,7 +214,7 @@ export function SendDocument({
         contentType: file.type || undefined,
         size: file.size,
         objet: objet.trim(),
-        tasks: selectedTasks,
+        tasks: effectiveTasks,
         extractedText: extractedText || undefined,
         recipientId,
         onBehalfOfType: onBehalfType,
@@ -697,11 +704,25 @@ export function SendDocument({
                     );
                   })}
                 </div>
-                {selectedTasks.length > 0 ? (
+                <div className="space-y-2">
+                  <Label htmlFor="customTask">
+                    Autre{" "}
+                    <span className="font-normal text-muted-foreground">
+                      (si la tâche n&apos;est pas dans la liste)
+                    </span>
+                  </Label>
+                  <Input
+                    id="customTask"
+                    value={customTask}
+                    onChange={(e) => setCustomTask(e.target.value)}
+                    placeholder="Ex : Vérifier les annexes et renvoyer avant vendredi"
+                  />
+                </div>
+                {effectiveTasks.length > 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    {selectedTasks.length} tâche
-                    {selectedTasks.length > 1 ? "s" : ""} sélectionnée
-                    {selectedTasks.length > 1 ? "s" : ""}
+                    {effectiveTasks.length} tâche
+                    {effectiveTasks.length > 1 ? "s" : ""} sélectionnée
+                    {effectiveTasks.length > 1 ? "s" : ""}
                   </p>
                 ) : null}
               </div>
@@ -746,8 +767,8 @@ export function SendDocument({
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">Tâches</dt>
                     <dd className="text-right font-medium">
-                      {selectedTasks.length > 0
-                        ? selectedTasks.join(" · ")
+                      {effectiveTasks.length > 0
+                        ? effectiveTasks.join(" · ")
                         : "—"}
                     </dd>
                   </div>
