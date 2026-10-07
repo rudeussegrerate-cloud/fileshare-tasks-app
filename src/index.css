@@ -43,52 +43,53 @@
 }
 
 /*
-  Style institutionnel simple (type site administratif FOAD)
-  - Couleurs plates, sans dégradés
-  - Coins quasi droits
-  - Bordures classiques
-  - Pas d'effets "startup / IA"
+  Interface professionnelle type intranet / outil métier
+  - Bleu marine + accent or discret
+  - Fond gris neutre, cartes blanches
+  - Pas de dégradés ni d'effets décoratifs
 */
 :root {
   --radius: 3px;
-  --background: #eeeeee;
-  --foreground: #222222;
+  --background: #f0f2f5;
+  --foreground: #1c2430;
   --card: #ffffff;
-  --card-foreground: #222222;
+  --card-foreground: #1c2430;
   --popover: #ffffff;
-  --popover-foreground: #222222;
-  --primary: #a67c00;
+  --popover-foreground: #1c2430;
+  /* Bleu marine professionnel */
+  --primary: #1e3a5f;
   --primary-foreground: #ffffff;
-  --secondary: #e5e5e5;
-  --secondary-foreground: #333333;
-  --muted: #e8e8e8;
-  --muted-foreground: #555555;
-  --accent: #f3efe4;
-  --accent-foreground: #333333;
-  --destructive: #990000;
-  --border: #bbbbbb;
-  --input: #999999;
-  --ring: #a67c00;
+  --secondary: #e8ecf1;
+  --secondary-foreground: #1c2430;
+  --muted: #e8ecf1;
+  --muted-foreground: #5a6570;
+  --accent: #f7f3e9;
+  --accent-foreground: #1c2430;
+  --destructive: #b42318;
+  --border: #c5ccd6;
+  --input: #a8b0bc;
+  --ring: #1e3a5f;
 
-  --brand: #a67c00;
-  --brand-deep: #7a5c00;
-  --brand-sky: #b8912a;
-  --brand-accent: #5a4632;
-  --brand-soft: #f3efe4;
+  /* Or en accent (réf. FOAD), utilisé avec parcimonie */
+  --brand: #1e3a5f;
+  --brand-deep: #152a45;
+  --brand-sky: #2c5282;
+  --brand-accent: #9a7b0f;
+  --brand-soft: #eef2f7;
 
-  --chart-1: #a67c00;
-  --chart-2: #5a4632;
-  --chart-3: #2d5a3d;
-  --chart-4: #8b4513;
-  --chart-5: #3d5a80;
-  --sidebar: #f5f5f5;
-  --sidebar-foreground: #222222;
-  --sidebar-primary: #a67c00;
+  --chart-1: #1e3a5f;
+  --chart-2: #9a7b0f;
+  --chart-3: #2d6a4f;
+  --chart-4: #9b2226;
+  --chart-5: #4a5568;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c2430;
+  --sidebar-primary: #1e3a5f;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ebebeb;
-  --sidebar-accent-foreground: #222222;
-  --sidebar-border: #cccccc;
-  --sidebar-ring: #a67c00;
+  --sidebar-accent: #eef2f7;
+  --sidebar-accent-foreground: #1c2430;
+  --sidebar-border: #c5ccd6;
+  --sidebar-ring: #1e3a5f;
 }
 
 @theme inline {
@@ -100,37 +101,37 @@
 }
 
 .dark {
-  --background: #1a1a1a;
-  --foreground: #eeeeee;
-  --card: #252525;
-  --card-foreground: #eeeeee;
-  --popover: #252525;
-  --popover-foreground: #eeeeee;
-  --primary: #c9a227;
-  --primary-foreground: #1a1a1a;
-  --secondary: #333333;
-  --secondary-foreground: #eeeeee;
-  --muted: #333333;
-  --muted-foreground: #aaaaaa;
-  --accent: #333333;
-  --accent-foreground: #eeeeee;
-  --destructive: #cc4444;
-  --border: #444444;
-  --input: #555555;
-  --ring: #c9a227;
-  --brand: #c9a227;
-  --brand-deep: #a67c00;
-  --brand-sky: #d4b44a;
-  --brand-accent: #c9b89a;
-  --brand-soft: #333333;
-  --sidebar: #222222;
-  --sidebar-foreground: #eeeeee;
-  --sidebar-primary: #c9a227;
-  --sidebar-primary-foreground: #1a1a1a;
-  --sidebar-accent: #333333;
-  --sidebar-accent-foreground: #eeeeee;
-  --sidebar-border: #444444;
-  --sidebar-ring: #c9a227;
+  --background: #121820;
+  --foreground: #e8ecf1;
+  --card: #1a222d;
+  --card-foreground: #e8ecf1;
+  --popover: #1a222d;
+  --popover-foreground: #e8ecf1;
+  --primary: #7ba3d4;
+  --primary-foreground: #121820;
+  --secondary: #2a3444;
+  --secondary-foreground: #e8ecf1;
+  --muted: #2a3444;
+  --muted-foreground: #9aa5b5;
+  --accent: #2a3444;
+  --accent-foreground: #e8ecf1;
+  --destructive: #f97066;
+  --border: #3a4556;
+  --input: #3a4556;
+  --ring: #7ba3d4;
+  --brand: #7ba3d4;
+  --brand-deep: #5b8ab8;
+  --brand-sky: #8bb0d8;
+  --brand-accent: #d4b84a;
+  --brand-soft: #2a3444;
+  --sidebar: #161d27;
+  --sidebar-foreground: #e8ecf1;
+  --sidebar-primary: #7ba3d4;
+  --sidebar-primary-foreground: #121820;
+  --sidebar-accent: #2a3444;
+  --sidebar-accent-foreground: #e8ecf1;
+  --sidebar-border: #3a4556;
+  --sidebar-ring: #7ba3d4;
 }
 
 @layer base {
@@ -139,12 +140,11 @@
   }
   html {
     font-size: 16px;
-    -webkit-text-size-adjust: 100%;
   }
   body {
     @apply bg-background text-foreground;
     line-height: 1.5;
-    font-family: Arial, Helvetica, "Segoe UI", sans-serif;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   }
   button:not([disabled]),
   [role="button"]:not([disabled]) {
@@ -152,11 +152,6 @@
   }
   h1, h2, h3 {
     color: var(--brand-deep);
-    font-weight: 700;
-  }
-  /* Moins d'effets focus "produit" */
-  *:focus-visible {
-    outline: 2px solid var(--brand);
-    outline-offset: 1px;
+    font-weight: 600;
   }
 }
