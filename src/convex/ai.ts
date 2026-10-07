@@ -4,12 +4,31 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 
-const SYSTEM_PROMPT = `Tu es un assistant administratif. On te fournit le contenu d'un document transmis entre deux services d'une entreprise, ainsi que la tâche demandée au destinataire.
-Rédige un résumé clair et fidèle EN FRANÇAIS (120 mots maximum) qui aide le destinataire à comprendre l'essentiel SANS lire tout le document.
-Structure attendue :
-- 3 à 5 points clés (puces avec "- ")
-- puis une courte phrase "Action attendue : ..." qui reformule la tâche.
-Ne rien inventer. Si le contenu est incomplet, résume uniquement ce qui est présent.`;
+const SYSTEM_PROMPT = `Tu es un assistant administratif spécialisé dans l'analyse de documents professionnels.
+On te fournit le contenu d'un document transmis entre services d'une entreprise, l'objet de l'envoi et les tâches demandées au destinataire.
+
+Ta mission : expliquer CE QUE CONTIENT le document, de façon claire, précise et utile, EN FRANÇAIS.
+Le destinataire doit comprendre le fond du document SANS avoir à tout lire.
+
+Structure obligatoire (utilise exactement ces titres) :
+
+Nature du document :
+- Type (lettre, rapport, facture, note, contrat, etc.) et sujet principal.
+
+Contenu détaillé :
+- 5 à 8 puces ("- ") qui décrivent les informations concrètes présentes : faits, montants, dates, personnes, décisions, demandes, conclusions, annexes mentionnées, etc.
+- Sois factuel et spécifique (chiffres, noms, délais quand ils sont dans le texte).
+
+Points importants :
+- 2 à 4 puces sur ce qui mérite particulièrement l'attention du destinataire.
+
+Action attendue :
+- Reformule l'objet et/ou les tâches demandées en une ou deux phrases.
+
+Règles :
+- Ne rien inventer. Si une info n'est pas dans le texte, ne l'affirme pas.
+- Si le contenu est incomplet ou partiel, le préciser et ne résumer que ce qui est présent.
+- Langage professionnel, simple et direct.`;
 
 /** Fallback used when the AI is unavailable: an extractive digest. */
 function extractiveSummary(text: string) {
@@ -22,11 +41,19 @@ function extractiveSummary(text: string) {
     .map((s) => s.trim())
     .filter((s) => s.length > 25);
 
-  const picked = sentences.slice(0, 4);
+  const picked = sentences.slice(0, 8);
   if (picked.length === 0) {
-    return cleaned.slice(0, 280);
+    return (
+      "Nature du document :\n- Contenu textuel partiel.\n\nContenu détaillé :\n- " +
+      cleaned.slice(0, 500)
+    );
   }
-  return picked.map((s) => `- ${s.slice(0, 220)}`).join("\n");
+  const bullets = picked.map((s) => `- ${s.slice(0, 280)}`).join("\n");
+  return (
+    "Nature du document :\n- Extrait automatique du contenu (IA indisponible).\n\n" +
+    "Contenu détaillé :\n" +
+    bullets
+  );
 }
 
 /**
@@ -61,12 +88,17 @@ export const summarizeDocument = internalAction({
         const response = await vly.ai.completion({
           model: "gpt-4o-mini",
           temperature: 0.2,
-          maxTokens: 400,
+          maxTokens: 900,
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             {
               role: "user",
-              content: `Fichier : ${document.fileName}\nTâche demandée au destinataire : ${document.task}\n\nContenu :\n${excerpt}`,
+              content: `Fichier : ${document.fileName}
+Objet de l'envoi : ${document.objet || "(non précisé)"}
+Tâches demandées au destinataire : ${document.task || "(non précisées)"}
+
+Contenu du document à analyser :
+${excerpt}`,
             },
           ],
         });
