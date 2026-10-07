@@ -55,6 +55,7 @@ export function DocumentsList({
           : `${document.recipientName} ${document.recipientDepartmentName ?? ""}`;
       return (
         document.fileName.toLowerCase().includes(needle) ||
+        (document.objective ?? "").toLowerCase().includes(needle) ||
         document.task.toLowerCase().includes(needle) ||
         counterpart.toLowerCase().includes(needle)
       );
@@ -196,6 +197,10 @@ export function DocumentsList({
                       {formatBytes(document.size)}
                     </p>
                     <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-foreground/80">
+                      <span className="font-medium text-brand">Objectif : </span>
+                      {document.objective ?? "Objectif non précisé"}
+                    </p>
+                    <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground/80">
                       <span className="font-medium text-brand-sky">Tâche : </span>
                       {document.task}
                     </p>

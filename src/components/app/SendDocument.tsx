@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
@@ -23,11 +24,15 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, StepDots, formatBytes, initialsOf } from "./shared";
 
-const STEPS = ["Document", "Département", "Destinataire", "Tâche & envoi"];
+const STEPS = ["Document", "Département", "Destinataire", "Objectif & envoi"];
+
+function departmentRoleLabel(role?: string | null) {
+  return role === "chef" ? "Chef" : role === "membre" ? "Membre" : "Statut non défini";
+}
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp";
@@ -52,6 +57,8 @@ export function SendDocument({
     null,
   );
   const [recipientId, setRecipientId] = useState<Id<"users"> | null>(null);
+  const [objective, setObjective] = useState("");
+  const [ownerName, setOwnerName] = useState("");
   const [task, setTask] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -65,6 +72,12 @@ export function SendDocument({
   const selectedRecipient = selectedDepartment?.members.find(
     (member) => member._id === recipientId,
   );
+
+  useEffect(() => {
+    if (!ownerName.trim() && me?.user?.name) {
+      setOwnerName(me.user.name);
+    }
+  }, [me?.user?.name, ownerName]);
 
   const handleFile = async (next: File | null) => {
     if (!next) return;
@@ -87,6 +100,8 @@ export function SendDocument({
     setExtractedText("");
     setDepartmentId(null);
     setRecipientId(null);
+    setObjective("");
+    setOwnerName(me?.user.name ?? "");
     setTask("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -99,7 +114,7 @@ export function SendDocument({
         ? Boolean(departmentId)
         : step === 2
           ? Boolean(recipientId)
-          : task.trim().length > 3;
+          : objective.trim().length > 3 && task.trim().length > 3;
 
   const handleSend = async () => {
     // Chefs ne peuvent envoyer qu'aux membres de leur propre département.
@@ -133,7 +148,9 @@ export function SendDocument({
         fileName: file.name,
         contentType: file.type || undefined,
         size: file.size,
+        objective: objective.trim(),
         task: task.trim(),
+        ownerName: ownerName.trim() || undefined,
         extractedText: extractedText || undefined,
         recipientId,
       });
@@ -182,8 +199,8 @@ export function SendDocument({
           Envoyer un document
         </h2>
         <p className="text-xs text-muted-foreground">
-          Transmettez un fichier et indiquez la tâche que le destinataire doit
-          réaliser sur ce document.
+          Transmettez un fichier en précisant l'objectif, l'origine du document,
+          son destinataire et la tâche attendue.
         </p>
       </div>
 
@@ -395,12 +412,18 @@ export function SendDocument({
                               {member.email ?? "—"}
                             </span>
                           </span>
+                          <Badge
+                            variant="outline"
+                            className="border-brand-sky/30 bg-brand-soft text-[10px] text-brand-sky"
+                          >
+                            {departmentRoleLabel(member.departmentRole)}
+                          </Badge>
                           {member.departmentRole === "chef" ? (
                             <Badge
                               variant="outline"
-                              className="border-brand-sky/30 bg-brand-soft text-[10px] text-brand-sky"
+                              className="border-brand/30 bg-brand-soft text-[10px] text-brand"
                             >
-                              Chef
+                              Responsable
                             </Badge>
                           ) : null}
                           {active ? (
@@ -417,6 +440,31 @@ export function SendDocument({
 
           {step === 3 ? (
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="objective">Objectif de l'envoi</Label>
+                <Textarea
+                  id="objective"
+                  value={objective}
+                  onChange={(event) => setObjective(event.target.value)}
+                  placeholder="Ex : Soumettre ce document pour validation avant transmission officielle."
+                  rows={3}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="ownerName">Document de / transmis par</Label>
+                <Input
+                  id="ownerName"
+                  value={ownerName}
+                  onChange={(event) => setOwnerName(event.target.value)}
+                  placeholder="Nom de la personne propriétaire ou émettrice du document"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Vous pouvez préciser le propriétaire du document s'il diffère de
+                  l'expéditeur connecté.
+                </p>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="task">
                   Tâche à réaliser sur ce document
@@ -446,6 +494,20 @@ export function SendDocument({
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Objectif</dt>
+                    <dd className="text-right font-medium">{objective || "—"}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Document de</dt>
+                    <dd className="text-right font-medium">{ownerName || "—"}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Envoyé par</dt>
+                    <dd className="text-right font-medium">
+                      {me?.user.name ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">Département</dt>
                     <dd className="text-right font-medium">
                       {selectedDepartment?.name}
@@ -455,6 +517,9 @@ export function SendDocument({
                     <dt className="text-muted-foreground">Destinataire</dt>
                     <dd className="text-right font-medium">
                       {selectedRecipient?.name}
+                      {selectedRecipient?.departmentRole
+                        ? ` (${departmentRoleLabel(selectedRecipient.departmentRole)})`
+                        : ""}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">

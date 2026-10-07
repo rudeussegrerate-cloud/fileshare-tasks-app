@@ -32,6 +32,10 @@ import {
   type DocumentStatus,
 } from "./shared";
 
+function departmentRoleLabel(role?: string | null) {
+  return role === "chef" ? "Chef" : role === "membre" ? "Membre" : "Statut inconnu";
+}
+
 export function DocumentDetailDialog({
   documentId,
   onOpenChange,
@@ -103,6 +107,9 @@ export function DocumentDetailDialog({
               <span className="text-xs text-muted-foreground">
                 {documentOrNull.senderDepartmentName ?? "—"}
               </span>
+              <Badge variant="outline" className="text-[10px]">
+                {departmentRoleLabel(documentOrNull.senderDepartmentRole)}
+              </Badge>
               <ArrowRight className="size-4 text-muted-foreground" />
               <span className="font-medium text-foreground">
                 {documentOrNull.recipientName}
@@ -110,10 +117,31 @@ export function DocumentDetailDialog({
               <span className="text-xs text-muted-foreground">
                 {documentOrNull.recipientDepartmentName ?? "—"}
               </span>
+              <Badge variant="outline" className="text-[10px]">
+                {departmentRoleLabel(documentOrNull.recipientDepartmentRole)}
+              </Badge>
               <StatusBadge status={documentOrNull.status} className="ml-auto" />
             </div>
 
             <Separator />
+
+            <section>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Objectif de l'envoi
+              </h4>
+              <div className="mt-2 rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
+                {documentOrNull.objective ?? "Objectif non précisé"}
+              </div>
+            </section>
+
+            <section>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Document de / transmis par
+              </h4>
+              <div className="mt-2 rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
+                {documentOrNull.ownerName || documentOrNull.senderName}
+              </div>
+            </section>
 
             <section>
               <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

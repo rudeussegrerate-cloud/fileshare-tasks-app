@@ -50,6 +50,8 @@ async function decorate(ctx: DbCtx, documents: Doc<"documents">[]) {
   return await Promise.all(
     documents.map(async (document) => ({
       ...document,
+      objective: document.objective ?? "Objectif non précisé",
+      ownerName: document.ownerName ?? null,
       summary: document.summary ?? null,
       summarySource: document.summarySource ?? null,
       senderDepartmentName: await departmentName(ctx, document.senderDepartmentId),
@@ -81,7 +83,9 @@ export const send = mutation({
     fileName: v.string(),
     contentType: v.optional(v.string()),
     size: v.optional(v.number()),
+    objective: v.string(),
     task: v.string(),
+    ownerName: v.optional(v.string()),
     extractedText: v.optional(v.string()),
     recipientId: v.id("users"),
   },
@@ -90,7 +94,12 @@ export const send = mutation({
     const sender = await ctx.db.get(userId);
     if (!sender) throw new Error("Compte introuvable.");
 
+    const objective = args.objective.trim();
     const task = args.task.trim();
+    const ownerName = args.ownerName?.trim();
+    if (objective.length < 3) {
+      throw new Error("Précisez l'objectif de l'envoi.");
+    }
     if (!task) throw new Error("Précisez la tâche à réaliser sur ce document.");
 
     const recipient = await ctx.db.get(args.recipientId);
@@ -117,15 +126,19 @@ export const send = mutation({
       storageId: args.storageId,
       contentType: args.contentType,
       size: args.size,
+      objective,
       task,
+      ownerName: ownerName || undefined,
       extractedText: args.extractedText?.slice(0, 40000),
       summaryStatus: "en_attente",
       senderId: userId,
       senderName: displayName(sender),
       senderDepartmentId: sender.departmentId,
+      senderDepartmentRole: sender.departmentRole,
       recipientId: recipient._id,
       recipientName: displayName(recipient),
       recipientDepartmentId: recipient.departmentId,
+      recipientDepartmentRole: recipient.departmentRole,
       status: "envoye",
       createdAt: now,
       updatedAt: now,
@@ -147,7 +160,9 @@ export const getForSummary = internalQuery({
     if (!document) return null;
     return {
       fileName: document.fileName,
+      objective: document.objective ?? "Objectif non précisé",
       task: document.task,
+      ownerName: document.ownerName ?? "",
       extractedText: document.extractedText ?? "",
     };
   },

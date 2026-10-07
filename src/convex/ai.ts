@@ -4,12 +4,12 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 
-const SYSTEM_PROMPT = `Tu es un assistant administratif. On te fournit le contenu d'un document transmis entre deux services d'une entreprise, ainsi que la tâche demandée au destinataire.
+const SYSTEM_PROMPT = `Tu es un assistant administratif. On te fournit le contexte d'un document transmis entre deux services d'une entreprise, ainsi que la tâche demandée au destinataire.
 Rédige un résumé clair et fidèle EN FRANÇAIS (120 mots maximum) qui aide le destinataire à comprendre l'essentiel SANS lire tout le document.
 Structure attendue :
 - 3 à 5 points clés (puces avec "- ")
 - puis une courte phrase "Action attendue : ..." qui reformule la tâche.
-Ne rien inventer. Si le contenu est incomplet, résume uniquement ce qui est présent.`;
+Ne rien inventer. Si le contenu est incomplet (photo, scan ou document sans texte), résume uniquement le contexte disponible.`;
 
 /** Fallback used when the AI is unavailable: an extractive digest. */
 function extractiveSummary(text: string) {
@@ -43,17 +43,8 @@ export const summarizeDocument = internalAction({
     if (!document) return null;
 
     const text = (document.extractedText ?? "").trim();
-    if (text.length < 40) {
-      await ctx.runMutation(internal.documents.setSummary, {
-        documentId: args.documentId,
-        summaryStatus: "indisponible",
-        summary:
-          "Résumé automatique indisponible : ce fichier ne contient pas de texte exploitable (image ou scan non lisible). Le destinataire peut ouvrir le document joint.",
-      });
-      return null;
-    }
-
-    const excerpt = text.slice(0, 12000);
+    const hasReadableText = text.length >= 40;
+    const excerpt = hasReadableText ? text.slice(0, 12000) : "";
 
     if (process.env.VLY_INTEGRATION_KEY) {
       try {
@@ -66,7 +57,16 @@ export const summarizeDocument = internalAction({
             { role: "system", content: SYSTEM_PROMPT },
             {
               role: "user",
-              content: `Fichier : ${document.fileName}\nTâche demandée au destinataire : ${document.task}\n\nContenu :\n${excerpt}`,
+              content:
+                `Fichier : ${document.fileName}\n` +
+                `Objectif de l'envoi : ${document.objective}\n` +
+                `Document de : ${document.ownerName || "non précisé"}\n` +
+                `Tâche demandée au destinataire : ${document.task}\n\n` +
+                (
+                  hasReadableText
+                    ? `Contenu extrait :\n${excerpt}`
+                    : "Le fichier ne contient pas de texte lisible (photo ou scan). Résume seulement le contexte fourni."
+                ),
             },
           ],
         });
@@ -91,7 +91,9 @@ export const summarizeDocument = internalAction({
 
     await ctx.runMutation(internal.documents.setSummary, {
       documentId: args.documentId,
-      summary: extractiveSummary(text),
+      summary: hasReadableText
+        ? extractiveSummary(text)
+        : `- Fichier transmis : ${document.fileName}\n- Objectif : ${document.objective}\n- Document de : ${document.ownerName || "non précisé"}\n- Le fichier est une photo/image ou un scan sans texte exploitable.\nAction attendue : ${document.task}`,
       summaryStatus: "pret",
       summarySource: "extrait",
     });
