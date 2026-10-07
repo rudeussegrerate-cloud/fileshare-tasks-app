@@ -24,7 +24,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, StepDots, formatBytes, initialsOf } from "./shared";
 
@@ -73,12 +73,6 @@ export function SendDocument({
     (member) => member._id === recipientId,
   );
 
-  useEffect(() => {
-    if (!ownerName.trim() && me?.user?.name) {
-      setOwnerName(me.user.name);
-    }
-  }, [me?.user?.name, ownerName]);
-
   const handleFile = async (next: File | null) => {
     if (!next) return;
     if (next.size > MAX_FILE_BYTES) {
@@ -101,7 +95,7 @@ export function SendDocument({
     setDepartmentId(null);
     setRecipientId(null);
     setObjective("");
-    setOwnerName(me?.user.name ?? "");
+    setOwnerName("");
     setTask("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -150,7 +144,7 @@ export function SendDocument({
         size: file.size,
         objective: objective.trim(),
         task: task.trim(),
-        ownerName: ownerName.trim() || undefined,
+        ownerName: ownerName.trim() || me?.user.name || undefined,
         extractedText: extractedText || undefined,
         recipientId,
       });
@@ -457,7 +451,8 @@ export function SendDocument({
                   id="ownerName"
                   value={ownerName}
                   onChange={(event) => setOwnerName(event.target.value)}
-                  placeholder="Nom de la personne propriétaire ou émettrice du document"
+                  placeholder={me?.user.name ||
+                    "Nom de la personne propriétaire ou émettrice du document"}
                 />
                 <p className="text-xs text-muted-foreground">
                   Vous pouvez préciser le propriétaire du document s'il diffère de
@@ -499,7 +494,9 @@ export function SendDocument({
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">Document de</dt>
-                    <dd className="text-right font-medium">{ownerName || "—"}</dd>
+                    <dd className="text-right font-medium">
+                      {ownerName || me?.user.name || "—"}
+                    </dd>
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">Envoyé par</dt>
