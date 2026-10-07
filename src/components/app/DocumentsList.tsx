@@ -190,9 +190,10 @@ export function DocumentsList({
                       ) : null}
                     </div>
                     <p className="mt-1 truncate text-xs text-muted-foreground">
-                      {mode === "inbox" ? "De" : "À"} {counterpart}
-                      {department ? ` · ${department}` : ""} ·{" "}
-                      {formatDateTime(document.createdAt)} ·{" "}
+                      {mode === "inbox" ? "Expéditeur" : "Destinataire"} :{" "}
+                      {counterpart}
+                      {department ? ` · Service : ${department}` : ""} · Envoyé
+                      le {formatDateTime(document.createdAt)} · Taille :{" "}
                       {formatBytes(document.size)}
                     </p>
                     <p className="mt-2 line-clamp-2 text-xs leading-relaxed text-foreground/80">

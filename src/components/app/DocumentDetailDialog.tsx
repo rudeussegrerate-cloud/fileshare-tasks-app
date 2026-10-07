@@ -125,6 +125,38 @@ export function DocumentDetailDialog({
             </section>
 
             <section>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Détails d'envoi et de réception
+              </h4>
+              <dl className="mt-2 space-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Envoyé le</dt>
+                  <dd className="text-right font-medium">
+                    {formatDateTime(documentOrNull.createdAt)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Dernière mise à jour</dt>
+                  <dd className="text-right font-medium">
+                    {formatDateTime(documentOrNull.updatedAt)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Consulté le</dt>
+                  <dd className="text-right font-medium">
+                    {formatDateTime(documentOrNull.viewedAt)}
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="text-muted-foreground">Type du fichier</dt>
+                  <dd className="truncate text-right font-medium">
+                    {documentOrNull.contentType ?? "Non renseigné"}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+
+            <section>
               <div className="flex items-center gap-2">
                 <Sparkles className="size-4 text-brand-sky" />
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

@@ -429,8 +429,8 @@ export function SendDocument({
                   rows={4}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Soyez précis : le destinataire verra cette consigne en même
-                  temps que le résumé automatique.
+                  Soyez précis : cette consigne sera lue en premier par le
+                  destinataire avec le résumé du fichier.
                 </p>
               </div>
 
@@ -465,6 +465,38 @@ export function SendDocument({
                         : extractedText
                           ? "activé"
                           : "indisponible (fichier sans texte)"}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              <div className="rounded-xl border border-brand-sky/25 bg-brand-soft/60 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Informations reçues par le destinataire
+                </p>
+                <dl className="mt-3 space-y-2 text-sm">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Expéditeur</dt>
+                    <dd className="truncate text-right font-medium">
+                      {me?.user.name ?? me?.user.email ?? "Vous"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Département expéditeur</dt>
+                    <dd className="truncate text-right font-medium">
+                      {me?.department?.name ?? "Non rattaché"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Nom du fichier</dt>
+                    <dd className="truncate text-right font-medium">
+                      {file?.name ?? "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Consigne affichée</dt>
+                    <dd className="line-clamp-2 max-w-[70%] text-right font-medium">
+                      {task.trim() || "Aucune consigne"}
                     </dd>
                   </div>
                 </dl>
