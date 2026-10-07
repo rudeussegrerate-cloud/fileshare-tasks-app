@@ -1,11 +1,11 @@
 {
-  "name": "freebuff.com application",
-  "short_name": "freebuff.com",
-  "description": "freebuff.com application",
+  "name": "ScanDoc — Échange de documents",
+  "short_name": "ScanDoc",
+  "description": "Gestion et échange de documents inter-départements",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
+  "background_color": "#f0f2f5",
+  "theme_color": "#1e3a5f",
   "icons": [
     {
       "src": "/logo.svg",
