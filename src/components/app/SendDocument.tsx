@@ -16,7 +16,6 @@ import {
   Building2,
   Camera,
   CheckCircle2,
-  CloudUpload,
   FileText,
   Info,
   Loader2,
@@ -315,26 +314,9 @@ export function SendDocument({
                   )}
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    void handleFile(event.dataTransfer.files?.[0] ?? null);
-                  }}
-                  className="flex w-full flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-card px-6 py-12 text-center transition-colors hover:border-brand-sky/60 hover:bg-brand-soft/40"
-                >
-                  <div className="flex size-12 items-center justify-center rounded-full bg-brand-soft text-brand">
-                    <CloudUpload className="size-6" />
-                  </div>
-                  <p className="mt-4 text-sm font-medium">
-                    Glissez un fichier ici ou cliquez pour parcourir
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    PDF, Word, Excel, image ou texte · 10 Mo maximum
-                  </p>
-                </button>
+                <p className="text-xs text-muted-foreground">
+                  PDF, Word, Excel, image ou texte · 10 Mo maximum
+                </p>
               )}
 
               <div className="flex flex-wrap gap-2">

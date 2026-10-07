@@ -13,7 +13,6 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import {
-  ArrowRight,
   Download,
   FileText,
   Loader2,
@@ -96,58 +95,75 @@ export function DocumentDetailDialog({
               </div>
             </DialogHeader>
 
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="font-medium text-foreground">
-                {documentOrNull.senderName}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {documentOrNull.senderDepartmentName ?? "—"}
-              </span>
-              <ArrowRight className="size-4 text-muted-foreground" />
-              <span className="font-medium text-foreground">
-                {documentOrNull.recipientName}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {documentOrNull.recipientDepartmentName ?? "—"}
-              </span>
-              <StatusBadge status={documentOrNull.status} className="ml-auto" />
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {formatDateTime(documentOrNull.createdAt)} · {formatBytes(documentOrNull.size)}
+              </p>
+              <StatusBadge status={documentOrNull.status} />
             </div>
 
             <Separator />
 
+            <section className="space-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+              <p>
+                <span className="text-muted-foreground">Expéditeur : </span>
+                <span className="font-medium">{documentOrNull.senderName}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Département expéditeur : </span>
+                <span className="font-medium">{documentOrNull.senderDepartmentName ?? "—"}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Destinataire : </span>
+                <span className="font-medium">{documentOrNull.recipientName}</span>
+              </p>
+              <p>
+                <span className="text-muted-foreground">Département destinataire : </span>
+                <span className="font-medium">{documentOrNull.recipientDepartmentName ?? "—"}</span>
+              </p>
+            </section>
+
             {documentOrNull.objet ? (
-              <section>
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Objet de l&apos;envoi
-                </h4>
-                <div className="mt-2 rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
+              <section className="space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Objet
+                </p>
+                <p className="rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed">
+                  <span className="text-muted-foreground">Objet : </span>
                   {documentOrNull.objet}
-                </div>
+                </p>
               </section>
             ) : null}
 
             {documentOrNull.onBehalfOfName ? (
-              <section>
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <section className="space-y-2 rounded-lg border border-border bg-card px-4 py-3 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   De la part de
-                </h4>
-                <div className="mt-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-foreground">
+                </p>
+                <p>
+                  <span className="text-muted-foreground">Nom : </span>
                   <span className="font-medium">{documentOrNull.onBehalfOfName}</span>
-                  {documentOrNull.onBehalfOfFunction
-                    ? ` · ${documentOrNull.onBehalfOfFunction}`
-                    : ""}
-                  {documentOrNull.onBehalfOfDepartment
-                    ? ` · ${documentOrNull.onBehalfOfDepartment}`
-                    : ""}
-                </div>
+                </p>
+                {documentOrNull.onBehalfOfFunction ? (
+                  <p>
+                    <span className="text-muted-foreground">Fonction : </span>
+                    <span className="font-medium">{documentOrNull.onBehalfOfFunction}</span>
+                  </p>
+                ) : null}
+                {documentOrNull.onBehalfOfDepartment ? (
+                  <p>
+                    <span className="text-muted-foreground">Département : </span>
+                    <span className="font-medium">{documentOrNull.onBehalfOfDepartment}</span>
+                  </p>
+                ) : null}
               </section>
             ) : null}
 
-            <section>
-              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Tâches demandées au destinataire
-              </h4>
-              <div className="mt-2 flex flex-wrap gap-2">
+            <section className="space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Tâches
+              </p>
+              <div className="flex flex-wrap gap-2">
                 {(documentOrNull.tasks && documentOrNull.tasks.length > 0
                   ? documentOrNull.tasks
                   : documentOrNull.task
