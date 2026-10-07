@@ -28,10 +28,22 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, StepDots, formatBytes, initialsOf } from "./shared";
 
-const STEPS = ["Document", "Département", "Destinataire", "Objectif & envoi"];
+const STEPS = [
+  "Objet & document",
+  "Provenance",
+  "Département destinataire",
+  "Destinataire",
+  "Résumé & envoi",
+];
+
+type SourceMode = "department" | "other";
 
 function departmentRoleLabel(role?: string | null) {
-  return role === "chef" ? "Chef" : role === "membre" ? "Membre" : "Statut non défini";
+  return role === "chef"
+    ? "Chef"
+    : role === "membre"
+      ? "Membre"
+      : "Statut non défini";
 }
 
 const ACCEPT =
@@ -53,25 +65,57 @@ export function SendDocument({
   const [file, setFile] = useState<File | null>(null);
   const [extractedText, setExtractedText] = useState("");
   const [extracting, setExtracting] = useState(false);
-  const [departmentId, setDepartmentId] = useState<Id<"departments"> | null>(
+
+  const [objective, setObjective] = useState("");
+
+  const [sourceMode, setSourceMode] = useState<SourceMode>("department");
+  const [sourceDepartmentId, setSourceDepartmentId] = useState<Id<"departments"> | null>(
+    null,
+  );
+  const [sourceUserId, setSourceUserId] = useState<Id<"users"> | null>(null);
+  const [externalSourceName, setExternalSourceName] = useState("");
+  const [externalSourceFunction, setExternalSourceFunction] = useState("");
+  const [externalSourceDepartment, setExternalSourceDepartment] = useState("");
+
+  const [recipientDepartmentId, setRecipientDepartmentId] = useState<Id<"departments"> | null>(
     null,
   );
   const [recipientId, setRecipientId] = useState<Id<"users"> | null>(null);
-  const [objective, setObjective] = useState("");
-  const [ownerName, setOwnerName] = useState("");
   const [task, setTask] = useState("");
   const [sending, setSending] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
-  const selectedDepartment = departments?.find((d) => d._id === departmentId);
-  const selectableMembers =
-    selectedDepartment?.members.filter((member) => member._id !== me?.user._id) ??
-    [];
-  const selectedRecipient = selectedDepartment?.members.find(
+  const selectedSourceDepartment = departments?.find((d) => d._id === sourceDepartmentId);
+  const selectableSourceMembers = selectedSourceDepartment?.members ?? [];
+  const selectedSourceMember = selectedSourceDepartment?.members.find(
+    (member) => member._id === sourceUserId,
+  );
+
+  const selectedRecipientDepartment = departments?.find(
+    (d) => d._id === recipientDepartmentId,
+  );
+  const selectableRecipientMembers =
+    selectedRecipientDepartment?.members.filter(
+      (member) => member._id !== me?.user._id,
+    ) ?? [];
+  const selectedRecipient = selectedRecipientDepartment?.members.find(
     (member) => member._id === recipientId,
   );
+
+  const resolvedSourceName =
+    sourceMode === "department"
+      ? selectedSourceMember?.name ?? "—"
+      : externalSourceName.trim() || "—";
+  const resolvedSourceFunction =
+    sourceMode === "department"
+      ? selectedSourceMember?.fonction ?? "—"
+      : externalSourceFunction.trim() || "—";
+  const resolvedSourceDepartment =
+    sourceMode === "department"
+      ? selectedSourceDepartment?.name ?? "—"
+      : externalSourceDepartment.trim() || "—";
 
   const handleFile = async (next: File | null) => {
     if (!next) return;
@@ -92,10 +136,15 @@ export function SendDocument({
     setStep(0);
     setFile(null);
     setExtractedText("");
-    setDepartmentId(null);
-    setRecipientId(null);
     setObjective("");
-    setOwnerName("");
+    setSourceMode("department");
+    setSourceDepartmentId(null);
+    setSourceUserId(null);
+    setExternalSourceName("");
+    setExternalSourceFunction("");
+    setExternalSourceDepartment("");
+    setRecipientDepartmentId(null);
+    setRecipientId(null);
     setTask("");
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -103,18 +152,23 @@ export function SendDocument({
 
   const canContinue =
     step === 0
-      ? Boolean(file)
+      ? objective.trim().length > 3 && Boolean(file)
       : step === 1
-        ? Boolean(departmentId)
+        ? sourceMode === "department"
+          ? Boolean(sourceDepartmentId && sourceUserId)
+          : externalSourceName.trim().length > 2 &&
+            externalSourceFunction.trim().length > 1
         : step === 2
-          ? Boolean(recipientId)
-          : objective.trim().length > 3 && task.trim().length > 3;
+          ? Boolean(recipientDepartmentId)
+          : step === 3
+            ? Boolean(recipientId)
+            : task.trim().length > 3;
 
   const handleSend = async () => {
     // Chefs ne peuvent envoyer qu'aux membres de leur propre département.
     if (
       me?.isChef && !me?.isAdmin && me?.user.departmentId &&
-      departmentId !== me.user.departmentId
+      recipientDepartmentId !== me.user.departmentId
     ) {
       toast.error(
         "Vous ne pouvez envoyer un document qu'aux membres de votre propre département.",
@@ -122,6 +176,20 @@ export function SendDocument({
       return;
     }
     if (!file || !recipientId) return;
+
+    if (sourceMode === "department" && (!sourceDepartmentId || !sourceUserId)) {
+      toast.error("Choisissez la provenance du document.");
+      return;
+    }
+    if (
+      sourceMode === "other" &&
+      (externalSourceName.trim().length < 3 ||
+        externalSourceFunction.trim().length < 2)
+    ) {
+      toast.error("Complétez les informations de provenance.");
+      return;
+    }
+
     setSending(true);
     try {
       const uploadUrl = await generateUploadUrl();
@@ -144,7 +212,16 @@ export function SendDocument({
         size: file.size,
         objective: objective.trim(),
         task: task.trim(),
-        ownerName: ownerName.trim() || me?.user.name || undefined,
+        ownerName: resolvedSourceName !== "—" ? resolvedSourceName : undefined,
+        sourceType: sourceMode === "department" ? "departement" : "autre",
+        sourceUserId: sourceMode === "department" ? sourceUserId ?? undefined : undefined,
+        sourceName: sourceMode === "other" ? externalSourceName.trim() : undefined,
+        sourceFunction:
+          sourceMode === "other" ? externalSourceFunction.trim() : undefined,
+        sourceDepartmentName:
+          sourceMode === "other" && externalSourceDepartment.trim()
+            ? externalSourceDepartment.trim()
+            : undefined,
         extractedText: extractedText || undefined,
         recipientId,
       });
@@ -193,8 +270,8 @@ export function SendDocument({
           Envoyer un document
         </h2>
         <p className="text-xs text-muted-foreground">
-          Transmettez un fichier en précisant l'objectif, l'origine du document,
-          son destinataire et la tâche attendue.
+          Définissez d'abord l'objet, la provenance, puis le destinataire avant
+          validation finale.
         </p>
       </div>
 
@@ -204,6 +281,17 @@ export function SendDocument({
 
           {step === 0 ? (
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="objective">Objet de l'envoi</Label>
+                <Textarea
+                  id="objective"
+                  value={objective}
+                  onChange={(event) => setObjective(event.target.value)}
+                  placeholder="Ex : Transmission du dossier pour validation finale"
+                  rows={3}
+                />
+              </div>
+
               {file ? (
                 <div className="flex items-center gap-4 rounded-xl border border-border bg-brand-soft/50 p-4">
                   <div className="flex size-11 items-center justify-center rounded-lg bg-card text-brand shadow-sm">
@@ -217,7 +305,7 @@ export function SendDocument({
                         ? " · lecture du contenu…"
                         : extractedText
                           ? " · texte extrait pour le résumé automatique"
-                          : " · pas de texte lisible, résumé indisponible"}
+                          : " · pas de texte lisible, résumé contextuel"}
                     </p>
                   </div>
                   {extracting ? (
@@ -296,26 +384,185 @@ export function SendDocument({
                 className="hidden"
                 onChange={(event) => void handleFile(event.target.files?.[0] ?? null)}
               />
-
-              <div className="flex items-start gap-2 rounded-lg border border-brand-sky/25 bg-brand-soft/60 px-4 py-3 text-xs text-muted-foreground">
-                <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-sky" />
-                <p>
-                  Le contenu du document est analysé automatiquement pour
-                  produire un résumé que le destinataire lira avant le document
-                  complet.
-                </p>
-              </div>
             </div>
           ) : null}
 
           {step === 1 ? (
             <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Provenance du document</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={sourceMode === "department" ? "default" : "outline"}
+                    onClick={() => {
+                      setSourceMode("department");
+                      setExternalSourceName("");
+                      setExternalSourceFunction("");
+                      setExternalSourceDepartment("");
+                    }}
+                  >
+                    Personne d'un département existant
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={sourceMode === "other" ? "default" : "outline"}
+                    onClick={() => {
+                      setSourceMode("other");
+                      setSourceDepartmentId(null);
+                      setSourceUserId(null);
+                    }}
+                  >
+                    Autre
+                  </Button>
+                </div>
+              </div>
+
+              {sourceMode === "department" ? (
+                <div className="space-y-4">
+                  <p className="text-xs text-muted-foreground">
+                    Choisissez le département d'origine, puis la personne.
+                  </p>
+                  {departments === undefined ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                    </div>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {departments.map((department) => {
+                        const active = department._id === sourceDepartmentId;
+                        return (
+                          <button
+                            key={department._id}
+                            type="button"
+                            onClick={() => {
+                              setSourceDepartmentId(department._id);
+                              setSourceUserId(null);
+                            }}
+                            className={cn(
+                              "rounded-xl border p-4 text-left transition-all",
+                              active
+                                ? "border-brand bg-brand-soft shadow-sm ring-1 ring-brand/20"
+                                : "border-border bg-card hover:border-brand-sky/50",
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex size-9 items-center justify-center rounded-lg bg-brand text-primary-foreground">
+                                <Building2 className="size-4" />
+                              </div>
+                              {active ? (
+                                <CheckCircle2 className="size-4 text-brand" />
+                              ) : null}
+                            </div>
+                            <p className="mt-3 text-sm font-semibold">{department.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {department.members.length} membre
+                              {department.members.length > 1 ? "s" : ""}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {sourceDepartmentId ? (
+                    selectableSourceMembers.length === 0 ? (
+                      <EmptyState
+                        icon={UserRound}
+                        title="Aucun membre"
+                        description="Ce département ne contient personne pour l'instant."
+                      />
+                    ) : (
+                      <ul className="space-y-2">
+                        {selectableSourceMembers.map((member) => {
+                          const active = member._id === sourceUserId;
+                          return (
+                            <li key={member._id}>
+                              <button
+                                type="button"
+                                onClick={() => setSourceUserId(member._id)}
+                                className={cn(
+                                  "flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-all",
+                                  active
+                                    ? "border-brand bg-brand-soft shadow-sm ring-1 ring-brand/20"
+                                    : "border-border bg-card hover:border-brand-sky/50",
+                                )}
+                              >
+                                <span className="flex size-9 items-center justify-center rounded-full bg-brand text-xs font-semibold text-primary-foreground">
+                                  {initialsOf(member.name)}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                  <span className="block truncate text-sm font-medium">
+                                    {member.name}
+                                  </span>
+                                  <span className="block truncate text-xs text-muted-foreground">
+                                    {member.fonction ?? "Fonction non définie"}
+                                  </span>
+                                </span>
+                                <Badge
+                                  variant="outline"
+                                  className="border-brand-sky/30 bg-brand-soft text-[10px] text-brand-sky"
+                                >
+                                  {departmentRoleLabel(member.departmentRole)}
+                                </Badge>
+                                {active ? (
+                                  <CheckCircle2 className="size-4 text-brand" />
+                                ) : null}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )
+                  ) : null}
+                </div>
+              ) : (
+                <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="sourceName">Nom de la personne</Label>
+                    <Input
+                      id="sourceName"
+                      value={externalSourceName}
+                      onChange={(event) => setExternalSourceName(event.target.value)}
+                      placeholder="Nom complet"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sourceFunction">Fonction</Label>
+                    <Input
+                      id="sourceFunction"
+                      value={externalSourceFunction}
+                      onChange={(event) =>
+                        setExternalSourceFunction(event.target.value)}
+                      placeholder="Ex : Consultant, Fournisseur, Directeur..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="sourceDepartment">
+                      Département (optionnel)
+                    </Label>
+                    <Input
+                      id="sourceDepartment"
+                      value={externalSourceDepartment}
+                      onChange={(event) =>
+                        setExternalSourceDepartment(event.target.value)}
+                      placeholder="Ex : Partenaire externe"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {step === 2 ? (
+            <div className="space-y-4">
               <div className="flex items-start gap-2 rounded-lg border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
-                  Règle fondamentale : le destinataire se choisit toujours en
-                  deux temps — d'abord le département, puis un membre de ce
-                  département. Cela évite les erreurs d'affectation.
+                  Le destinataire se choisit en deux temps : département puis
+                  membre.
                 </p>
               </div>
               {departments === undefined ? (
@@ -325,13 +572,13 @@ export function SendDocument({
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {departments.map((department) => {
-                    const active = department._id === departmentId;
+                    const active = department._id === recipientDepartmentId;
                     return (
                       <button
                         key={department._id}
                         type="button"
                         onClick={() => {
-                          setDepartmentId(department._id);
+                          setRecipientDepartmentId(department._id);
                           setRecipientId(null);
                         }}
                         className={cn(
@@ -349,13 +596,10 @@ export function SendDocument({
                             <CheckCircle2 className="size-4 text-brand" />
                           ) : null}
                         </div>
-                        <p className="mt-3 text-sm font-semibold">
-                          {department.name}
-                        </p>
+                        <p className="mt-3 text-sm font-semibold">{department.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {department.members.length} membre
                           {department.members.length > 1 ? "s" : ""}
-                          {department.chief ? ` · chef : ${department.chief.name}` : ""}
                         </p>
                       </button>
                     );
@@ -365,15 +609,15 @@ export function SendDocument({
             </div>
           ) : null}
 
-          {step === 2 ? (
+          {step === 3 ? (
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
                 Département :{" "}
                 <span className="font-medium text-foreground">
-                  {selectedDepartment?.name}
+                  {selectedRecipientDepartment?.name}
                 </span>
               </p>
-              {selectableMembers.length === 0 ? (
+              {selectableRecipientMembers.length === 0 ? (
                 <EmptyState
                   icon={UserRound}
                   title="Aucun membre dans ce département"
@@ -381,7 +625,7 @@ export function SendDocument({
                 />
               ) : (
                 <ul className="space-y-2">
-                  {selectableMembers.map((member) => {
+                  {selectableRecipientMembers.map((member) => {
                     const active = member._id === recipientId;
                     return (
                       <li key={member._id}>
@@ -403,7 +647,7 @@ export function SendDocument({
                               {member.name}
                             </span>
                             <span className="block truncate text-xs text-muted-foreground">
-                              {member.email ?? "—"}
+                              {member.fonction ?? member.email ?? "—"}
                             </span>
                           </span>
                           <Badge
@@ -412,14 +656,6 @@ export function SendDocument({
                           >
                             {departmentRoleLabel(member.departmentRole)}
                           </Badge>
-                          {member.departmentRole === "chef" ? (
-                            <Badge
-                              variant="outline"
-                              className="border-brand/30 bg-brand-soft text-[10px] text-brand"
-                            >
-                              Responsable
-                            </Badge>
-                          ) : null}
                           {active ? (
                             <CheckCircle2 className="size-4 text-brand" />
                           ) : null}
@@ -432,48 +668,24 @@ export function SendDocument({
             </div>
           ) : null}
 
-          {step === 3 ? (
+          {step === 4 ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="objective">Objectif de l'envoi</Label>
-                <Textarea
-                  id="objective"
-                  value={objective}
-                  onChange={(event) => setObjective(event.target.value)}
-                  placeholder="Ex : Soumettre ce document pour validation avant transmission officielle."
-                  rows={3}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="ownerName">Document de / transmis par</Label>
-                <Input
-                  id="ownerName"
-                  value={ownerName}
-                  onChange={(event) => setOwnerName(event.target.value)}
-                  placeholder={me?.user.name ||
-                    "Nom de la personne propriétaire ou émettrice du document"}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Vous pouvez préciser le propriétaire du document s'il diffère de
-                  l'expéditeur connecté.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="task">
-                  Tâche à réaliser sur ce document
-                </Label>
+                <Label htmlFor="task">Instruction au destinataire</Label>
                 <Textarea
                   id="task"
                   value={task}
                   onChange={(event) => setTask(event.target.value)}
-                  placeholder="Ex : Vérifier les montants du budget, corriger les écarts puis renvoyer le fichier validé avant vendredi."
+                  placeholder="Ex : Vérifier, corriger et valider ce document avant vendredi."
                   rows={4}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Soyez précis : le destinataire verra cette consigne en même
-                  temps que le résumé automatique.
+              </div>
+
+              <div className="flex items-start gap-2 rounded-lg border border-brand-sky/25 bg-brand-soft/60 px-4 py-3 text-xs text-muted-foreground">
+                <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-sky" />
+                <p>
+                  Le résumé automatique sera généré à partir du contenu du fichier
+                  et des informations de contexte que vous avez renseignées.
                 </p>
               </div>
 
@@ -483,32 +695,24 @@ export function SendDocument({
                 </p>
                 <dl className="mt-3 space-y-2 text-sm">
                   <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Document</dt>
-                    <dd className="truncate text-right font-medium">
-                      {file?.name}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Objectif</dt>
+                    <dt className="text-muted-foreground">Objet</dt>
                     <dd className="text-right font-medium">{objective || "—"}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Document de</dt>
-                    <dd className="text-right font-medium">
-                      {ownerName || me?.user.name || "—"}
-                    </dd>
+                    <dt className="text-muted-foreground">Document</dt>
+                    <dd className="truncate text-right font-medium">{file?.name}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Envoyé par</dt>
-                    <dd className="text-right font-medium">
-                      {me?.user.name ?? "—"}
-                    </dd>
+                    <dt className="text-muted-foreground">Provenance</dt>
+                    <dd className="text-right font-medium">{resolvedSourceName}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Département</dt>
-                    <dd className="text-right font-medium">
-                      {selectedDepartment?.name}
-                    </dd>
+                    <dt className="text-muted-foreground">Fonction source</dt>
+                    <dd className="text-right font-medium">{resolvedSourceFunction}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Département source</dt>
+                    <dd className="text-right font-medium">{resolvedSourceDepartment}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">Destinataire</dt>
@@ -526,7 +730,7 @@ export function SendDocument({
                         ? "en préparation…"
                         : extractedText
                           ? "activé"
-                          : "indisponible (fichier sans texte)"}
+                          : "contextuel (photo/scan)"}
                     </dd>
                   </div>
                 </dl>

@@ -139,7 +139,24 @@ export function DocumentDetailDialog({
                 Document de / transmis par
               </h4>
               <div className="mt-2 rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
-                {documentOrNull.ownerName || documentOrNull.senderName}
+                {documentOrNull.sourceName ||
+                  documentOrNull.ownerName ||
+                  documentOrNull.senderName}
+              </div>
+            </section>
+
+            <section>
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Fonction et département d'origine
+              </h4>
+              <div className="mt-2 rounded-lg border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground">
+                <p>
+                  Fonction : {documentOrNull.sourceFunction ?? "Non précisée"}
+                </p>
+                <p>
+                  Département :{" "}
+                  {documentOrNull.sourceDepartmentName ?? "Non précisé"}
+                </p>
               </div>
             </section>
 

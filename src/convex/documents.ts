@@ -52,6 +52,14 @@ async function decorate(ctx: DbCtx, documents: Doc<"documents">[]) {
       ...document,
       objective: document.objective ?? "Objectif non précisé",
       ownerName: document.ownerName ?? null,
+      sourceType: document.sourceType ?? "autre",
+      sourceName: document.sourceName ?? document.ownerName ?? "Non précisé",
+      sourceFunction: document.sourceFunction ?? null,
+      sourceDepartmentName:
+        document.sourceDepartmentName ??
+        (await departmentName(ctx, document.sourceDepartmentId)) ??
+        null,
+      sourceDepartmentRole: document.sourceDepartmentRole ?? null,
       summary: document.summary ?? null,
       summarySource: document.summarySource ?? null,
       senderDepartmentName: await departmentName(ctx, document.senderDepartmentId),
@@ -86,6 +94,11 @@ export const send = mutation({
     objective: v.string(),
     task: v.string(),
     ownerName: v.optional(v.string()),
+    sourceType: v.union(v.literal("departement"), v.literal("autre")),
+    sourceUserId: v.optional(v.id("users")),
+    sourceName: v.optional(v.string()),
+    sourceFunction: v.optional(v.string()),
+    sourceDepartmentName: v.optional(v.string()),
     extractedText: v.optional(v.string()),
     recipientId: v.id("users"),
   },
@@ -97,6 +110,9 @@ export const send = mutation({
     const objective = args.objective.trim();
     const task = args.task.trim();
     const ownerName = args.ownerName?.trim();
+    const sourceNameInput = args.sourceName?.trim();
+    const sourceFunctionInput = args.sourceFunction?.trim();
+    const sourceDepartmentNameInput = args.sourceDepartmentName?.trim();
     if (objective.length < 3) {
       throw new Error("Précisez l'objectif de l'envoi.");
     }
@@ -120,6 +136,42 @@ export const send = mutation({
       );
     }
 
+    let sourceUserId: Id<"users"> | undefined;
+    let sourceName = ownerName || "";
+    let sourceFunction: string | undefined;
+    let sourceDepartmentId: Id<"departments"> | undefined;
+    let sourceDepartmentName: string | undefined;
+    let sourceDepartmentRole: "chef" | "membre" | undefined;
+
+    if (args.sourceType === "departement") {
+      if (!args.sourceUserId) {
+        throw new Error(
+          "Sélectionnez la personne d'origine dans un département existant.",
+        );
+      }
+      const sourceUser = await ctx.db.get(args.sourceUserId);
+      if (!sourceUser) throw new Error("Personne d'origine introuvable.");
+      if (!sourceUser.departmentId) {
+        throw new Error("Cette personne n'est rattachée à aucun département.");
+      }
+      sourceUserId = sourceUser._id;
+      sourceName = displayName(sourceUser);
+      sourceFunction = sourceUser.fonction?.trim() || undefined;
+      sourceDepartmentId = sourceUser.departmentId;
+      sourceDepartmentRole = sourceUser.departmentRole ?? undefined;
+      sourceDepartmentName = await departmentName(ctx, sourceUser.departmentId) ?? undefined;
+    } else {
+      if (!sourceNameInput || sourceNameInput.length < 3) {
+        throw new Error("Renseignez le nom de la personne d'origine.");
+      }
+      if (!sourceFunctionInput || sourceFunctionInput.length < 2) {
+        throw new Error("Renseignez la fonction de la personne d'origine.");
+      }
+      sourceName = sourceNameInput;
+      sourceFunction = sourceFunctionInput;
+      sourceDepartmentName = sourceDepartmentNameInput || undefined;
+    }
+
     const now = Date.now();
     const documentId = await ctx.db.insert("documents", {
       fileName: args.fileName,
@@ -128,7 +180,14 @@ export const send = mutation({
       size: args.size,
       objective,
       task,
-      ownerName: ownerName || undefined,
+      ownerName: sourceName || ownerName || undefined,
+      sourceType: args.sourceType,
+      sourceUserId,
+      sourceName: sourceName || undefined,
+      sourceFunction,
+      sourceDepartmentId,
+      sourceDepartmentName,
+      sourceDepartmentRole,
       extractedText: args.extractedText?.slice(0, 40000),
       summaryStatus: "en_attente",
       senderId: userId,
@@ -163,6 +222,12 @@ export const getForSummary = internalQuery({
       objective: document.objective ?? "Objectif non précisé",
       task: document.task,
       ownerName: document.ownerName ?? "",
+      sourceName: document.sourceName ?? document.ownerName ?? "non précisé",
+      sourceFunction: document.sourceFunction ?? "non précisée",
+      sourceDepartmentName:
+        document.sourceDepartmentName ??
+        (await departmentName(ctx, document.sourceDepartmentId)) ??
+        "non précisé",
       extractedText: document.extractedText ?? "",
     };
   },

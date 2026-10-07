@@ -107,6 +107,13 @@ const schema = defineSchema(
       objective: v.string(),
       task: v.string(),
       ownerName: v.optional(v.string()),
+      sourceType: v.optional(v.union(v.literal("departement"), v.literal("autre"))),
+      sourceUserId: v.optional(v.id("users")),
+      sourceName: v.optional(v.string()),
+      sourceFunction: v.optional(v.string()),
+      sourceDepartmentId: v.optional(v.id("departments")),
+      sourceDepartmentName: v.optional(v.string()),
+      sourceDepartmentRole: v.optional(departmentRoleValidator),
       // text pulled from the file on the client, used to build the summary
       extractedText: v.optional(v.string()),
       summary: v.optional(v.string()),

@@ -60,7 +60,9 @@ export const summarizeDocument = internalAction({
               content:
                 `Fichier : ${document.fileName}\n` +
                 `Objectif de l'envoi : ${document.objective}\n` +
-                `Document de : ${document.ownerName || "non précisé"}\n` +
+                `Document provenant de : ${document.sourceName || document.ownerName || "non précisé"}\n` +
+                `Fonction de la source : ${document.sourceFunction || "non précisée"}\n` +
+                `Département de la source : ${document.sourceDepartmentName || "non précisé"}\n` +
                 `Tâche demandée au destinataire : ${document.task}\n\n` +
                 (
                   hasReadableText
@@ -93,7 +95,7 @@ export const summarizeDocument = internalAction({
       documentId: args.documentId,
       summary: hasReadableText
         ? extractiveSummary(text)
-        : `- Fichier transmis : ${document.fileName}\n- Objectif : ${document.objective}\n- Document de : ${document.ownerName || "non précisé"}\n- Le fichier est une photo/image ou un scan sans texte exploitable.\nAction attendue : ${document.task}`,
+        : `- Fichier transmis : ${document.fileName}\n- Objectif : ${document.objective}\n- Document provenant de : ${document.sourceName || document.ownerName || "non précisé"}\n- Fonction : ${document.sourceFunction || "non précisée"}\n- Département d'origine : ${document.sourceDepartmentName || "non précisé"}\n- Le fichier est une photo/image ou un scan sans texte exploitable.\nAction attendue : ${document.task}`,
       summaryStatus: "pret",
       summarySource: "extrait",
     });

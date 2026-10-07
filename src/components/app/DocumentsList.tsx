@@ -200,6 +200,13 @@ export function DocumentsList({
                       <span className="font-medium text-brand">Objectif : </span>
                       {document.objective ?? "Objectif non précisé"}
                     </p>
+                    <p className="mt-1 line-clamp-1 text-xs leading-relaxed text-muted-foreground">
+                      <span className="font-medium">Provenance : </span>
+                      {document.sourceName ?? document.ownerName ?? "Non précisée"}
+                      {document.sourceDepartmentName
+                        ? ` · ${document.sourceDepartmentName}`
+                        : ""}
+                    </p>
                     <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground/80">
                       <span className="font-medium text-brand-sky">Tâche : </span>
                       {document.task}
