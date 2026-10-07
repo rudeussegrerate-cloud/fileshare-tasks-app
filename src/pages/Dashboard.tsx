@@ -104,7 +104,7 @@ export default function Dashboard() {
 
       {view === "accounts" ? <AccountsView /> : null}
 
-      {view === "settings" ? <SettingsView /> : null}
+      {view === "settings" ? <SettingsView onNavigate={setView} /> : null}
 
       <DocumentDetailDialog
         documentId={openDocumentId}
