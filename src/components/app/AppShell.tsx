@@ -62,16 +62,16 @@ const NAV_ITEMS: Array<{
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className="flex size-9 items-center justify-center rounded-xl bg-brand text-primary-foreground shadow-sm">
+      <span className="flex size-9 items-center justify-center rounded-md bg-brand text-primary-foreground">
         <FileText className="size-4" />
       </span>
       {!compact ? (
         <span className="leading-tight">
-          <span className="block text-sm font-semibold tracking-tight text-foreground">
+          <span className="block text-base font-bold tracking-tight text-foreground">
             ScanDoc
           </span>
-          <span className="block text-[10px] uppercase tracking-wide text-muted-foreground">
-            Fichiers inter-départements
+          <span className="block text-xs text-muted-foreground">
+            Échange de documents
           </span>
         </span>
       ) : null}
@@ -101,13 +101,13 @@ function NavList({
             type="button"
             onClick={() => onSelect(item.key)}
             className={cn(
-              "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "flex w-full items-center gap-3 rounded-md px-3 py-3 text-base font-semibold transition-colors min-h-12",
               active
-                ? "bg-brand text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-brand-soft hover:text-foreground",
+                ? "bg-brand text-primary-foreground"
+                : "text-foreground hover:bg-brand-soft",
             )}
           >
-            <Icon className="size-4" />
+            <Icon className="size-5" />
             <span className="flex-1 text-left">{item.label}</span>
             {item.key === "accounts" && pendingAccounts > 0 ? (
               <span
