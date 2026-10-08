@@ -11,6 +11,7 @@ import {
 } from "./_generated/server";
 import { documentStatusValidator, summaryStatusValidator } from "./schema";
 import type { Doc, Id } from "./_generated/dataModel";
+import { pushNotification } from "./inAppNotifications";
 
 type DbCtx = QueryCtx | MutationCtx;
 
@@ -277,6 +278,15 @@ export const send = mutation({
       metadata: { tasks, fileName: args.fileName },
     });
 
+    // Notification in-app au destinataire
+    await pushNotification(ctx, {
+      userId: recipient._id,
+      type: "document.received",
+      title: "Nouveau document reçu",
+      body: `${displayName(sender)} : ${objet}`,
+      documentId,
+    });
+
     // Résumé IA
     await ctx.scheduler.runAfter(0, internal.ai.summarizeDocument, {
       documentId,
@@ -534,7 +544,23 @@ export const setStatus = mutation({
       metadata: { from: document.status, to: args.status },
     });
 
-    // Notifier l'expéditeur du changement de statut
+    // Notification in-app + email à l'expéditeur
+    const statusLabels: Record<string, string> = {
+      envoye: "Envoyé",
+      consulte: "Consulté",
+      en_cours: "En cours",
+      traite: "Traité",
+    };
+    const statusLabel = statusLabels[args.status] ?? args.status;
+
+    await pushNotification(ctx, {
+      userId: document.senderId,
+      type: "document.status",
+      title: "Statut mis à jour",
+      body: `« ${document.objet} » → ${statusLabel} (par ${displayName(user ?? {})})`,
+      documentId: args.documentId,
+    });
+
     const sender = await ctx.db.get(document.senderId);
     if (sender?.email) {
       await ctx.scheduler.runAfter(

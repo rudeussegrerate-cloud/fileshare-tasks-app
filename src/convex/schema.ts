@@ -156,6 +156,20 @@ const schema = defineSchema(
       .index("by_document", ["documentId"])
       .index("by_actor", ["actorId"])
       .index("by_created", ["createdAt"]),
+
+    // Notifications in-app
+    notifications: defineTable({
+      userId: v.id("users"),
+      type: v.string(), // document.received | document.status | system
+      title: v.string(),
+      body: v.string(),
+      documentId: v.optional(v.id("documents")),
+      readAt: v.optional(v.number()),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_created", ["userId", "createdAt"])
+      .index("by_user_unread", ["userId", "readAt"]),
   },
   {
     schemaValidation: false,

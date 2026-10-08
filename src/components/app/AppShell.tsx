@@ -33,6 +33,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
+import { NotificationsBell } from "./NotificationsBell";
 import { initialsOf } from "./shared";
 
 export type AppView =
@@ -247,7 +248,10 @@ export function AppShell({
                 {current}
               </h1>
             </div>
-            {userMenu}
+            <div className="flex items-center gap-2">
+              <NotificationsBell />
+              {userMenu}
+            </div>
           </header>
 
           <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
