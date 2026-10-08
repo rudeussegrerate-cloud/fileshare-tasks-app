@@ -13,6 +13,7 @@ import type * as auth from "../auth.js";
 import type * as auth_emailOtp from "../auth/emailOtp.js";
 import type * as documents from "../documents.js";
 import type * as http from "../http.js";
+import type * as notifications from "../notifications.js";
 import type * as users from "../users.js";
 import type * as workspace from "../workspace.js";
 
@@ -28,6 +29,7 @@ declare const fullApi: ApiFromModules<{
   "auth/emailOtp": typeof auth_emailOtp;
   documents: typeof documents;
   http: typeof http;
+  notifications: typeof notifications;
   users: typeof users;
   workspace: typeof workspace;
 }>;
