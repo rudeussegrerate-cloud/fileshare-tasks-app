@@ -35,8 +35,8 @@ export default function Dashboard() {
     });
   }, [syncProfile]);
 
-  // Wait until profile snapshot is ready.
-  if (!me) {
+  // Attendre le statut de compte (syncProfile).
+  if (!me || !me.accountStatus) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -44,8 +44,11 @@ export default function Dashboard() {
     );
   }
 
-  // Compte rejeté uniquement : les nouveaux comptes n'attendent plus le DG.
-  if (!me.isAdmin && me.accountStatus === "rejete") {
+  // Accès bloqué tant que le DG n'a pas validé (ou si le compte est rejeté).
+  if (
+    !me.isAdmin &&
+    (me.accountStatus === "en_attente" || me.accountStatus === "rejete")
+  ) {
     return (
       <AccountStatusScreen
         status={me.accountStatus}
@@ -56,8 +59,7 @@ export default function Dashboard() {
     );
   }
 
-  // Safety net for accounts created without a name (e.g. Google / OTP) :
-  // they must fill in their details before joining a department.
+  // Comptes sans nom (Google / OTP) : compléter le profil avant un département.
   if (!me.profileCompleted) {
     return <ProfileSetup />;
   }

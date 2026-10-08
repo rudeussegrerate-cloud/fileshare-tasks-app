@@ -93,12 +93,24 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       );
     } catch (err) {
       console.error("Password reset request error:", err);
-      // Message volontairement neutre (ne pas révéler si l'email existe)
-      setInfo(
-        "Si un compte existe pour cet email, un code de réinitialisation a été envoyé.",
-      );
-      setResetEmail(email);
-      setAuthView("reset");
+      const msg = err instanceof Error ? err.message : String(err);
+      // Erreur technique (email non configuré, réseau…) : afficher clairement
+      if (
+        /email|configur|impossible|send|network|fetch|api/i.test(msg)
+      ) {
+        setError(
+          msg.includes("configur")
+            ? "Le service d'envoi d'emails n'est pas configuré. Contactez l'administrateur."
+            : "Impossible d'envoyer le code. Réessayez plus tard ou contactez l'administrateur.",
+        );
+      } else {
+        // Message neutre pour ne pas indiquer si l'email existe
+        setInfo(
+          "Si un compte existe pour cet email, un code a été envoyé. Vérifiez aussi vos spams.",
+        );
+        setResetEmail(email);
+        setAuthView("reset");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -574,8 +586,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     )}
                   </Button>
                   <p className="text-center text-xs text-muted-foreground">
-                    Après inscription, complétez votre profil pour rejoindre un
-                    département.
+                    Après inscription, le DG doit valider votre compte avant
+                    l'accès à l'espace de travail.
                   </p>
                 </form>
               </TabsContent>
