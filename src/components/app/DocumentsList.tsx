@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import {
   Archive,
+  Download,
   FileText,
   Inbox,
   Loader2,
@@ -68,6 +69,41 @@ export function DocumentsList({
     return base;
   }, [documents]);
 
+  const exportCsv = () => {
+    if (!documents || documents.length === 0) return;
+    const headers = [
+      "Fichier",
+      "Objet",
+      "Statut",
+      "Expéditeur",
+      "Destinataire",
+      "Tâches",
+      "Date",
+      "Taille",
+    ];
+    const rows = documents.map((d) => [
+      d.fileName ?? "",
+      d.objet ?? "",
+      d.status ?? "",
+      d.senderName ?? "",
+      d.recipientName ?? "",
+      Array.isArray(d.tasks) ? d.tasks.join(" | ") : (d.task ?? ""),
+      d.createdAt ? new Date(d.createdAt).toISOString() : "",
+      d.size != null ? String(d.size) : "",
+    ]);
+    const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const csv = [headers, ...rows].map((r) => r.map(esc).join(";")).join("\n");
+    const blob = new Blob(["\ufeff" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `scandoc-${mode}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -110,6 +146,18 @@ export function DocumentsList({
           >
             <Archive className="size-3.5" />
             <span className="hidden sm:inline">Archives</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 gap-1.5"
+            onClick={exportCsv}
+            disabled={!documents || documents.length === 0}
+            title="Exporter en CSV"
+          >
+            <Download className="size-3.5" />
+            <span className="hidden sm:inline">Export CSV</span>
           </Button>
         </div>
       </div>

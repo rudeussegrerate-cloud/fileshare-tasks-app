@@ -7,6 +7,7 @@ import { DocumentDetailDialog } from "@/components/app/DocumentDetailDialog";
 import { DocumentsList } from "@/components/app/DocumentsList";
 import { ProfileSetup } from "@/components/app/ProfileSetup";
 import { SendDocument } from "@/components/app/SendDocument";
+import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { SettingsView } from "@/components/app/SettingsView";
 import { api } from "@/convex/_generated/api";
@@ -68,6 +69,7 @@ export default function Dashboard() {
   return (
     <>
       <PresenceHeartbeat />
+      <InactivityLogout />
       <AppShell view={view} onViewChange={setView}>
       {view === "home" ? (
         <DashboardHome

@@ -76,6 +76,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   );
   const [resetEmail, setResetEmail] = useState("");
   const [info, setInfo] = useState<string | null>(null);
+  const [cguAccepted, setCguAccepted] = useState(false);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -104,19 +105,16 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     } catch (err) {
       console.error("Password reset request error:", err);
       const msg = err instanceof Error ? err.message : String(err);
-      // Erreur technique (email non configuré, réseau…) : afficher clairement
-      if (
-        /email|configur|impossible|send|network|fetch|api/i.test(msg)
-      ) {
+      if (/configur|impossible|EMAIL|service email|non configur/i.test(msg)) {
         setError(
-          msg.includes("configur")
-            ? "Le service d'envoi d'emails n'est pas configuré. Contactez l'administrateur."
-            : "Impossible d'envoyer le code. Réessayez plus tard ou contactez l'administrateur.",
+          "L'envoi d'email n'est pas disponible pour le moment. Contactez l'administrateur de ScanDoc pour réinitialiser votre mot de passe.",
         );
+      } else if (/network|fetch|timeout/i.test(msg)) {
+        setError("Problème de réseau. Vérifiez votre connexion et réessayez.");
       } else {
-        // Message neutre pour ne pas indiquer si l'email existe
+        // Ne pas révéler si l'email existe : même parcours
         setInfo(
-          "Si un compte existe pour cet email, un code a été envoyé. Vérifiez aussi vos spams.",
+          "Si un compte existe pour cet email, un code à 8 chiffres a été envoyé. Vérifiez votre boîte de réception et les spams (valable 15 min).",
         );
         setResetEmail(email);
         setAuthView("reset");
@@ -148,14 +146,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
     try {
       await signIn("password", {
-        email: resetEmail,
+        email: resetEmail.trim().toLowerCase(),
         code,
         newPassword,
         flow: "reset-verification",
       });
-      setInfo("Mot de passe mis à jour. Vous pouvez vous connecter.");
+      toast.success("Mot de passe mis à jour", {
+        description: "Vous êtes connecté avec votre nouveau mot de passe.",
+      });
+      // Si la session est ouverte, le useEffect redirige vers le tableau de bord
+      setInfo("Mot de passe mis à jour.");
       setAuthView("main");
       setResetEmail("");
+      navigate(redirect);
     } catch (err) {
       console.error("Password reset confirm error:", err);
       setError(friendlyError(err));
@@ -215,6 +218,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
     if (password !== confirmation) {
       setError("Les deux mots de passe ne correspondent pas.");
+      return;
+    }
+    if (!cguAccepted) {
+      setError("Vous devez accepter les conditions d'utilisation pour créer un compte.");
       return;
     }
 
@@ -580,7 +587,23 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 size-4 shrink-0"
+                      checked={cguAccepted}
+                      onChange={(e) => setCguAccepted(e.target.checked)}
+                    />
+                    <span>
+                      J&apos;accepte les{" "}
+                      <a href="#cgu" className="font-medium text-foreground underline">
+                        conditions d&apos;utilisation
+                      </a>{" "}
+                      et la politique de confidentialité de ScanDoc (données
+                      professionnelles, usage interne uniquement).
+                    </span>
+                  </label>
+                  <Button type="submit" className="w-full" disabled={isLoading || !cguAccepted}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 size-4 animate-spin" />
@@ -595,7 +618,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   </Button>
                   <p className="text-center text-xs text-muted-foreground">
                     Après inscription, le DG doit valider votre compte avant
-                    l'accès à l'espace de travail.
+                    l&apos;accès à l&apos;espace de travail.
                   </p>
                 </form>
               </TabsContent>

@@ -73,6 +73,12 @@ export const passwordResetEmail = Email({
       console.warn("[password-reset] VLY_INTEGRATION_KEY absent");
     }
 
+    // Mode secours dev / diagnostic (ne jamais activer en prod publique sans contrôle)
+    if (process.env.DEBUG_OTP === "1") {
+      console.warn("[password-reset] DEBUG_OTP code pour", email, "→", token);
+      return;
+    }
+
     throw new Error(
       "Envoi du code impossible : service email non configuré. Contactez l'administrateur.",
     );

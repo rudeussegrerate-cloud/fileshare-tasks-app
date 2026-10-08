@@ -77,6 +77,10 @@ export function SettingsView({
     api.presence.statusFor,
     colleagueIds.length > 0 ? { userIds: colleagueIds } : "skip",
   );
+  const auditLogs = useQuery(
+    api.audit.list,
+    me?.isAdmin || me?.isRoot ? { limit: 40 } : "skip",
+  );
   const stats = useQuery(api.documents.stats);
   const { signOut, signIn } = useAuth();
   const navigate = useNavigate();
@@ -474,6 +478,49 @@ export function SettingsView({
           )}
         </CardContent>
       </Card>
+
+      {(me.isAdmin || me.isRoot) && (
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle className="text-base">Journal d&apos;audit</CardTitle>
+            <CardDescription>
+              Dernières actions importantes (envois, changements de statut…).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!auditLogs ? (
+              <p className="text-sm text-muted-foreground">Chargement…</p>
+            ) : auditLogs.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Aucune entrée pour le moment.
+              </p>
+            ) : (
+              <ul className="max-h-64 space-y-2 overflow-y-auto text-sm">
+                {auditLogs.map((row) => (
+                  <li
+                    key={row._id}
+                    className="rounded-sm border border-border px-3 py-2"
+                  >
+                    <span className="font-medium">{row.action}</span>
+                    <span className="text-muted-foreground">
+                      {" "}
+                      — {row.actorName}
+                    </span>
+                    {row.details ? (
+                      <span className="mt-0.5 block text-xs text-muted-foreground">
+                        {row.details}
+                      </span>
+                    ) : null}
+                    <span className="mt-0.5 block text-[10px] text-muted-foreground/80">
+                      {new Date(row.createdAt).toLocaleString("fr-FR")}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* —— Compte & sécurité —— */}
       <Card className="border-border">
