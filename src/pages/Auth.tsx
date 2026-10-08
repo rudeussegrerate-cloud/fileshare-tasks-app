@@ -60,12 +60,91 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** "main" | "forgot" (demander le code) | "reset" (code + nouveau MDP) */
+  const [authView, setAuthView] = useState<"main" | "forgot" | "reset">(
+    "main",
+  );
+  const [resetEmail, setResetEmail] = useState("");
+  const [info, setInfo] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       navigate(redirect);
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
+
+  const handleForgotRequest = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    setInfo(null);
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "")
+      .trim()
+      .toLowerCase();
+    try {
+      await signIn("password", { email, flow: "reset" });
+      setResetEmail(email);
+      setAuthView("reset");
+      setInfo(
+        "Un code à 8 chiffres a été envoyé à votre adresse email. Il expire dans 15 minutes.",
+      );
+    } catch (err) {
+      console.error("Password reset request error:", err);
+      // Message volontairement neutre (ne pas révéler si l'email existe)
+      setInfo(
+        "Si un compte existe pour cet email, un code de réinitialisation a été envoyé.",
+      );
+      setResetEmail(email);
+      setAuthView("reset");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResetConfirm = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+    setIsLoading(true);
+    setError(null);
+    const formData = new FormData(event.currentTarget);
+    const code = String(formData.get("code") ?? "").trim();
+    const newPassword = String(formData.get("newPassword") ?? "");
+    const confirm = String(formData.get("confirmPassword") ?? "");
+    if (newPassword.length < 8) {
+      setError("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      setIsLoading(false);
+      return;
+    }
+    if (newPassword !== confirm) {
+      setError("Les deux mots de passe ne correspondent pas.");
+      setIsLoading(false);
+      return;
+    }
+    try {
+      await signIn("password", {
+        email: resetEmail,
+        code,
+        newPassword,
+        flow: "reset-verification",
+      });
+      setInfo("Mot de passe mis à jour. Vous pouvez vous connecter.");
+      setAuthView("main");
+      setResetEmail("");
+    } catch (err) {
+      console.error("Password reset confirm error:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Code invalide ou expiré. Réessayez.",
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
@@ -176,6 +255,130 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           </CardHeader>
 
           <CardContent>
+            {error ? (
+              <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {error}
+              </p>
+            ) : null}
+            {info ? (
+              <p className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+                {info}
+              </p>
+            ) : null}
+
+            {authView === "forgot" ? (
+              <form onSubmit={handleForgotRequest} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="forgot-email">Adresse email du compte</Label>
+                  <Input
+                    id="forgot-email"
+                    name="email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="prenom.nom@entreprise.com"
+                    disabled={isLoading}
+                    required
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Nous enverrons un code à usage unique (valable 15 min). Aucune
+                  information n’indique si l’email existe ou non.
+                </p>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Envoi…
+                    </>
+                  ) : (
+                    "Envoyer le code"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setAuthView("main");
+                    setError(null);
+                    setInfo(null);
+                  }}
+                >
+                  Retour à la connexion
+                </Button>
+              </form>
+            ) : null}
+
+            {authView === "reset" ? (
+              <form onSubmit={handleResetConfirm} className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Code envoyé à <strong>{resetEmail}</strong>
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="reset-code">Code reçu par email</Label>
+                  <Input
+                    id="reset-code"
+                    name="code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    placeholder="8 chiffres"
+                    disabled={isLoading}
+                    required
+                    minLength={6}
+                    maxLength={8}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reset-new">Nouveau mot de passe</Label>
+                  <Input
+                    id="reset-new"
+                    name="newPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Au moins 8 caractères"
+                    disabled={isLoading}
+                    required
+                    minLength={8}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reset-confirm">Confirmer le mot de passe</Label>
+                  <Input
+                    id="reset-confirm"
+                    name="confirmPassword"
+                    type="password"
+                    autoComplete="new-password"
+                    disabled={isLoading}
+                    required
+                    minLength={8}
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Mise à jour…
+                    </>
+                  ) : (
+                    "Changer le mot de passe"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => {
+                    setAuthView("forgot");
+                    setError(null);
+                  }}
+                >
+                  Renvoyer un code
+                </Button>
+              </form>
+            ) : null}
+
+            {authView !== "main" ? null : (
+              <>
             <Button
               type="button"
               variant="outline"
@@ -244,7 +447,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signin-password">Mot de passe</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label htmlFor="signin-password">Mot de passe</Label>
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-brand hover:underline"
+                        onClick={() => {
+                          setAuthView("forgot");
+                          setError(null);
+                          setInfo(null);
+                        }}
+                      >
+                        Mot de passe oublié ?
+                      </button>
+                    </div>
                     <Input
                       id="signin-password"
                       name="password"
@@ -358,18 +574,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     )}
                   </Button>
                   <p className="text-center text-xs text-muted-foreground">
-                    Votre compte sera examiné par le DG avant de pouvoir être
-                    rattaché à un département.
+                    Après inscription, complétez votre profil pour rejoindre un
+                    département.
                   </p>
                 </form>
               </TabsContent>
             </Tabs>
-
-            {error ? (
-              <p className="mt-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {error}
-              </p>
-            ) : null}
+              </>
+            )}
           </CardContent>
 
           <div className="flex items-center justify-center gap-1.5 rounded-b-lg border-t bg-muted px-6 py-3 text-xs text-muted-foreground">

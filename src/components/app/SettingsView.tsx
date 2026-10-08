@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/convex/_generated/api";
@@ -22,6 +23,7 @@ import {
   FileText,
   HelpCircle,
   Inbox,
+  KeyRound,
   Loader2,
   LogOut,
   Mail,
@@ -39,6 +41,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
 import type { AppView } from "./AppShell";
 import { initialsOf } from "./shared";
 
@@ -69,11 +72,16 @@ export function SettingsView({
 }) {
   const me = useQuery(api.workspace.me);
   const stats = useQuery(api.documents.stats);
-  const { signOut } = useAuth();
+  const { signOut, signIn } = useAuth();
   const navigate = useNavigate();
 
   const [theme, setTheme] = useState<"light" | "dark" | "system">(getTheme);
   const [notif, setNotif] = useState(getNotifPref);
+  const [pwdStep, setPwdStep] = useState<"idle" | "code-sent">("idle");
+  const [pwdBusy, setPwdBusy] = useState(false);
+  const [pwdCode, setPwdCode] = useState("");
+  const [pwdNew, setPwdNew] = useState("");
+  const [pwdConfirm, setPwdConfirm] = useState("");
 
   useEffect(() => {
     applyTheme(theme);
@@ -460,26 +468,178 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      {/* —— Session —— */}
+      {/* —— Compte & sécurité —— */}
       <Card className="border-border">
         <CardHeader>
-          <CardTitle className="text-base">Session</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <KeyRound className="size-4" />
+            Compte & sécurité
+          </CardTitle>
           <CardDescription>
-            Connecté avec {me.user.email ?? "votre compte"}.
+            Email de connexion :{" "}
+            <span className="font-medium text-foreground">
+              {me.user.email ?? "—"}
+            </span>
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Button
-            variant="outline"
-            className="gap-2 text-destructive hover:text-destructive"
-            onClick={async () => {
-              await signOut();
-              navigate("/");
-            }}
-          >
-            <LogOut className="size-4" />
-            Se déconnecter
-          </Button>
+        <CardContent className="space-y-4">
+          <div className="rounded-sm border border-border bg-muted/30 p-3 text-sm">
+            <p className="font-medium text-foreground">Changer le mot de passe</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Un code à usage unique est envoyé par email (valable 15 min).
+            </p>
+
+            {pwdStep === "idle" ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 gap-2"
+                disabled={pwdBusy || !me.user.email}
+                onClick={async () => {
+                  if (!me.user.email) return;
+                  setPwdBusy(true);
+                  try {
+                    await signIn("password", {
+                      email: me.user.email,
+                      flow: "reset",
+                    });
+                    setPwdStep("code-sent");
+                    toast.success("Code envoyé à votre adresse email.");
+                  } catch {
+                    // Message neutre
+                    setPwdStep("code-sent");
+                    toast.message(
+                      "Si un compte existe, un code a été envoyé par email.",
+                    );
+                  } finally {
+                    setPwdBusy(false);
+                  }
+                }}
+              >
+                {pwdBusy ? (
+                  <Loader2 className="size-3.5 animate-spin" />
+                ) : (
+                  <Mail className="size-3.5" />
+                )}
+                Recevoir un code de réinitialisation
+              </Button>
+            ) : (
+              <div className="mt-3 space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-code">Code reçu</Label>
+                  <Input
+                    id="settings-code"
+                    value={pwdCode}
+                    onChange={(e) => setPwdCode(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="8 chiffres"
+                    maxLength={8}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-new">Nouveau mot de passe</Label>
+                  <Input
+                    id="settings-new"
+                    type="password"
+                    value={pwdNew}
+                    onChange={(e) => setPwdNew(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="Au moins 8 caractères"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="settings-confirm">Confirmation</Label>
+                  <Input
+                    id="settings-confirm"
+                    type="password"
+                    value={pwdConfirm}
+                    onChange={(e) => setPwdConfirm(e.target.value)}
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    disabled={pwdBusy}
+                    onClick={async () => {
+                      if (!me.user.email) return;
+                      if (pwdNew.length < 8) {
+                        toast.error(
+                          "Le mot de passe doit contenir au moins 8 caractères.",
+                        );
+                        return;
+                      }
+                      if (pwdNew !== pwdConfirm) {
+                        toast.error(
+                          "Les deux mots de passe ne correspondent pas.",
+                        );
+                        return;
+                      }
+                      setPwdBusy(true);
+                      try {
+                        await signIn("password", {
+                          email: me.user.email,
+                          code: pwdCode.trim(),
+                          newPassword: pwdNew,
+                          flow: "reset-verification",
+                        });
+                        toast.success("Mot de passe mis à jour.");
+                        setPwdStep("idle");
+                        setPwdCode("");
+                        setPwdNew("");
+                        setPwdConfirm("");
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error
+                            ? err.message
+                            : "Code invalide ou expiré.",
+                        );
+                      } finally {
+                        setPwdBusy(false);
+                      }
+                    }}
+                  >
+                    {pwdBusy ? (
+                      <Loader2 className="size-3.5 animate-spin" />
+                    ) : null}
+                    Enregistrer le nouveau mot de passe
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setPwdStep("idle");
+                      setPwdCode("");
+                      setPwdNew("");
+                      setPwdConfirm("");
+                    }}
+                  >
+                    Annuler
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+            <p className="text-xs text-muted-foreground">
+              Session active · {me.user.email ?? "compte"}
+            </p>
+            <Button
+              variant="outline"
+              className="gap-2 text-destructive hover:text-destructive"
+              onClick={async () => {
+                await signOut();
+                navigate("/");
+              }}
+            >
+              <LogOut className="size-4" />
+              Se déconnecter
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </div>

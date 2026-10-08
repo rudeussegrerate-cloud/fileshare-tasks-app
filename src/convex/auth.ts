@@ -1,20 +1,17 @@
-// Adding Google OAuth provider alongside existing password + email OTP + anonymous.
+// Auth providers: password (+ reset), email OTP, anonymous, Google OAuth.
 
 import { convexAuth } from "@convex-dev/auth/server";
 import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
 import { Password } from "@convex-dev/auth/providers/Password";
 import Google from "@auth/core/providers/google";
 import { emailOtp } from "./auth/emailOtp";
+import { passwordResetEmail } from "./auth/passwordReset";
 
 /**
- * Classic email + password sign-up / sign-in.
- *
- * The details collected at sign-up are stored on the user document. The
- * account's approval status is deliberately NOT taken from the client: it is
- * decided server-side in `workspace.syncProfile` so nobody can sign themselves
- * up as already approved.
+ * Classic email + password sign-up / sign-in, with secure password reset via OTP.
  */
 const passwordProvider = Password({
+  reset: passwordResetEmail,
   profile(params) {
     const email = String(params.email ?? "")
       .trim()
@@ -30,6 +27,11 @@ const passwordProvider = Password({
       ...(fonction ? { fonction } : {}),
       ...(phone ? { phone } : {}),
     };
+  },
+  validatePasswordRequirements(password: string) {
+    if (password.length < 8) {
+      throw new Error("Le mot de passe doit contenir au moins 8 caractères.");
+    }
   },
 });
 
