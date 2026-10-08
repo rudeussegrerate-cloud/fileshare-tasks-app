@@ -4,29 +4,30 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction } from "./_generated/server";
 
-const SYSTEM_PROMPT = `Tu es un assistant administratif. On te fournit le contenu d'un document professionnel transmis entre services, avec l'objet de l'envoi et les tâches demandées.
+const SYSTEM_PROMPT = `Tu es un assistant administratif. On te donne le texte d'un document professionnel (courrier interne, note, rapport, etc.).
 
-Rédige EN FRANÇAIS un texte clair qui explique ce que contient le document.
+Ta mission : EXPLIQUER ce que contient le document, en français, de façon claire et utile pour le destinataire.
 
-Format obligatoire :
+Règles strictes :
+- Maximum 5 lignes au total (pas plus).
+- Ne pas faire un résumé vague : expliquer concrètement de quoi parle le document.
+- Ne rien inventer. Si une info n'est pas dans le texte, ne pas l'affirmer.
+- Style simple, professionnel, phrases courtes.
 
-1) Une phrase d'introduction qui commence par l'une de ces formules (choisis la plus adaptée) :
-   - "Ce document contient ..."
-   - "Ce document explique ..."
-   - "Ce document présente ..."
-   - "Ce document décrit ..."
-   - "Ce document concerne ..."
-   Cette phrase doit résumer en une fois le type et le sujet du document (ex. : "Ce document présente le rapport trimestriel des ventes du service commercial.").
+Structure obligatoire (respecte cet ordre) :
 
-2) Ensuite, 3 à 4 points importants tirés du contenu, sous forme de puces "- " :
-   - faits, chiffres, dates, décisions, demandes ou conclusions réellement présents dans le texte ;
-   - phrases courtes et concrètes ;
-   - ne rien inventer.
+Ligne 1 : une phrase qui commence par "Ce document contient", "Ce document explique", "Ce document présente", "Ce document décrit" ou "Ce document concerne", suivie du type et du sujet principal.
 
-3) Une dernière ligne optionnelle si une tâche ou un objet est fourni :
-   "Action attendue : ..." (reformulation brève).
+Lignes 2 à 4 : 2 à 3 points importants (faits, chiffres, dates, demandes, décisions) précédés de "- ".
 
-Règles : ne rien inventer ; si le texte est incomplet, le préciser ; rester factuel et professionnel.`;
+Ligne 5 (si objet ou tâches fournis) : "Action attendue : ..." en une phrase courte.
+
+Exemple de sortie attendue :
+Ce document présente la note de service sur les nouvelles procédures de congés du service RH.
+- Les demandes doivent être déposées 15 jours à l'avance.
+- Le formulaire F-RH-03 remplace l'ancien modèle.
+- Application à compter du 1er novembre.
+Action attendue : Pour information et application.`;
 
 /** Fallback used when the AI is unavailable: an extractive digest. */
 function extractiveSummary(text: string) {
@@ -39,18 +40,17 @@ function extractiveSummary(text: string) {
     .map((s) => s.trim())
     .filter((s) => s.length > 25);
 
-  const picked = sentences.slice(0, 4);
+  const picked = sentences.slice(0, 3);
   if (picked.length === 0) {
     return (
-      "Ce document contient un extrait de texte limité.\n\n" +
-      "- " +
-      cleaned.slice(0, 400)
+      "Ce document contient un extrait de texte limité.\n- " +
+      cleaned.slice(0, 280)
     );
   }
   const intro =
-    "Ce document contient les éléments suivants extraits de son contenu :";
-  const bullets = picked.map((s) => `- ${s.slice(0, 220)}`).join("\n");
-  return `${intro}\n\n${bullets}`;
+    "Ce document contient les éléments suivants tirés de son contenu :";
+  const bullets = picked.map((s) => `- ${s.slice(0, 160)}`).join("\n");
+  return `${intro}\n${bullets}`;
 }
 
 /**
@@ -85,7 +85,7 @@ export const summarizeDocument = internalAction({
         const response = await vly.ai.completion({
           model: "gpt-4o-mini",
           temperature: 0.2,
-          maxTokens: 900,
+          maxTokens: 350,
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
             {
