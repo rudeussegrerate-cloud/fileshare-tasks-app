@@ -85,6 +85,8 @@ const schema = defineSchema(
       departmentId: v.optional(v.id("departments")),
       departmentRole: v.optional(departmentRoleValidator),
       createdAt: v.optional(v.number()),
+      // Présence : dernière activité (heartbeat client)
+      lastSeenAt: v.optional(v.number()),
     })
       .index("email", ["email"]) // index for the email. do not remove or modify
       .index("by_department", ["departmentId"]),

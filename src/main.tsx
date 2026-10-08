@@ -10,6 +10,7 @@ import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 
 // Lazy load route components for better code splitting
+const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
@@ -18,7 +19,7 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 function RouteLoading() {
   return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Loading...</div>
+      <div className="animate-pulse text-muted-foreground">Chargement…</div>
     </div>
   );
 }
@@ -122,16 +123,7 @@ function NotFoundInline({
           Quelque chose s’est mal passé. Vous pouvez recharger la page ou
           revenir à l’accueil.
         </p>
-        {message ? (
-          <details className="mt-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-left">
-            <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-              Détails techniques
-            </summary>
-            <p className="mt-2 break-words text-[11px] leading-relaxed text-muted-foreground/90">
-              {message}
-            </p>
-          </details>
-        ) : null}
+        
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           <button
             type="button"
@@ -194,27 +186,19 @@ createRoot(document.getElementById("root")!).render(
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              {/* Entrée : login si non connecté, tableau de bord si connecté */}
-              <Route
-                path="/"
-                element={
-                  <RequireAuth
-                    title="Connexion requise"
-                    description="Connectez-vous pour accéder à ScanDoc."
-                    redirectImmediately
-                  >
-                    <Dashboard />
-                  </RequireAuth>
-                }
-              />
+              <Route path="/" element={<Landing />} />
               <Route
                 path="/auth"
-                element={<AuthPage redirectAfterAuth="/" />}
+                element={<AuthPage redirectAfterAuth="/dashboard" />}
               />
               <Route
                 path="/dashboard"
                 element={
-                  <RequireAuth>
+                  <RequireAuth
+                    title="Connexion requise"
+                    description="Connectez-vous pour accéder à votre espace de travail ScanDoc."
+                    redirectImmediately
+                  >
                     <Dashboard />
                   </RequireAuth>
                 }

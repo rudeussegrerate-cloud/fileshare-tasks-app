@@ -34,6 +34,7 @@ import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
 import { NotificationsBell } from "./NotificationsBell";
+import { PresenceDot } from "./PresenceDot";
 import { initialsOf } from "./shared";
 
 export type AppView =
@@ -138,8 +139,12 @@ export function AppShell({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-9 gap-2 px-2">
-          <span className="flex size-7 items-center justify-center rounded-full bg-brand text-[11px] font-semibold text-primary-foreground">
+          <span className="relative flex size-7 items-center justify-center rounded-full bg-brand text-[11px] font-semibold text-primary-foreground">
             {initialsOf(me?.user.name)}
+            <PresenceDot
+              online
+              className="absolute -bottom-0.5 -right-0.5 size-2.5 border-2 border-background"
+            />
           </span>
           <span className="hidden text-left leading-tight sm:block">
             <span className="block text-xs font-semibold">

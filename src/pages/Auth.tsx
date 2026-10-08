@@ -37,16 +37,26 @@ function resolveRedirectAfterAuth(
 
 function friendlyError(error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  if (/exists|already|duplicate/i.test(message)) {
+  // Ne jamais renvoyer le message technique brut à l'utilisateur
+  if (/exists|already|duplicate|taken/i.test(message)) {
     return "Un compte existe déjà avec cette adresse email.";
   }
-  if (/invalid|secret|credentials/i.test(message)) {
+  if (/invalid|secret|credentials|incorrect|wrong|mismatch|unauthorized|failed to authenticate|Could not/i.test(message)) {
     return "Email ou mot de passe incorrect.";
   }
-  if (/password/i.test(message)) {
+  if (/password.*(short|least|length|weak|8)/i.test(message)) {
     return "Le mot de passe doit contenir au moins 8 caractères.";
   }
-  return "Une erreur est survenue. Réessayez.";
+  if (/network|fetch|timeout|Failed to fetch/i.test(message)) {
+    return "Problème de connexion. Vérifiez votre réseau et réessayez.";
+  }
+  if (/rate|too many|limit/i.test(message)) {
+    return "Trop de tentatives. Attendez un moment puis réessayez.";
+  }
+  if (/code|otp|expired|verification/i.test(message)) {
+    return "Code invalide ou expiré. Demandez un nouveau code.";
+  }
+  return "Une erreur est survenue. Vérifiez vos informations et réessayez.";
 }
 
 function Auth({ redirectAfterAuth }: AuthProps = {}) {
@@ -148,11 +158,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       setResetEmail("");
     } catch (err) {
       console.error("Password reset confirm error:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Code invalide ou expiré. Réessayez.",
-      );
+      setError(friendlyError(err));
     } finally {
       setIsLoading(false);
     }
@@ -167,9 +173,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError(
-        err instanceof Error
-          ? err.message
-          : "Connexion Google impossible. Réessayez.",
+        /google|oauth|popup|blocked/i.test(
+          err instanceof Error ? err.message : String(err),
+        )
+          ? "Connexion Google impossible. Réessayez ou utilisez l'email."
+          : friendlyError(err),
       );
       setGoogleLoading(false);
     }

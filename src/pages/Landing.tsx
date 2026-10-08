@@ -18,7 +18,9 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { useAuth } from "@/hooks/use-auth";
+import { useEffect } from "react";
 
 const SECTIONS = [
   { id: "fonctionnalites", label: "Fonctionnalités" },
@@ -133,6 +135,23 @@ const ROLES = [
 ];
 
 export default function Landing() {
+  const { isLoading, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      navigate("/dashboard", { replace: true });
+    }
+  }, [isLoading, isAuthenticated, navigate]);
+
+  if (isLoading || isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">Chargement…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-30 border-b border-border/70 bg-background/85 backdrop-blur">

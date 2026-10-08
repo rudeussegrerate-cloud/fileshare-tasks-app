@@ -47,16 +47,7 @@ export default function NotFound({
             : "La page que vous cherchez n’existe pas ou a été déplacée. Pas d’inquiétude, on vous ramène."}
         </p>
 
-        {isError && message ? (
-          <details className="mt-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-left">
-            <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
-              Détails techniques
-            </summary>
-            <p className="mt-2 break-words text-[11px] leading-relaxed text-muted-foreground/90">
-              {message}
-            </p>
-          </details>
-        ) : null}
+        
 
         <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
           {isError && onRetry ? (

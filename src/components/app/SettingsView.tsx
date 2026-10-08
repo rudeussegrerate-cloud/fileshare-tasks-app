@@ -43,6 +43,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import type { AppView } from "./AppShell";
+import { PresenceDot } from "./PresenceDot";
 import { initialsOf } from "./shared";
 
 type View = AppView;
@@ -71,6 +72,11 @@ export function SettingsView({
   onNavigate?: (view: View) => void;
 }) {
   const me = useQuery(api.workspace.me);
+  const colleagueIds = me?.colleagues?.map((c) => c._id) ?? [];
+  const presenceMap = useQuery(
+    api.presence.statusFor,
+    colleagueIds.length > 0 ? { userIds: colleagueIds } : "skip",
+  );
   const stats = useQuery(api.documents.stats);
   const { signOut, signIn } = useAuth();
   const navigate = useNavigate();
@@ -351,8 +357,9 @@ export function SettingsView({
                 {me.colleagues.map((c) => (
                   <span
                     key={c._id}
-                    className="rounded-sm border border-border bg-card px-3 py-1.5 text-xs"
+                    className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-card px-3 py-1.5 text-xs"
                   >
+                    <PresenceDot online={presenceMap?.[c._id]} />
                     {c.name}
                     {c.fonction ? ` · ${c.fonction}` : ""}
                     {c.departmentRole === "chef" ? " · chef" : ""}

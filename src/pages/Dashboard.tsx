@@ -7,6 +7,7 @@ import { DocumentDetailDialog } from "@/components/app/DocumentDetailDialog";
 import { DocumentsList } from "@/components/app/DocumentsList";
 import { ProfileSetup } from "@/components/app/ProfileSetup";
 import { SendDocument } from "@/components/app/SendDocument";
+import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { SettingsView } from "@/components/app/SettingsView";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -65,7 +66,9 @@ export default function Dashboard() {
   }
 
   return (
-    <AppShell view={view} onViewChange={setView}>
+    <>
+      <PresenceHeartbeat />
+      <AppShell view={view} onViewChange={setView}>
       {view === "home" ? (
         <DashboardHome
           onOpen={setOpenDocumentId}
@@ -113,5 +116,6 @@ export default function Dashboard() {
         }}
       />
     </AppShell>
+    </>
   );
 }
