@@ -58,7 +58,7 @@ export function DocumentsList({
     },
   );
 
-  const documents = result?.items;
+  const documents = Array.isArray(result) ? result : undefined;
 
   const counts = useMemo(() => {
     const base = { all: documents?.length ?? 0 } as Record<string, number>;

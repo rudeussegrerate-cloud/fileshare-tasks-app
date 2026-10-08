@@ -383,14 +383,8 @@ export const inbox = query({
     }
 
     const page = documents.slice(0, limit);
-    const nextCursor =
-      page.length === limit ? page[page.length - 1]!.createdAt : null;
-
-    return {
-      items: await decorate(ctx, page),
-      nextCursor,
-      total: documents.length + (args.cursor != null ? limit : 0), // approx
-    };
+    // Retourne un tableau (compatible ancien + nouveau frontend)
+    return await decorate(ctx, page);
   },
 });
 
@@ -424,14 +418,7 @@ export const sent = query({
     }
 
     const page = documents.slice(0, limit);
-    const nextCursor =
-      page.length === limit ? page[page.length - 1]!.createdAt : null;
-
-    return {
-      items: await decorate(ctx, page),
-      nextCursor,
-      total: documents.length,
-    };
+    return await decorate(ctx, page);
   },
 });
 

@@ -76,13 +76,15 @@ export function DashboardHome({
     },
   ];
 
-  const recentReceived = inbox.slice(0, 4);
-  const recentSent = sent.slice(0, 4);
+  const inboxList = Array.isArray(inbox) ? inbox : [];
+  const sentList = Array.isArray(sent) ? sent : [];
+  const recentReceived = inboxList.slice(0, 4);
+  const recentSent = sentList.slice(0, 4);
 
   // Tracking of the documents *this* person sent, not what they received.
-  const sentAwaiting = sent.filter((d) => d.status === "envoye").length;
-  const sentInProgress = sent.filter((d) => d.status === "en_cours").length;
-  const sentDone = sent.filter((d) => d.status === "traite").length;
+  const sentAwaiting = sentList.filter((d) => d.status === "envoye").length;
+  const sentInProgress = sentList.filter((d) => d.status === "en_cours").length;
+  const sentDone = sentList.filter((d) => d.status === "traite").length;
 
   return (
     <div className="space-y-6">
