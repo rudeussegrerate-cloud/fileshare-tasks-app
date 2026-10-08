@@ -38,8 +38,8 @@ export function DashboardHome({
 }) {
   const me = useQuery(api.workspace.me);
   const stats = useQuery(api.documents.stats);
-  const inbox = useQuery(api.documents.inbox);
-  const sent = useQuery(api.documents.sent);
+  const inbox = useQuery(api.documents.inboxAll);
+  const sent = useQuery(api.documents.sentAll);
 
   if (!me || !stats || !inbox || !sent) {
     return (

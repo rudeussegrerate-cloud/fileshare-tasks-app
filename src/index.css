@@ -155,3 +155,63 @@
     font-weight: 600;
   }
 }
+
+/*
+  Compatibilité postes / navigateurs anciens :
+  - Désactive les animations coûteuses si l'OS le demande
+  - Fallbacks pour backdrop-filter et blur (souvent absents ou lents)
+*/
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Sur machines lentes : limiter les animations CSS utilitaires */
+@media (prefers-reduced-motion: no-preference) {
+  .motion-safe-only {
+    /* classe utilitaire pour les effets optionnels */
+  }
+}
+
+/* Fallback backdrop-blur → fond opaque (IE / vieux Edge / Chrome < 76) */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .backdrop-blur,
+  [class*="backdrop-blur"] {
+    background-color: var(--background) !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+}
+
+/* Blur décoratif : désactivé sur vieux navigateurs (coûteux GPU) */
+@supports not (filter: blur(1px)) {
+  .blur-3xl,
+  .blur-2xl,
+  .blur-xl,
+  [class*="blur-"] {
+    filter: none !important;
+    opacity: 0.15;
+  }
+}
+
+/* Animation spin légère et compatible (loader) */
+@keyframes sc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.animate-spin {
+  animation: sc-spin 0.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation: none;
+  }
+}

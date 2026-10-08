@@ -42,42 +42,118 @@ class ToolbarErrorBoundary extends React.Component<
   }
 }
 
-/** Hard guard so runtime errors never leave the preview as a blank page. */
+/** Affiche une page amicale au lieu d’un crash technique brut. */
 class RootErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean; message: string; stack: string }
+  { hasError: boolean; message: string }
 > {
-  state = { hasError: false, message: "", stack: "" };
+  state = { hasError: false, message: "" };
   static getDerivedStateFromError(error: Error) {
     return {
       hasError: true,
-      message: error.message || "Unknown runtime error",
-      stack: error.stack || "",
+      message: error.message || "Erreur inattendue",
     };
   }
   componentDidCatch(err: Error) {
-    console.error("[Preview] Root crash:", err);
+    console.error("[App] Runtime error:", err);
   }
+  handleRetry = () => {
+    this.setState({ hasError: false, message: "" });
+    // Recharge légère de la page pour repartir proprement
+    window.location.reload();
+  };
   render() {
     if (this.state.hasError) {
+      // Import dynamique évité : on réutilise le même composant NotFound
+      // déjà chargé via lazy, mais ici on a besoin d’un rendu synchrone.
+      // On inligne une version minimale pour ne pas dépendre du Suspense.
       return (
-        <div className="min-h-screen flex items-center justify-center bg-background text-foreground p-6">
-          <div className="max-w-lg text-center">
-            <p className="text-sm font-semibold">Preview runtime error</p>
-            <p className="mt-2 text-xs text-muted-foreground break-words">
-              {this.state.message}
-            </p>
-            {this.state.stack && (
-              <pre className="mt-3 text-left text-[10px] leading-4 text-muted-foreground/80 max-h-40 overflow-auto rounded border border-border/60 p-2">
-                {this.state.stack}
-              </pre>
-            )}
-          </div>
-        </div>
+        <NotFoundInline
+          message={this.state.message}
+          onRetry={this.handleRetry}
+        />
       );
     }
     return this.props.children;
   }
+}
+
+/** Version synchrone (sans lazy) de la page d’erreur amicale. */
+function NotFoundInline({
+  message,
+  onRetry,
+}: {
+  message?: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background px-4">
+      <div className="relative w-full max-w-md text-center">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 top-0 -z-10 h-48 w-48 -translate-x-1/2 -translate-y-1/4 rounded-full bg-brand-soft"
+        />
+        <div className="mx-auto mb-6 flex size-20 items-center justify-center rounded-2xl border border-border bg-card shadow-sm">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="40"
+            height="40"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="text-brand"
+          >
+            <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+            <polyline points="14 2 14 8 20 8" />
+            <path d="M8 13h2" />
+            <path d="M8 17h6" />
+            <path d="M14 13h.01" />
+          </svg>
+        </div>
+        <p className="mb-2 text-sm font-medium uppercase tracking-widest text-brand">
+          Oups
+        </p>
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
+          Une erreur inattendue est survenue
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          Quelque chose s’est mal passé. Vous pouvez recharger la page ou
+          revenir à l’accueil.
+        </p>
+        {message ? (
+          <details className="mt-4 rounded-lg border border-border bg-muted/40 px-3 py-2 text-left">
+            <summary className="cursor-pointer text-xs font-medium text-muted-foreground">
+              Détails techniques
+            </summary>
+            <p className="mt-2 break-words text-[11px] leading-relaxed text-muted-foreground/90">
+              {message}
+            </p>
+          </details>
+        ) : null}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            onClick={onRetry}
+            className="inline-flex items-center gap-2 rounded-md bg-brand px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90"
+          >
+            Recharger
+          </button>
+          <a
+            href={import.meta.env.BASE_URL || "/"}
+            className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted"
+          >
+            Accueil
+          </a>
+        </div>
+        <p className="mt-10 text-xs text-muted-foreground/70">
+          ScanDoc · Partage de documents professionnel
+        </p>
+      </div>
+    </div>
+  );
 }
 
 const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);

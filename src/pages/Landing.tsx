@@ -1,6 +1,5 @@
 import { BrandLogo, Logo } from "@/components/Logo";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
 import {
   ArrowRight,
   Building2,
@@ -20,11 +19,6 @@ import {
   Users,
 } from "lucide-react";
 import { Link } from "react-router";
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0 },
-};
 
 const SECTIONS = [
   { id: "fonctionnalites", label: "Fonctionnalités" },
@@ -176,12 +170,7 @@ export default function Landing() {
             }}
           />
           <div className="relative mx-auto grid w-full max-w-6xl gap-12 px-4 py-20 lg:grid-cols-[1.05fr_0.95fr] lg:px-6 lg:py-28">
-            <motion.div
-              initial="hidden"
-              animate="show"
-              variants={fadeUp}
-              transition={{ duration: 0.55 }}
-            >
+            <div>
               <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white/90">
                 <Sparkles className="size-3.5" />
                 Résumé automatique à la réception
@@ -232,15 +221,10 @@ export default function Landing() {
                   </div>
                 ))}
               </dl>
-            </motion.div>
+            </div>
 
             {/* Product preview mock */}
-            <motion.div
-              initial={{ opacity: 0, y: 26 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.15 }}
-              className="relative"
-            >
+            <div className="relative">
               <div className="rounded-2xl border border-white/15 bg-white/95 p-4 shadow-2xl">
                 <div className="flex items-center justify-between border-b border-border pb-3">
                   <div className="flex items-center gap-2">
@@ -304,7 +288,7 @@ export default function Landing() {
                   Finance · M. Kouamé
                 </p>
               </div>
-            </motion.div>
+            </div>
           </div>
         </section>
 
@@ -324,16 +308,11 @@ export default function Landing() {
             </p>
           </div>
           <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURES.map((feature, index) => {
+            {FEATURES.map((feature) => {
               const Icon = feature.icon;
               return (
-                <motion.div
+                <div
                   key={feature.title}
-                  initial="hidden"
-                  whileInView="show"
-                  viewport={{ once: true, margin: "-60px" }}
-                  variants={fadeUp}
-                  transition={{ duration: 0.4, delay: index * 0.05 }}
                   className="rounded-2xl border border-border bg-card p-6 transition-shadow hover:shadow-md"
                 >
                   <span className="flex size-10 items-center justify-center rounded-xl bg-brand-soft text-brand">
@@ -343,7 +322,7 @@ export default function Landing() {
                   <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                     {feature.text}
                   </p>
-                </motion.div>
+                </div>
               );
             })}
           </div>

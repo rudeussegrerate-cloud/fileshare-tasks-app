@@ -13,13 +13,17 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import {
+  Archive,
+  ArchiveRestore,
   Download,
   FileText,
+  History,
   Loader2,
   Sparkles,
   CheckCircle2,
+  Trash2,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   STATUS_META,
@@ -42,9 +46,18 @@ export function DocumentDetailDialog({
     api.documents.get,
     documentId ? { documentId } : "skip",
   );
+  const auditLogs = useQuery(
+    api.documents.auditTrail,
+    documentId ? { documentId } : "skip",
+  );
   const markViewed = useMutation(api.documents.markViewed);
   const setStatus = useMutation(api.documents.setStatus);
+  const archiveDoc = useMutation(api.documents.archive);
+  const unarchiveDoc = useMutation(api.documents.unarchive);
+  const removeDoc = useMutation(api.documents.remove);
   const viewedRef = useRef<Id<"documents"> | null>(null);
+  const [showAudit, setShowAudit] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   // Opening a document counts as consulting it for the sender.
   useEffect(() => {
@@ -64,6 +77,58 @@ export function DocumentDetailDialog({
       toast.error(
         error instanceof Error ? error.message : "Impossible de changer le statut.",
       );
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!documentId) return;
+    setBusy(true);
+    try {
+      await archiveDoc({ documentId });
+      toast.success("Document archivé");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Impossible d'archiver.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleUnarchive = async () => {
+    if (!documentId) return;
+    setBusy(true);
+    try {
+      await unarchiveDoc({ documentId });
+      toast.success("Document désarchivé");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Impossible de désarchiver.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!documentId) return;
+    if (
+      !window.confirm(
+        "Supprimer définitivement ce document ? Cette action est irréversible.",
+      )
+    )
+      return;
+    setBusy(true);
+    try {
+      await removeDoc({ documentId });
+      toast.success("Document supprimé définitivement");
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Impossible de supprimer.",
+      );
+    } finally {
+      setBusy(false);
     }
   };
 
@@ -283,26 +348,111 @@ export function DocumentDetailDialog({
                   ? `Envoyé par ${documentOrNull.senderName}`
                   : `Envoyé à ${documentOrNull.recipientName}`}{" "}
                 le {formatDateTime(documentOrNull.createdAt)}
+                {documentOrNull.archivedAt
+                  ? ` · Archivé le ${formatDateTime(documentOrNull.archivedAt)}`
+                  : ""}
               </p>
-              {documentOrNull.downloadUrl ? (
+              <div className="flex flex-wrap gap-2">
+                {documentOrNull.downloadUrl ? (
+                  <Button
+                    className="gap-2"
+                    variant="outline"
+                    onClick={() => {
+                      if (!documentOrNull.downloadUrl) return;
+                      const anchor = window.document.createElement("a");
+                      anchor.href = documentOrNull.downloadUrl;
+                      anchor.download = documentOrNull.fileName ?? "";
+                      window.document.body.appendChild(anchor);
+                      anchor.click();
+                      window.document.body.removeChild(anchor);
+                    }}
+                  >
+                    <Download className="size-4" />
+                    Télécharger
+                  </Button>
+                ) : null}
+
+                {documentOrNull.archivedAt ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5"
+                      disabled={busy}
+                      onClick={handleUnarchive}
+                    >
+                      <ArchiveRestore className="size-3.5" />
+                      Désarchiver
+                    </Button>
+                    {documentOrNull.isSender ? (
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        className="gap-1.5"
+                        disabled={busy}
+                        onClick={handleDelete}
+                      >
+                        <Trash2 className="size-3.5" />
+                        Supprimer
+                      </Button>
+                    ) : null}
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    disabled={busy}
+                    onClick={handleArchive}
+                  >
+                    <Archive className="size-3.5" />
+                    Archiver
+                  </Button>
+                )}
+
                 <Button
-                  className="gap-2"
-                  variant="outline"
-                  onClick={() => {
-                    if (!documentOrNull.downloadUrl) return;
-                    const anchor = window.document.createElement("a");
-                    anchor.href = documentOrNull.downloadUrl;
-                    anchor.download = documentOrNull.fileName ?? "";
-                    window.document.body.appendChild(anchor);
-                    anchor.click();
-                    window.document.body.removeChild(anchor);
-                  }}
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => setShowAudit((v) => !v)}
                 >
-                  <Download className="size-4" />
-                  Télécharger le fichier
+                  <History className="size-3.5" />
+                  Historique
                 </Button>
-              ) : null}
+              </div>
             </div>
+
+            {showAudit ? (
+              <section className="rounded-sm border border-border bg-muted/30 p-3">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Journal d'audit
+                </h4>
+                {!auditLogs || auditLogs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Aucune entrée pour le moment.
+                  </p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {auditLogs.map((log) => (
+                      <li
+                        key={log._id}
+                        className="flex flex-wrap items-baseline gap-x-2 text-xs"
+                      >
+                        <span className="font-medium text-foreground">
+                          {log.actorName}
+                        </span>
+                        <span className="text-muted-foreground">
+                          {log.details ?? log.action}
+                        </span>
+                        <span className="text-muted-foreground/70">
+                          · {formatDateTime(log.createdAt)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+            ) : null}
           </>
         )}
       </DialogContent>

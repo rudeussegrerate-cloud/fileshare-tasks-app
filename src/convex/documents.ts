@@ -19,6 +19,34 @@ const ROLES = {
   ADMIN: "admin",
 } as const;
 
+/** Limite serveur des fichiers (10 Mo) */
+export const MAX_FILE_BYTES_SERVER = 10 * 1024 * 1024;
+
+/** Types MIME autorisés côté serveur */
+const ALLOWED_CONTENT_TYPES = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.oasis.opendocument.text",
+  "application/rtf",
+  "text/plain",
+  "text/markdown",
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/json",
+  "application/xml",
+  "text/xml",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+]);
+
+const ALLOWED_EXTENSIONS = new Set([
+  ".pdf", ".doc", ".docx", ".odt", ".rtf", ".txt", ".md", ".csv",
+  ".xls", ".xlsx", ".json", ".xml", ".png", ".jpg", ".jpeg", ".webp",
+]);
+
 function isAdminRole(role?: string | null) {
   return role === ROLES.ROOT || role === ROLES.ADMIN;
 }
@@ -44,6 +72,62 @@ function displayName(user: { name?: string | null; email?: string | null }) {
 
 function sortByDateDesc(a: { createdAt: number }, b: { createdAt: number }) {
   return b.createdAt - a.createdAt;
+}
+
+/** Écrit une entrée dans le journal d'audit */
+async function writeAudit(
+  ctx: MutationCtx,
+  params: {
+    action: string;
+    actorId: Id<"users">;
+    actorName: string;
+    documentId?: Id<"documents">;
+    details?: string;
+    metadata?: unknown;
+  },
+) {
+  await ctx.db.insert("auditLogs", {
+    action: params.action,
+    actorId: params.actorId,
+    actorName: params.actorName,
+    documentId: params.documentId,
+    details: params.details,
+    metadata: params.metadata,
+    createdAt: Date.now(),
+  });
+}
+
+function validateFile(args: {
+  fileName: string;
+  contentType?: string;
+  size?: number;
+}) {
+  if (args.size != null && args.size > MAX_FILE_BYTES_SERVER) {
+    throw new Error(
+      `Le fichier dépasse la taille maximale autorisée (${MAX_FILE_BYTES_SERVER / (1024 * 1024)} Mo).`,
+    );
+  }
+  if (args.size != null && args.size <= 0) {
+    throw new Error("Fichier vide non autorisé.");
+  }
+  const ext = args.fileName.includes(".")
+    ? "." + args.fileName.split(".").pop()!.toLowerCase()
+    : "";
+  if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+    throw new Error(
+      `Type de fichier non autorisé (${ext}). Formats acceptés : PDF, Word, Excel, images, texte.`,
+    );
+  }
+  if (
+    args.contentType &&
+    args.contentType !== "application/octet-stream" &&
+    !ALLOWED_CONTENT_TYPES.has(args.contentType)
+  ) {
+    // Soft warning only if extension is ok — some browsers send generic types
+    if (!ext || !ALLOWED_EXTENSIONS.has(ext)) {
+      throw new Error(`Type MIME non autorisé : ${args.contentType}`);
+    }
+  }
 }
 
 async function decorate(ctx: DbCtx, documents: Doc<"documents">[]) {
@@ -95,6 +179,13 @@ export const send = mutation({
     const userId = await requireUserId(ctx);
     const sender = await ctx.db.get(userId);
     if (!sender) throw new Error("Compte introuvable.");
+
+    // Validation serveur des fichiers
+    validateFile({
+      fileName: args.fileName,
+      contentType: args.contentType,
+      size: args.size,
+    });
 
     const objet = args.objet.trim();
     if (!objet) throw new Error("Précisez l'objet de l'envoi.");
@@ -176,9 +267,33 @@ export const send = mutation({
       updatedAt: now,
     });
 
+    // Audit log
+    await writeAudit(ctx, {
+      action: "document.sent",
+      actorId: userId,
+      actorName: displayName(sender),
+      documentId,
+      details: `Envoi à ${displayName(recipient)} — ${objet}`,
+      metadata: { tasks, fileName: args.fileName },
+    });
+
+    // Résumé IA
     await ctx.scheduler.runAfter(0, internal.ai.summarizeDocument, {
       documentId,
     });
+
+    // Notification email au destinataire
+    if (recipient.email) {
+      await ctx.scheduler.runAfter(0, internal.notifications.sendDocumentReceivedEmail, {
+        toEmail: recipient.email,
+        toName: displayName(recipient),
+        senderName: displayName(sender),
+        objet,
+        tasks,
+        fileName: args.fileName,
+        onBehalfOfName,
+      });
+    }
 
     return documentId;
   },
@@ -216,8 +331,112 @@ export const setSummary = internalMutation({
   },
 });
 
-/** Documents received by the signed-in person. */
+/** Filtre texte libre (objet, tâches, noms, fichier) */
+function matchesSearch(
+  doc: Doc<"documents">,
+  needle: string,
+): boolean {
+  if (!needle) return true;
+  const n = needle.toLowerCase();
+  const tasksText = (doc.tasks ?? []).join(" ");
+  return (
+    (doc.objet ?? "").toLowerCase().includes(n) ||
+    tasksText.toLowerCase().includes(n) ||
+    (doc.fileName ?? "").toLowerCase().includes(n) ||
+    (doc.senderName ?? "").toLowerCase().includes(n) ||
+    (doc.recipientName ?? "").toLowerCase().includes(n) ||
+    (doc.onBehalfOfName ?? "").toLowerCase().includes(n) ||
+    (doc.task ?? "").toLowerCase().includes(n)
+  );
+}
+
+/**
+ * Documents reçus — avec pagination, recherche et filtre d'archivage.
+ * cursor = createdAt du dernier élément (pour pagination simple).
+ */
 export const inbox = query({
+  args: {
+    search: v.optional(v.string()),
+    status: v.optional(documentStatusValidator),
+    includeArchived: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const limit = Math.min(Math.max(args.limit ?? 30, 1), 100);
+    const includeArchived = args.includeArchived ?? false;
+
+    let documents = await ctx.db
+      .query("documents")
+      .withIndex("by_recipient", (q) => q.eq("recipientId", userId))
+      .collect();
+
+    documents = documents
+      .filter((d) => (includeArchived ? true : !d.archivedAt))
+      .filter((d) => (args.status ? d.status === args.status : true))
+      .filter((d) => matchesSearch(d, (args.search ?? "").trim()))
+      .sort(sortByDateDesc);
+
+    if (args.cursor != null) {
+      documents = documents.filter((d) => d.createdAt < args.cursor!);
+    }
+
+    const page = documents.slice(0, limit);
+    const nextCursor =
+      page.length === limit ? page[page.length - 1]!.createdAt : null;
+
+    return {
+      items: await decorate(ctx, page),
+      nextCursor,
+      total: documents.length + (args.cursor != null ? limit : 0), // approx
+    };
+  },
+});
+
+/** Documents envoyés — pagination + recherche */
+export const sent = query({
+  args: {
+    search: v.optional(v.string()),
+    status: v.optional(documentStatusValidator),
+    includeArchived: v.optional(v.boolean()),
+    limit: v.optional(v.number()),
+    cursor: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const limit = Math.min(Math.max(args.limit ?? 30, 1), 100);
+    const includeArchived = args.includeArchived ?? false;
+
+    let documents = await ctx.db
+      .query("documents")
+      .withIndex("by_sender", (q) => q.eq("senderId", userId))
+      .collect();
+
+    documents = documents
+      .filter((d) => (includeArchived ? true : !d.archivedAt))
+      .filter((d) => (args.status ? d.status === args.status : true))
+      .filter((d) => matchesSearch(d, (args.search ?? "").trim()))
+      .sort(sortByDateDesc);
+
+    if (args.cursor != null) {
+      documents = documents.filter((d) => d.createdAt < args.cursor!);
+    }
+
+    const page = documents.slice(0, limit);
+    const nextCursor =
+      page.length === limit ? page[page.length - 1]!.createdAt : null;
+
+    return {
+      items: await decorate(ctx, page),
+      nextCursor,
+      total: documents.length,
+    };
+  },
+});
+
+/** Compatibilité : anciennes queries sans args (utilisées par le dashboard) */
+export const inboxAll = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
@@ -225,13 +444,14 @@ export const inbox = query({
       .query("documents")
       .withIndex("by_recipient", (q) => q.eq("recipientId", userId))
       .collect();
-
-    return await decorate(ctx, documents.sort(sortByDateDesc));
+    return await decorate(
+      ctx,
+      documents.filter((d) => !d.archivedAt).sort(sortByDateDesc),
+    );
   },
 });
 
-/** Documents sent by the signed-in person. */
-export const sent = query({
+export const sentAll = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
@@ -239,8 +459,10 @@ export const sent = query({
       .query("documents")
       .withIndex("by_sender", (q) => q.eq("senderId", userId))
       .collect();
-
-    return await decorate(ctx, documents.sort(sortByDateDesc));
+    return await decorate(
+      ctx,
+      documents.filter((d) => !d.archivedAt).sort(sortByDateDesc),
+    );
   },
 });
 
@@ -264,8 +486,6 @@ export const get = query({
   },
 });
 
-
-
 /** The receiver opens a document: mark it as consulted. */
 export const markViewed = mutation({
   args: { documentId: v.id("documents") },
@@ -276,12 +496,22 @@ export const markViewed = mutation({
     if (document.recipientId !== userId) return null;
     if (document.status !== "envoye") return null;
 
+    const user = await ctx.db.get(userId);
     const now = Date.now();
     await ctx.db.patch(args.documentId, {
       status: "consulte",
       viewedAt: now,
       updatedAt: now,
     });
+
+    await writeAudit(ctx, {
+      action: "document.viewed",
+      actorId: userId,
+      actorName: displayName(user ?? {}),
+      documentId: args.documentId,
+      details: "Document consulté",
+    });
+
     return null;
   },
 });
@@ -300,13 +530,161 @@ export const setStatus = mutation({
       throw new Error("Seul le destinataire peut changer le statut.");
     }
 
+    const user = await ctx.db.get(userId);
     const now = Date.now();
     await ctx.db.patch(args.documentId, {
       status: args.status,
       updatedAt: now,
       viewedAt: document.viewedAt ?? now,
     });
+
+    await writeAudit(ctx, {
+      action: "document.status_changed",
+      actorId: userId,
+      actorName: displayName(user ?? {}),
+      documentId: args.documentId,
+      details: `Statut → ${args.status}`,
+      metadata: { from: document.status, to: args.status },
+    });
+
+    // Notifier l'expéditeur du changement de statut
+    const sender = await ctx.db.get(document.senderId);
+    if (sender?.email) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.notifications.sendStatusChangedEmail,
+        {
+          toEmail: sender.email,
+          toName: displayName(sender),
+          documentObjet: document.objet,
+          newStatus: args.status,
+          changedByName: displayName(user ?? {}),
+        },
+      );
+    }
+
     return null;
+  },
+});
+
+/** Archiver un document (soft delete) — accessible par expéditeur ou destinataire */
+export const archive = mutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const document = await ctx.db.get(args.documentId);
+    if (!document) throw new Error("Document introuvable.");
+    if (document.senderId !== userId && document.recipientId !== userId) {
+      throw new Error("Vous n'avez pas accès à ce document.");
+    }
+    if (document.archivedAt) return null;
+
+    const user = await ctx.db.get(userId);
+    const now = Date.now();
+    await ctx.db.patch(args.documentId, {
+      archivedAt: now,
+      archivedBy: userId,
+      updatedAt: now,
+    });
+
+    await writeAudit(ctx, {
+      action: "document.archived",
+      actorId: userId,
+      actorName: displayName(user ?? {}),
+      documentId: args.documentId,
+      details: "Document archivé",
+    });
+
+    return null;
+  },
+});
+
+/** Désarchiver */
+export const unarchive = mutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const document = await ctx.db.get(args.documentId);
+    if (!document) throw new Error("Document introuvable.");
+    if (document.senderId !== userId && document.recipientId !== userId) {
+      throw new Error("Vous n'avez pas accès à ce document.");
+    }
+
+    const user = await ctx.db.get(userId);
+    await ctx.db.patch(args.documentId, {
+      archivedAt: undefined,
+      archivedBy: undefined,
+      updatedAt: Date.now(),
+    });
+
+    await writeAudit(ctx, {
+      action: "document.unarchived",
+      actorId: userId,
+      actorName: displayName(user ?? {}),
+      documentId: args.documentId,
+      details: "Document désarchivé",
+    });
+
+    return null;
+  },
+});
+
+/** Suppression définitive (uniquement si déjà archivé, et par l'expéditeur ou un admin) */
+export const remove = mutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const document = await ctx.db.get(args.documentId);
+    if (!document) throw new Error("Document introuvable.");
+
+    const user = await ctx.db.get(userId);
+    const isOwner = document.senderId === userId;
+    const isAdmin = isAdminRole(user?.role);
+    if (!isOwner && !isAdmin) {
+      throw new Error("Seul l'expéditeur ou un administrateur peut supprimer définitivement.");
+    }
+    if (!document.archivedAt) {
+      throw new Error("Archivez d'abord le document avant de le supprimer définitivement.");
+    }
+
+    // Supprimer le fichier du storage
+    try {
+      await ctx.storage.delete(document.storageId);
+    } catch {
+      // ignore si déjà absent
+    }
+
+    await writeAudit(ctx, {
+      action: "document.deleted",
+      actorId: userId,
+      actorName: displayName(user ?? {}),
+      documentId: args.documentId,
+      details: `Suppression définitive de ${document.fileName}`,
+      metadata: { fileName: document.fileName, objet: document.objet },
+    });
+
+    await ctx.db.delete(args.documentId);
+    return null;
+  },
+});
+
+/** Historique d'audit d'un document */
+export const auditTrail = query({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const document = await ctx.db.get(args.documentId);
+    if (!document) return [];
+    if (document.senderId !== userId && document.recipientId !== userId) {
+      throw new Error("Vous n'avez pas accès à ce document.");
+    }
+
+    const logs = await ctx.db
+      .query("auditLogs")
+      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .collect();
+
+    return logs.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
@@ -320,19 +698,25 @@ export const stats = query({
       .query("documents")
       .withIndex("by_recipient", (q) => q.eq("recipientId", userId))
       .collect();
-    const sent = await ctx.db
+    const sentDocs = await ctx.db
       .query("documents")
       .withIndex("by_sender", (q) => q.eq("senderId", userId))
       .collect();
     const departmentCount = (await ctx.db.query("departments").collect()).length;
 
+    const activeReceived = received.filter((d) => !d.archivedAt);
+    const activeSent = sentDocs.filter((d) => !d.archivedAt);
+
     return {
-      received: received.length,
-      sent: sent.length,
-      awaiting: received.filter((d) => d.status === "envoye").length,
-      inProgress: received.filter((d) => d.status === "en_cours").length,
-      done: received.filter((d) => d.status === "traite").length,
+      received: activeReceived.length,
+      sent: activeSent.length,
+      awaiting: activeReceived.filter((d) => d.status === "envoye").length,
+      inProgress: activeReceived.filter((d) => d.status === "en_cours").length,
+      done: activeReceived.filter((d) => d.status === "traite").length,
       departments: departmentCount,
+      archived: received.filter((d) => d.archivedAt).length +
+        sentDocs.filter((d) => d.archivedAt).length,
     };
   },
 });
+

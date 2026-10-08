@@ -68,8 +68,9 @@ export default defineConfig({
     },
     // Increase chunk size warning limit for better chunking
     chunkSizeWarningLimit: 1000,
-    // Target modern browsers for better optimization
-    target: 'esnext',
+    // Compatibilité postes / navigateurs d'entreprise (évite esnext qui casse sur machines anciennes)
+    target: ['es2018', 'chrome80', 'firefox78', 'safari13', 'edge80'],
+    cssTarget: ['chrome80', 'firefox78', 'safari13', 'edge80'],
     // Minify options - using esbuild (faster than terser)
     minify: 'esbuild',
   },
@@ -85,7 +86,6 @@ export default defineConfig({
       'react-dom/client',
       'react-router',
       '@convex-dev/auth/react',
-      'framer-motion',
       // vlyPlugin() injects this import at serve time, so the dep scanner
       // never sees it. Without it here the first page load discovers it,
       // re-optimizes and full-reloads the preview mid-screenshot.

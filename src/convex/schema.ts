@@ -133,10 +133,29 @@ const schema = defineSchema(
       createdAt: v.number(),
       updatedAt: v.number(),
       viewedAt: v.optional(v.number()),
+      // Archivage (soft delete) — le document reste accessible mais hors inbox
+      archivedAt: v.optional(v.number()),
+      archivedBy: v.optional(v.id("users")),
     })
       .index("by_recipient", ["recipientId"])
       .index("by_sender", ["senderId"])
-      .index("by_recipient_status", ["recipientId", "status"]),
+      .index("by_recipient_status", ["recipientId", "status"])
+      .index("by_recipient_archived", ["recipientId", "archivedAt"])
+      .index("by_sender_archived", ["senderId", "archivedAt"]),
+
+    // Journal d'audit — traçabilité des actions importantes
+    auditLogs: defineTable({
+      action: v.string(), // document.sent | document.viewed | document.status_changed | document.archived | document.deleted | document.downloaded
+      actorId: v.id("users"),
+      actorName: v.string(),
+      documentId: v.optional(v.id("documents")),
+      details: v.optional(v.string()),
+      metadata: v.optional(v.any()),
+      createdAt: v.number(),
+    })
+      .index("by_document", ["documentId"])
+      .index("by_actor", ["actorId"])
+      .index("by_created", ["createdAt"]),
   },
   {
     schemaValidation: false,
