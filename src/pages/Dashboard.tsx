@@ -35,8 +35,8 @@ export default function Dashboard() {
     });
   }, [syncProfile]);
 
-  // Wait until `syncProfile` has given this account its status.
-  if (!me || !me.accountStatus) {
+  // Wait until profile snapshot is ready.
+  if (!me) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background">
         <Loader2 className="size-6 animate-spin text-muted-foreground" />
@@ -44,9 +44,8 @@ export default function Dashboard() {
     );
   }
 
-  // A new account only becomes usable once the DG has approved it. The DG
-  // himself is approved automatically, so he is never locked out.
-  if (!me.isAdmin && (me.accountStatus === "en_attente" || me.accountStatus === "rejete")) {
+  // Compte rejeté uniquement : les nouveaux comptes n'attendent plus le DG.
+  if (!me.isAdmin && me.accountStatus === "rejete") {
     return (
       <AccountStatusScreen
         status={me.accountStatus}
@@ -57,9 +56,8 @@ export default function Dashboard() {
     );
   }
 
-  // Safety net for accounts created without a name (e.g. the legacy OTP or
-  // anonymous flows): they must fill in their details before joining a
-  // department.
+  // Safety net for accounts created without a name (e.g. Google / OTP) :
+  // they must fill in their details before joining a department.
   if (!me.profileCompleted) {
     return <ProfileSetup />;
   }

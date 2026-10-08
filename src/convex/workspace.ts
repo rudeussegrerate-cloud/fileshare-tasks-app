@@ -201,11 +201,12 @@ export const syncProfile = mutation({
       }
     }
 
-    // The approval status is decided here, never from the client. The super
-    // utilisateur and the DG are approved automatically.
+    // Plus de validation DG : tout compte est utilisable dès l'inscription.
+    // Les comptes encore « en_attente » sont validés automatiquement à la connexion.
     if (!user.accountStatus && !patch.accountStatus) {
-      const elevated = isAdminRole(patch.role ?? user.role);
-      patch.accountStatus = elevated ? "valide" : "en_attente";
+      patch.accountStatus = "valide";
+    } else if (user.accountStatus === "en_attente") {
+      patch.accountStatus = "valide";
     }
 
     // The sign-up form already collects the person's details.
