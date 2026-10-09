@@ -59,7 +59,7 @@ export default function NotFound({
             <Button asChild className="gap-2">
               <Link to="/">
                 <Home className="size-4" />
-                Retour à l’accueil
+                Connexion
               </Link>
             </Button>
           )}

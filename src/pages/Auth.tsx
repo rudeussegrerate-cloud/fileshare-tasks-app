@@ -35,19 +35,48 @@ function resolveRedirectAfterAuth(
   return fallback;
 }
 
-function friendlyError(error: unknown) {
-  const message = error instanceof Error ? error.message : String(error);
-  // Ne jamais renvoyer le message technique brut à l'utilisateur
-  if (/exists|already|duplicate|taken/i.test(message)) {
+function friendlyError(
+  error: unknown,
+  context: "signIn" | "signUp" | "reset" | "google" | "generic" = "generic",
+) {
+  const raw = error instanceof Error ? error.message : String(error ?? "");
+  // Convex Auth renvoie parfois un JSON ou un texte serveur opaque
+  let message = raw;
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "string") message = parsed;
+    else if (parsed && typeof parsed === "object") {
+      message = String(
+        (parsed as { message?: string; code?: string }).message ||
+          (parsed as { code?: string }).code ||
+          raw,
+      );
+    }
+  } catch {
+    /* pas du JSON */
+  }
+
+  // Ne jamais afficher le message technique brut
+  if (/exists|already|duplicate|taken|Account already/i.test(message)) {
     return "Un compte existe déjà avec cette adresse email.";
   }
-  if (/invalid|secret|credentials|incorrect|wrong|mismatch|unauthorized|failed to authenticate|Could not/i.test(message)) {
+  if (
+    /invalid.?secret|invalid.?account|invalid.?password|credentials|incorrect|wrong password|mismatch|unauthorized|failed to authenticate|could not verify|Server Error|AUTH|not found|no account|Unknown/i.test(
+      message,
+    )
+  ) {
+    if (context === "signUp") {
+      return "Impossible de créer le compte. Vérifiez vos informations.";
+    }
+    if (context === "reset") {
+      return "Code invalide ou expiré, ou compte introuvable.";
+    }
     return "Email ou mot de passe incorrect.";
   }
-  if (/password.*(short|least|length|weak|8)/i.test(message)) {
+  if (/password.*(short|least|length|weak|\b8\b)/i.test(message)) {
     return "Le mot de passe doit contenir au moins 8 caractères.";
   }
-  if (/network|fetch|timeout|Failed to fetch/i.test(message)) {
+  if (/network|fetch|timeout|Failed to fetch|Load failed/i.test(message)) {
     return "Problème de connexion. Vérifiez votre réseau et réessayez.";
   }
   if (/rate|too many|limit/i.test(message)) {
@@ -55,6 +84,23 @@ function friendlyError(error: unknown) {
   }
   if (/code|otp|expired|verification/i.test(message)) {
     return "Code invalide ou expiré. Demandez un nouveau code.";
+  }
+  if (/configur|email.*(send|service)|OTP|impossible d.envoyer/i.test(message)) {
+    return "L'envoi d'email n'est pas disponible. Contactez l'administrateur.";
+  }
+
+  // Par défaut selon le contexte (évite le message trop vague à la connexion)
+  if (context === "signIn") {
+    return "Email ou mot de passe incorrect.";
+  }
+  if (context === "signUp") {
+    return "Inscription impossible. Réessayez ou contactez l'administrateur.";
+  }
+  if (context === "reset") {
+    return "Réinitialisation impossible. Vérifiez le code ou demandez-en un nouveau.";
+  }
+  if (context === "google") {
+    return "Connexion Google impossible. Réessayez ou utilisez l'email.";
   }
   return "Une erreur est survenue. Vérifiez vos informations et réessayez.";
 }
@@ -105,16 +151,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     } catch (err) {
       console.error("Password reset request error:", err);
       const msg = err instanceof Error ? err.message : String(err);
-      if (/configur|impossible|EMAIL|service email|non configur/i.test(msg)) {
+      if (
+        /configur|impossible|EMAIL|service email|non configur|Envoi du code|OTP|send_otp/i.test(
+          msg,
+        )
+      ) {
         setError(
-          "L'envoi d'email n'est pas disponible pour le moment. Contactez l'administrateur de ScanDoc pour réinitialiser votre mot de passe.",
+          "L'envoi d'email n'est pas configuré sur le serveur. Contactez l'administrateur pour réinitialiser votre mot de passe.",
         );
       } else if (/network|fetch|timeout/i.test(msg)) {
         setError("Problème de réseau. Vérifiez votre connexion et réessayez.");
       } else {
-        // Ne pas révéler si l'email existe : même parcours
+        // Ne pas révéler si l'email existe
         setInfo(
-          "Si un compte existe pour cet email, un code à 8 chiffres a été envoyé. Vérifiez votre boîte de réception et les spams (valable 15 min).",
+          "Si un compte existe et que l'email est configuré, un code a été envoyé (vérifiez les spams, valable 15 min). Sinon, contactez l'administrateur.",
         );
         setResetEmail(email);
         setAuthView("reset");
@@ -161,7 +211,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       navigate(redirect);
     } catch (err) {
       console.error("Password reset confirm error:", err);
-      setError(friendlyError(err));
+      setError(friendlyError(err, "reset"));
     } finally {
       setIsLoading(false);
     }
@@ -175,13 +225,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       await signIn("google", { redirectTo: redirect });
     } catch (err) {
       console.error("Google sign-in error:", err);
-      setError(
-        /google|oauth|popup|blocked/i.test(
-          err instanceof Error ? err.message : String(err),
-        )
-          ? "Connexion Google impossible. Réessayez ou utilisez l'email."
-          : friendlyError(err),
-      );
+      setError(friendlyError(err, "google"));
       setGoogleLoading(false);
     }
   };
@@ -200,7 +244,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       navigate(redirect);
     } catch (signInError) {
       console.error("Sign in error:", signInError);
-      setError(friendlyError(signInError));
+      setError(friendlyError(signInError, "signIn"));
       setIsLoading(false);
     }
   };
@@ -242,7 +286,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       navigate(redirect);
     } catch (signUpError) {
       console.error("Sign up error:", signUpError);
-      setError(friendlyError(signUpError));
+      setError(friendlyError(signUpError, "signUp"));
       setIsLoading(false);
     }
   };
@@ -259,13 +303,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       />
 
       <div className="relative w-full max-w-md">
-        <Link
-          to="/"
-          className="mb-4 inline-flex items-center gap-2 text-xs font-medium text-white/70 transition-colors hover:text-white"
-        >
-          <ArrowLeft className="size-3.5" />
-          Retour à l'accueil
-        </Link>
+        {/* Accueil = page de connexion : pas de lien retour superflu */}
 
         <Card className="border-0 shadow-2xl">
           <CardHeader className="text-center">
