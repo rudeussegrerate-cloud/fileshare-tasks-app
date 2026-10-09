@@ -174,6 +174,11 @@ function RouteSyncer() {
 }
 
 
+// Animations optionnelles (Paramètres)
+if (localStorage.getItem("scandoc-anim") === "on") {
+  document.documentElement.classList.add("scandoc-anim");
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>

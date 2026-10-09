@@ -215,3 +215,44 @@
     animation: none;
   }
 }
+
+/* Animations optionnelles (activées via Paramètres → html.scandoc-anim) */
+html.scandoc-anim .sc-fade-in {
+  animation: sc-fade-in 0.35s ease-out both;
+}
+html.scandoc-anim .sc-slide-up {
+  animation: sc-slide-up 0.4s ease-out both;
+}
+html.scandoc-anim button:not(:disabled),
+html.scandoc-anim a,
+html.scandoc-anim [role="button"] {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+html.scandoc-anim button:not(:disabled):active {
+  transform: scale(0.98);
+}
+html.scandoc-anim .sc-card-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+@keyframes sc-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes sc-slide-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.scandoc-anim .sc-fade-in,
+  html.scandoc-anim .sc-slide-up,
+  html.scandoc-anim button,
+  html.scandoc-anim a {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

@@ -309,6 +309,8 @@ export const listDepartments = query({
             email: u.email ?? null,
             fonction: u.fonction ?? null,
             departmentRole: u.departmentRole ?? "membre",
+            accountStatus: (u.accountStatus as string) ?? "en_attente",
+            lastSeenAt: u.lastSeenAt ?? null,
           }))
           .sort((a, b) => {
             if (a.departmentRole !== b.departmentRole) {

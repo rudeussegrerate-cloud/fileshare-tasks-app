@@ -39,6 +39,12 @@ export function MembershipPanel({
       : "skip",
   );
 
+  const invitable = useQuery(
+    api.departmentMembership.listInvitableUsers,
+    me?.department?._id
+      ? { departmentId: me.department._id as Id<"departments"> }
+      : "skip",
+  );
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -198,7 +204,7 @@ export function MembershipPanel({
               Inviter dans {me.department.name}
             </CardTitle>
             <CardDescription>
-              Tout membre peut inviter. Le chef validera l&apos;adhésion.
+              Uniquement des comptes déjà inscrits et validés par le DG.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -222,14 +228,21 @@ export function MembershipPanel({
                 }
               }}
             >
-              <Input
-                type="email"
-                placeholder="prenom.nom@entreprise.com"
+              <select
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-              />
-              <Button type="submit" disabled={busy} className="shrink-0">
+              >
+                <option value="">Choisir un compte validé…</option>
+                {(invitable ?? []).map((u) => (
+                  <option key={u._id} value={u.email}>
+                    {u.name} — {u.email}
+                    {u.fonction ? ` (${u.fonction})` : ""}
+                  </option>
+                ))}
+              </select>
+              <Button type="submit" disabled={busy || !email} className="shrink-0">
                 {busy ? (
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
@@ -237,6 +250,11 @@ export function MembershipPanel({
                 )}
               </Button>
             </form>
+            {(invitable?.length ?? 0) === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Aucun compte validé disponible à inviter pour le moment.
+              </p>
+            ) : null}
             {(sent?.length ?? 0) > 0 ? (
               <ul className="space-y-1 text-xs text-muted-foreground">
                 {sent!.map((s) => (

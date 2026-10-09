@@ -357,7 +357,18 @@ export const inviteByEmail = mutation({
       .withIndex("email", (q) => q.eq("email", email))
       .first();
 
-    if (existingUser?.departmentId === args.departmentId) {
+    // Uniquement comptes existants + validés par le DG
+    if (!existingUser) {
+      throw new Error(
+        "Aucun compte ScanDoc pour cet email. La personne doit d'abord s'inscrire et être validée par le DG.",
+      );
+    }
+    if (existingUser.accountStatus !== "valide") {
+      throw new Error(
+        "Ce compte n'est pas encore validé par le DG. Impossible de l'inviter.",
+      );
+    }
+    if (existingUser.departmentId === args.departmentId) {
       throw new Error("Cette personne est déjà dans le département.");
     }
 
@@ -376,23 +387,47 @@ export const inviteByEmail = mutation({
     const invitationId = await ctx.db.insert("departmentInvitations", {
       departmentId: args.departmentId,
       inviteeEmail: email,
-      inviteeUserId: existingUser?._id,
+      inviteeUserId: existingUser._id,
       invitedBy: inviter._id,
       status: "pending",
       createdAt: Date.now(),
     });
 
-    if (existingUser) {
-      const inviterName = inviter.name ?? inviter.email ?? "Un collègue";
-      await pushNotification(ctx, {
-        userId: existingUser._id,
-        type: "department.invitation",
-        title: "Invitation à un département",
-        body: `${inviterName} vous invite à rejoindre « ${dept.name} ». Acceptez dans votre tableau de bord — le chef validera ensuite.`,
-      });
-    }
+    const inviterName = inviter.name ?? inviter.email ?? "Un collègue";
+    await pushNotification(ctx, {
+      userId: existingUser._id,
+      type: "department.invitation",
+      title: "Invitation à un département",
+      body: `${inviterName} vous invite à rejoindre « ${dept.name} ». Répondez depuis votre espace.`,
+    });
 
     return invitationId;
+  },
+});
+
+/** Comptes validés invitables (pas déjà dans ce département) */
+export const listInvitableUsers = query({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, args) => {
+    const inviter = await requireUser(ctx);
+    if (!canInviteToDepartment(inviter, args.departmentId)) return [];
+    const users = await ctx.db.query("users").collect();
+    return users
+      .filter(
+        (u) =>
+          u.accountStatus === "valide" &&
+          u.departmentId !== args.departmentId &&
+          u._id !== inviter._id &&
+          Boolean(u.email),
+      )
+      .map((u) => ({
+        _id: u._id,
+        name: u.name?.trim() || u.email || "Utilisateur",
+        email: u.email as string,
+        fonction: u.fonction ?? null,
+        departmentId: u.departmentId ?? null,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   },
 });
 

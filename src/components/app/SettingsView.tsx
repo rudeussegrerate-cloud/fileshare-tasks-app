@@ -71,6 +71,15 @@ function getNotifPref(): boolean {
   return localStorage.getItem("scandoc-notif") !== "off";
 }
 
+function getAnimPref(): boolean {
+  return localStorage.getItem("scandoc-anim") === "on";
+}
+
+function applyAnim(on: boolean) {
+  document.documentElement.classList.toggle("scandoc-anim", on);
+  localStorage.setItem("scandoc-anim", on ? "on" : "off");
+}
+
 export function SettingsView({
   onNavigate,
 }: {
@@ -92,6 +101,10 @@ export function SettingsView({
 
   const [theme, setTheme] = useState<"light" | "dark" | "system">(getTheme);
   const [notif, setNotif] = useState(getNotifPref);
+  const [anim, setAnim] = useState(getAnimPref);
+  const [section, setSection] = useState<
+    "profil" | "preferences" | "securite" | "navigation" | "aide"
+  >("profil");
   const [pwdStep, setPwdStep] = useState<"idle" | "code-sent">("idle");
   const [pwdBusy, setPwdBusy] = useState(false);
   const [pwdCode, setPwdCode] = useState("");
@@ -101,6 +114,10 @@ export function SettingsView({
   useEffect(() => {
     applyTheme(theme);
   }, [theme]);
+
+  useEffect(() => {
+    applyAnim(anim);
+  }, [anim]);
 
   if (!me) {
     return (
@@ -129,8 +146,20 @@ export function SettingsView({
 
   const go = (view: View) => onNavigate?.(view);
 
+  const navItems: Array<{
+    id: typeof section;
+    label: string;
+    icon: typeof UserRound;
+  }> = [
+    { id: "profil", label: "Profil", icon: UserRound },
+    { id: "preferences", label: "Préférences", icon: Settings2 },
+    { id: "securite", label: "Sécurité", icon: KeyRound },
+    { id: "navigation", label: "Navigation", icon: FileText },
+    { id: "aide", label: "Aide", icon: HelpCircle },
+  ];
+
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-5 sc-fade-in">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Paramètres</h2>
         <p className="text-sm text-muted-foreground">
@@ -138,6 +167,36 @@ export function SettingsView({
         </p>
       </div>
 
+      {/* Menu latéral style liste simple */}
+      <nav className="overflow-hidden rounded-lg border border-border bg-card">
+        {navItems.map((item, i) => {
+          const Icon = item.icon;
+          const active = section === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setSection(item.id)}
+              className={cn(
+                "flex w-full items-center gap-3 px-4 py-3 text-left text-sm transition-colors",
+                i > 0 && "border-t border-border",
+                active
+                  ? "bg-secondary font-medium text-foreground"
+                  : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground",
+              )}
+            >
+              <Icon className="size-4 shrink-0" />
+              <span className="flex-1">{item.label}</span>
+              {active ? (
+                <span className="size-2 rounded-full bg-brand" />
+              ) : null}
+            </button>
+          );
+        })}
+      </nav>
+
+      {section === "profil" ? (
+      <>
       <SectionHeading title="Mon compte" description="Identité et informations professionnelles" />
 
       {/* —— Profil —— */}
@@ -238,6 +297,11 @@ export function SettingsView({
         </CardContent>
       </Card>
 
+      </>
+      ) : null}
+
+      {section === "preferences" ? (
+      <>
       <SectionHeading
         title="Préférences"
         description="Affichage et notifications sur cet appareil"
@@ -306,9 +370,34 @@ export function SettingsView({
               }}
             />
           </div>
+
+          <div className="flex items-center justify-between gap-4 rounded-sm border border-border px-4 py-3">
+            <div className="flex items-start gap-3">
+              <Sparkles className="mt-0.5 size-4 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Animations de l&apos;interface</p>
+                <p className="text-xs text-muted-foreground">
+                  Transitions et micro-animations. Désactivez sur un poste ancien
+                  pour plus de fluidité.
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={anim}
+              onCheckedChange={(v) => {
+                setAnim(v);
+                applyAnim(v);
+              }}
+            />
+          </div>
         </CardContent>
       </Card>
 
+      </>
+      ) : null}
+
+      {section === "navigation" || section === "aide" ? (
+      <>
       {/* —— Documents (tous) —— */}
       <Card className="border-border">
         <CardHeader>
@@ -629,6 +718,11 @@ export function SettingsView({
         description="Mot de passe, session et confidentialité"
       />
 
+      </>
+      ) : null}
+
+      {section === "securite" ? (
+      <>
       {/* —— Compte & sécurité —— */}
       <Card className="border-border">
         <CardHeader>
@@ -814,6 +908,8 @@ export function SettingsView({
           </div>
         </CardContent>
       </Card>
+      </>
+      ) : null}
     </div>
   );
 }

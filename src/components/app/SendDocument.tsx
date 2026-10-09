@@ -26,7 +26,14 @@ import {
 } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
+import { PresenceDot } from "./PresenceDot";
 import { EmptyState, StepDots, formatBytes, initialsOf } from "./shared";
+
+const ONLINE_MS = 2 * 60 * 1000;
+function isOnline(lastSeenAt?: number | null) {
+  return Boolean(lastSeenAt && Date.now() - lastSeenAt < ONLINE_MS);
+}
+
 
 const STEPS = ["Document", "Département", "Destinataire", "Détails & envoi"];
 
@@ -483,8 +490,15 @@ export function SendDocument({
                               : "border-border bg-card hover:border-brand-sky/50",
                           )}
                         >
-                          <span className="flex size-9 items-center justify-center rounded-full bg-brand text-xs font-semibold text-primary-foreground">
+                          <span className="relative flex size-9 items-center justify-center rounded-full bg-brand text-xs font-semibold text-primary-foreground">
                             {initialsOf(member.name)}
+                            <PresenceDot
+                              online={isOnline(
+                                (member as { lastSeenAt?: number | null })
+                                  .lastSeenAt,
+                              )}
+                              className="absolute bottom-0 right-0"
+                            />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-medium">
@@ -492,8 +506,21 @@ export function SendDocument({
                             </span>
                             <span className="block truncate text-xs text-muted-foreground">
                               {member.email ?? "—"}
+                              {" · "}
+                              {isOnline(
+                                (member as { lastSeenAt?: number | null })
+                                  .lastSeenAt,
+                              )
+                                ? "En ligne"
+                                : "Hors ligne"}
                             </span>
                           </span>
+                          <Badge
+                            variant="outline"
+                            className="border-emerald-200 bg-emerald-50 text-[10px] text-emerald-800"
+                          >
+                            Validé
+                          </Badge>
                           {member.departmentRole === "chef" ? (
                             <Badge
                               variant="outline"
