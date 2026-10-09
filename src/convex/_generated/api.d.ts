@@ -9,13 +9,16 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as auth_emailOtp from "../auth/emailOtp.js";
 import type * as auth_passwordReset from "../auth/passwordReset.js";
+import type * as departmentMembership from "../departmentMembership.js";
 import type * as documents from "../documents.js";
 import type * as http from "../http.js";
 import type * as inAppNotifications from "../inAppNotifications.js";
 import type * as notifications from "../notifications.js";
+import type * as presence from "../presence.js";
 import type * as users from "../users.js";
 import type * as workspace from "../workspace.js";
 
@@ -27,13 +30,16 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  audit: typeof audit;
   auth: typeof auth;
   "auth/emailOtp": typeof auth_emailOtp;
   "auth/passwordReset": typeof auth_passwordReset;
+  departmentMembership: typeof departmentMembership;
   documents: typeof documents;
   http: typeof http;
   inAppNotifications: typeof inAppNotifications;
   notifications: typeof notifications;
+  presence: typeof presence;
   users: typeof users;
   workspace: typeof workspace;
 }>;
