@@ -58,7 +58,7 @@ export function StatusBadge({
   status: DocumentStatus;
   className?: string;
 }) {
-  const meta = STATUS_META[status];
+  const meta = STATUS_META[status] ?? STATUS_META.envoye;
   const Icon = meta.icon;
   return (
     <Badge

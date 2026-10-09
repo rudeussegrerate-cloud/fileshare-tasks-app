@@ -133,7 +133,8 @@ export function DocumentDetailDialog({
   };
 
   const documentOrNull = document;
-  const Icon = documentOrNull ? (fileIconFor(documentOrNull.fileName) as React.ComponentType<{ className?: string }>) : FileText;
+  // Ne pas utiliser React.ComponentType sans import React (crash runtime).
+  const Icon = documentOrNull ? fileIconFor(documentOrNull.fileName) : FileText;
 
   return (
     <Dialog open={documentId !== null} onOpenChange={onOpenChange}>

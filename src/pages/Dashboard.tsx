@@ -81,8 +81,9 @@ export default function Dashboard() {
 
       {view === "send" ? (
         <SendDocument
-          onSent={(documentId) => {
-            setOpenDocumentId(documentId);
+          onSent={() => {
+            // Ne pas ouvrir le détail immédiatement (évite un crash UI) :
+            // on bascule simplement vers la liste des envoyés.
             setView("sent");
           }}
           onManageDepartments={() => setView("departments")}

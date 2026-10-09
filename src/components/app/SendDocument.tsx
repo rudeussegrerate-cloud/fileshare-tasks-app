@@ -60,7 +60,7 @@ export function SendDocument({
   onSent,
   onManageDepartments,
 }: {
-  onSent: (documentId: Id<"documents">) => void;
+  onSent: (documentId?: Id<"documents">) => void;
   onManageDepartments: () => void;
 }) {
   const me = useQuery(api.workspace.me);
