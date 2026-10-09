@@ -234,24 +234,8 @@ export const send = mutation({
       onBehalfOfUserId = undefined;
     }
 
-    const senderDepartmentId = sender.departmentId ?? null;
-    const recipientDepartmentId = recipient.departmentId ?? null;
-    const callerIsAdmin = isAdminRole(sender.role);
-
-    // Chefs / membres : uniquement dans leur département.
-    // DG / root : partout. Comptes sans département : message explicite.
-    if (!callerIsAdmin) {
-      if (!senderDepartmentId) {
-        throw new Error(
-          "Vous n'êtes rattaché à aucun département. Demandez au DG de vous affecter avant d'envoyer un document.",
-        );
-      }
-      if (senderDepartmentId !== recipientDepartmentId) {
-        throw new Error(
-          "Vous ne pouvez envoyer un document qu'aux membres de votre propre département.",
-        );
-      }
-    }
+    // Envoi inter-départements autorisé pour tout compte connecté validé.
+    // (Le choix du destinataire se fait via département → membre côté UI.)
 
     const now = Date.now();
     const documentId = await ctx.db.insert("documents", {

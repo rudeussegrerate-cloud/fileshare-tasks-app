@@ -181,23 +181,7 @@ export function SendDocument({
             })();
 
   const handleSend = async () => {
-    if (!me?.isAdmin && !me?.user.departmentId) {
-      toast.error(
-        "Vous n'êtes rattaché à aucun département. Demandez au DG de vous affecter.",
-      );
-      return;
-    }
-    if (
-      me?.isChef &&
-      !me?.isAdmin &&
-      me?.user.departmentId &&
-      departmentId !== me.user.departmentId
-    ) {
-      toast.error(
-        "Vous ne pouvez envoyer un document qu'aux membres de votre propre département.",
-      );
-      return;
-    }
+    // Envoi vers n'importe quel département autorisé.
     if (!file || !recipientId) return;
     if (!objet.trim()) {
       toast.error("Précisez l'objet de l'envoi.");
