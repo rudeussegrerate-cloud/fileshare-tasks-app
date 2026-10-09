@@ -21,7 +21,7 @@ import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
 import { ArrowLeft, ArrowRight, FileText, Loader2, ShieldCheck } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 
 interface AuthProps {
@@ -528,20 +528,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     />
                   </div>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <Label htmlFor="signin-password">Mot de passe</Label>
-                      <button
-                        type="button"
-                        className="text-xs font-medium text-brand hover:underline"
-                        onClick={() => {
-                          setAuthView("forgot");
-                          setError(null);
-                          setInfo(null);
-                        }}
-                      >
-                        Mot de passe oublié ?
-                      </button>
-                    </div>
+                    <Label htmlFor="signin-password">Mot de passe</Label>
                     <Input
                       id="signin-password"
                       name="password"
@@ -551,6 +538,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       disabled={isLoading}
                       required
                     />
+                    <button
+                      type="button"
+                      className="text-sm font-medium text-brand underline-offset-2 hover:underline"
+                      onClick={() => {
+                        setAuthView("forgot");
+                        setError(null);
+                        setInfo(null);
+                      }}
+                    >
+                      Mot de passe oublié ?
+                    </button>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? (
