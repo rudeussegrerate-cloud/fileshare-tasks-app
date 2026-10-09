@@ -31,7 +31,7 @@ import { EmptyState, StepDots, formatBytes, initialsOf } from "./shared";
 const STEPS = ["Document", "Département", "Destinataire", "Détails & envoi"];
 
 const ACCEPT =
-  ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp";
+  ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
 
 /** Tâches prédéfinies (cases à cocher multiples) */
 export const PREDEFINED_TASKS = [
@@ -181,6 +181,12 @@ export function SendDocument({
             })();
 
   const handleSend = async () => {
+    if (!me?.isAdmin && !me?.user.departmentId) {
+      toast.error(
+        "Vous n'êtes rattaché à aucun département. Demandez au DG de vous affecter.",
+      );
+      return;
+    }
     if (
       me?.isChef &&
       !me?.isAdmin &&
@@ -193,24 +199,49 @@ export function SendDocument({
       return;
     }
     if (!file || !recipientId) return;
+    if (!objet.trim()) {
+      toast.error("Précisez l'objet de l'envoi.");
+      return;
+    }
+    if (effectiveTasks.length === 0) {
+      toast.error("Sélectionnez au moins une tâche.");
+      return;
+    }
+    if (onBehalfType === "internal" && !onBehalfUserId && !me?.user._id) {
+      toast.error("Choisissez la personne « de la part de ».");
+      return;
+    }
     setSending(true);
     try {
       const uploadUrl = await generateUploadUrl();
       const response = await fetch(uploadUrl, {
         method: "POST",
-        headers: file.type
-          ? { "Content-Type": file.type }
-          : { "Content-Type": "application/octet-stream" },
+        headers: {
+          "Content-Type": file.type || "application/octet-stream",
+        },
         body: file,
       });
-      if (!response.ok) throw new Error("L'envoi du fichier a échoué.");
+      if (!response.ok) {
+        const detail = await response.text().catch(() => "");
+        throw new Error(
+          detail
+            ? `L'envoi du fichier a échoué (${response.status}).`
+            : "L'envoi du fichier a échoué. Vérifiez votre connexion.",
+        );
+      }
       const { storageId } = (await response.json()) as {
         storageId: Id<"_storage">;
       };
 
+      // Interne sans sélection : on envoie « de la part de » soi-même
+      const resolvedOnBehalfUserId =
+        onBehalfType === "internal"
+          ? (onBehalfUserId ?? me?.user._id ?? undefined)
+          : undefined;
+
       const documentId = await sendDocument({
         storageId,
-        fileName: file.name,
+        fileName: file.name || `document-${Date.now()}.bin`,
         contentType: file.type || undefined,
         size: file.size,
         objet: objet.trim(),
@@ -218,8 +249,7 @@ export function SendDocument({
         extractedText: extractedText || undefined,
         recipientId,
         onBehalfOfType: onBehalfType,
-        onBehalfOfUserId:
-          onBehalfType === "internal" ? onBehalfUserId ?? undefined : undefined,
+        onBehalfOfUserId: resolvedOnBehalfUserId,
         onBehalfOfName:
           onBehalfType === "external" ? onBehalfName.trim() : undefined,
         onBehalfOfFunction:
@@ -239,11 +269,11 @@ export function SendDocument({
       onSent(documentId);
     } catch (error) {
       console.error(error);
-      toast.error(
+      const message =
         error instanceof Error
           ? error.message
-          : "Impossible d'envoyer le document.",
-      );
+          : "Impossible d'envoyer le document.";
+      toast.error(message);
     } finally {
       setSending(false);
     }

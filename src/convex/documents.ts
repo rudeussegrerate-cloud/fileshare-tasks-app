@@ -40,12 +40,17 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "text/xml",
   "image/png",
   "image/jpeg",
+  "image/jpg",
   "image/webp",
+  "image/heic",
+  "image/heif",
+  "image/gif",
 ]);
 
 const ALLOWED_EXTENSIONS = new Set([
   ".pdf", ".doc", ".docx", ".odt", ".rtf", ".txt", ".md", ".csv",
   ".xls", ".xlsx", ".json", ".xml", ".png", ".jpg", ".jpeg", ".webp",
+  ".heic", ".heif", ".gif",
 ]);
 
 function isAdminRole(role?: string | null) {
@@ -114,20 +119,20 @@ function validateFile(args: {
   const ext = args.fileName.includes(".")
     ? "." + args.fileName.split(".").pop()!.toLowerCase()
     : "";
-  if (ext && !ALLOWED_EXTENSIONS.has(ext)) {
+  const mime = (args.contentType ?? "").toLowerCase().split(";")[0]!.trim();
+  const extOk = !ext || ALLOWED_EXTENSIONS.has(ext);
+  const mimeOk =
+    !mime ||
+    mime === "application/octet-stream" ||
+    ALLOWED_CONTENT_TYPES.has(mime) ||
+    mime.startsWith("image/");
+
+  // Accepter si l'extension OU le MIME est valide (les téléphones envoient souvent
+  // des types génériques ou HEIC sans extension claire).
+  if (!extOk && !mimeOk) {
     throw new Error(
-      `Type de fichier non autorisé (${ext}). Formats acceptés : PDF, Word, Excel, images, texte.`,
+      `Type de fichier non autorisé${ext ? ` (${ext})` : ""}. Formats acceptés : PDF, Word, Excel, images, texte.`,
     );
-  }
-  if (
-    args.contentType &&
-    args.contentType !== "application/octet-stream" &&
-    !ALLOWED_CONTENT_TYPES.has(args.contentType)
-  ) {
-    // Soft warning only if extension is ok — some browsers send generic types
-    if (!ext || !ALLOWED_EXTENSIONS.has(ext)) {
-      throw new Error(`Type MIME non autorisé : ${args.contentType}`);
-    }
   }
 }
 
@@ -233,12 +238,19 @@ export const send = mutation({
     const recipientDepartmentId = recipient.departmentId ?? null;
     const callerIsAdmin = isAdminRole(sender.role);
 
-    // Chefs ne peuvent envoyer qu'aux membres de leur propre département.
-    // Les DG et le super-utilisateur peuvent envoyer partout.
-    if (!callerIsAdmin && senderDepartmentId !== recipientDepartmentId) {
-      throw new Error(
-        "Vous ne pouvez envoyer un document qu'aux membres de votre propre département.",
-      );
+    // Chefs / membres : uniquement dans leur département.
+    // DG / root : partout. Comptes sans département : message explicite.
+    if (!callerIsAdmin) {
+      if (!senderDepartmentId) {
+        throw new Error(
+          "Vous n'êtes rattaché à aucun département. Demandez au DG de vous affecter avant d'envoyer un document.",
+        );
+      }
+      if (senderDepartmentId !== recipientDepartmentId) {
+        throw new Error(
+          "Vous ne pouvez envoyer un document qu'aux membres de votre propre département.",
+        );
+      }
     }
 
     const now = Date.now();
@@ -268,41 +280,58 @@ export const send = mutation({
       updatedAt: now,
     });
 
-    // Audit log
-    await writeAudit(ctx, {
-      action: "document.sent",
-      actorId: userId,
-      actorName: displayName(sender),
-      documentId,
-      details: `Envoi à ${displayName(recipient)} — ${objet}`,
-      metadata: { tasks, fileName: args.fileName },
-    });
-
-    // Notification in-app au destinataire
-    await pushNotification(ctx, {
-      userId: recipient._id,
-      type: "document.received",
-      title: "Nouveau document reçu",
-      body: `${displayName(sender)} : ${objet}`,
-      documentId,
-    });
-
-    // Résumé IA
-    await ctx.scheduler.runAfter(0, internal.ai.summarizeDocument, {
-      documentId,
-    });
-
-    // Notification email au destinataire
-    if (recipient.email) {
-      await ctx.scheduler.runAfter(0, internal.notifications.sendDocumentReceivedEmail, {
-        toEmail: recipient.email,
-        toName: displayName(recipient),
-        senderName: displayName(sender),
-        objet,
-        tasks,
-        fileName: args.fileName,
-        onBehalfOfName,
+    // Secondaires : ne doivent jamais faire échouer l'envoi (transaction unique)
+    try {
+      await writeAudit(ctx, {
+        action: "document.sent",
+        actorId: userId,
+        actorName: displayName(sender),
+        documentId,
+        details: `Envoi à ${displayName(recipient)} — ${objet}`,
+        metadata: { tasks, fileName: args.fileName },
       });
+    } catch (e) {
+      console.error("[send] audit log échoué:", e);
+    }
+
+    try {
+      await pushNotification(ctx, {
+        userId: recipient._id,
+        type: "document.received",
+        title: "Nouveau document reçu",
+        body: `${displayName(sender)} : ${objet}`,
+        documentId,
+      });
+    } catch (e) {
+      console.error("[send] notification in-app échouée:", e);
+    }
+
+    try {
+      await ctx.scheduler.runAfter(0, internal.ai.summarizeDocument, {
+        documentId,
+      });
+    } catch (e) {
+      console.error("[send] planification résumé IA échouée:", e);
+    }
+
+    if (recipient.email) {
+      try {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.notifications.sendDocumentReceivedEmail,
+          {
+            toEmail: recipient.email,
+            toName: displayName(recipient),
+            senderName: displayName(sender),
+            objet,
+            tasks,
+            fileName: args.fileName,
+            onBehalfOfName,
+          },
+        );
+      } catch (e) {
+        console.error("[send] planification email échouée:", e);
+      }
     }
 
     return documentId;
