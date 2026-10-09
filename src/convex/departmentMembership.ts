@@ -81,13 +81,63 @@ export const listDepartmentsPublic = query({
   args: {},
   handler: async (ctx) => {
     const deps = await ctx.db.query("departments").collect();
-    return deps
-      .map((d) => ({
+    const out = [];
+    for (const d of deps) {
+      const members = await ctx.db
+        .query("users")
+        .withIndex("by_department", (q) => q.eq("departmentId", d._id))
+        .collect();
+      out.push({
         _id: d._id,
         name: d.name,
         description: d.description ?? null,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+        memberCount: members.length,
+      });
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name, "fr"));
+  },
+});
+
+/** Demandes d'adhésion en cours de l'utilisateur connecté */
+export const myJoinRequests = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const rows = await ctx.db
+      .query("departmentJoinRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const out = [];
+    for (const r of rows) {
+      if (r.status !== "pending") continue;
+      const dept = await ctx.db.get(r.departmentId);
+      out.push({
+        _id: r._id,
+        departmentId: r.departmentId,
+        departmentName: dept?.name ?? "Département",
+        createdAt: r.createdAt,
+      });
+    }
+    return out;
+  },
+});
+
+/** Annuler sa propre demande d'adhésion en attente */
+export const cancelMyJoinRequest = mutation({
+  args: { requestId: v.id("departmentJoinRequests") },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const req = await ctx.db.get(args.requestId);
+    if (!req || req.userId !== user._id) {
+      throw new Error("Demande introuvable.");
+    }
+    if (req.status !== "pending") return null;
+    await ctx.db.patch(req._id, { status: "cancelled" });
+    if (user.requestedDepartmentId === req.departmentId) {
+      await ctx.db.patch(user._id, { requestedDepartmentId: undefined });
+    }
+    return null;
   },
 });
 

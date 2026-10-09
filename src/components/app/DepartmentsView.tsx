@@ -1,3 +1,4 @@
+import { JoinGroupsPanel } from "./JoinGroupsPanel";
 import { MembershipPanel } from "./MembershipPanel";
 import {
   AlertDialog,
@@ -379,6 +380,7 @@ export function DepartmentsView() {
         ) : null}
       </div>
 
+      <JoinGroupsPanel />
       <MembershipPanel />
 
       {departments.length === 0 ? (

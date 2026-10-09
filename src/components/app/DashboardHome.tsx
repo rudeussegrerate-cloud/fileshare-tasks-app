@@ -1,4 +1,5 @@
 import { ActivityFeed } from "./ActivityFeed";
+import { JoinGroupsPanel } from "./JoinGroupsPanel";
 import { MembershipPanel } from "./MembershipPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -104,6 +105,7 @@ export function DashboardHome({
       ) : null}
 
       {/* Demandes / invitations (seulement si contenu) */}
+      <JoinGroupsPanel />
       <MembershipPanel showInviteForm={false} />
 
       {/* 3. Chiffres clés — 3 max, cliquables */}
