@@ -47,20 +47,38 @@ export type AppView =
   | "accounts"
   | "settings";
 
-const NAV_ITEMS: Array<{
+type NavItem = {
   key: AppView;
   label: string;
   icon: LucideIcon;
   adminOnly?: boolean;
-}> = [
-  { key: "home", label: "Tableau de bord", icon: LayoutDashboard },
-  { key: "send", label: "Nouveau document", icon: Upload },
-  { key: "inbox", label: "Documents reçus", icon: Inbox },
-  { key: "sent", label: "Documents envoyés", icon: Send },
-  { key: "departments", label: "Départements", icon: Building2 },
-  { key: "accounts", label: "Comptes", icon: UserCheck, adminOnly: true },
-  { key: "settings", label: "Paramètres", icon: Settings },
+};
+
+/** Navigation groupée pour éviter la confusion */
+const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
+  {
+    title: "Documents",
+    items: [
+      { key: "home", label: "Accueil", icon: LayoutDashboard },
+      { key: "send", label: "Envoyer", icon: Upload },
+      { key: "inbox", label: "Reçus", icon: Inbox },
+      { key: "sent", label: "Envoyés", icon: Send },
+    ],
+  },
+  {
+    title: "Organisation",
+    items: [
+      { key: "departments", label: "Départements", icon: Building2 },
+      { key: "accounts", label: "Comptes", icon: UserCheck, adminOnly: true },
+    ],
+  },
+  {
+    title: "Compte",
+    items: [{ key: "settings", label: "Paramètres", icon: Settings }],
+  },
 ];
+
+const ALL_NAV = NAV_GROUPS.flatMap((g) => g.items);
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return <BrandLogo compact={compact} />;
@@ -78,37 +96,50 @@ function NavList({
   pendingAccounts: number;
 }) {
   return (
-    <nav className="space-y-1">
-      {NAV_ITEMS.filter((item) => !item.adminOnly || isAdmin).map((item) => {
-        const Icon = item.icon;
-        const active = view === item.key;
+    <nav className="space-y-5">
+      {NAV_GROUPS.map((group) => {
+        const items = group.items.filter((item) => !item.adminOnly || isAdmin);
+        if (items.length === 0) return null;
         return (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => onSelect(item.key)}
-            className={cn(
-              "flex w-full items-center gap-2.5 px-3 py-2.5 text-sm font-medium border-l-[3px]",
-              active
-                ? "border-l-brand-accent bg-brand text-primary-foreground"
-                : "border-l-transparent text-foreground hover:bg-secondary",
-            )}
-          >
-            <Icon className="size-5" />
-            <span className="flex-1 text-left">{item.label}</span>
-            {item.key === "accounts" && pendingAccounts > 0 ? (
-              <span
-                className={cn(
-                  "rounded-full px-1.5 text-[10px] font-semibold",
-                  active
-                    ? "bg-white/20 text-white"
-                    : "bg-amber-100 text-amber-700",
-                )}
-              >
-                {pendingAccounts}
-              </span>
-            ) : null}
-          </button>
+          <div key={group.title}>
+            <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {group.title}
+            </p>
+            <div className="space-y-0.5">
+              {items.map((item) => {
+                const Icon = item.icon;
+                const active = view === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onSelect(item.key)}
+                    className={cn(
+                      "flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-brand text-primary-foreground"
+                        : "text-foreground hover:bg-secondary",
+                    )}
+                  >
+                    <Icon className="size-4 shrink-0 opacity-90" />
+                    <span className="flex-1 text-left">{item.label}</span>
+                    {item.key === "accounts" && pendingAccounts > 0 ? (
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 text-[10px] font-semibold",
+                          active
+                            ? "bg-white/20 text-white"
+                            : "bg-amber-100 text-amber-800",
+                        )}
+                      >
+                        {pendingAccounts}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         );
       })}
     </nav>
@@ -128,13 +159,15 @@ export function AppShell({
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(true);
 
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
   };
 
-  const current = NAV_ITEMS.find((item) => item.key === view)?.label ?? "ScanDoc";
+  const current =
+    ALL_NAV.find((item) => item.key === view)?.label ?? "ScanDoc";
 
   const userMenu = (
     <DropdownMenu>
@@ -148,10 +181,10 @@ export function AppShell({
             />
           </span>
           <span className="hidden text-left leading-tight sm:block">
-            <span className="block text-xs font-semibold">
+            <span className="block max-w-[140px] truncate text-xs font-semibold">
               {me?.user.name ?? "…"}
             </span>
-            <span className="block text-[10px] text-muted-foreground">
+            <span className="block max-w-[140px] truncate text-[10px] text-muted-foreground">
               {me?.department?.name ?? me?.user.email ?? ""}
             </span>
           </span>
@@ -164,9 +197,9 @@ export function AppShell({
           </span>
           <span className="block text-xs font-normal text-muted-foreground">
             {me?.isRoot
-              ? "Super utilisateur (root)"
+              ? "Super utilisateur"
               : me?.isAdmin
-                ? "DG · admin principal"
+                ? "Directeur Général"
                 : me?.isChef
                   ? "Chef de département"
                   : "Membre"}
@@ -191,40 +224,43 @@ export function AppShell({
     </DropdownMenu>
   );
 
+  const sidebarInner = (
+    <>
+      <BrandMark />
+      <div className="mt-6 flex-1 overflow-y-auto">
+        <NavList
+          view={view}
+          onSelect={onViewChange}
+          isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
+          pendingAccounts={me?.pendingAccounts ?? 0}
+        />
+      </div>
+      <div className="mt-3 border-t border-border pt-3">
+        <button
+          type="button"
+          className="mb-1 flex w-full items-center justify-between px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          onClick={() => setPeopleOpen((v) => !v)}
+        >
+          Collègues
+          <span className="text-[10px] normal-case">
+            {peopleOpen ? "Masquer" : "Afficher"}
+          </span>
+        </button>
+        {peopleOpen ? <OnlinePeople /> : null}
+      </div>
+    </>
+  );
+
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-[1400px]">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-border bg-card px-4 py-5 lg:flex">
-          <BrandMark />
-          <div className="mt-8 flex-1">
-            <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-              Espace de travail
-            </p>
-            <NavList
-              view={view}
-              onSelect={onViewChange}
-              isAdmin={Boolean(me?.isAdmin)}
-              pendingAccounts={me?.pendingAccounts ?? 0}
-            />
-            <div className="mt-6 border-t border-border pt-3">
-              <OnlinePeople />
-            </div>
-          </div>
-          <div className="rounded-sm border border-border bg-brand-soft/50 p-3">
-            <p className="text-xs font-medium text-foreground">
-              {me?.isRoot
-                ? "Vous désignez les comptes de DG et supervisez toute l'organisation."
-                : me?.isAdmin
-                  ? "Vous administrez l'ensemble des départements."
-                  : me?.isChef
-                    ? "Vous gérez les membres de votre département."
-                    : "Envoyez et traitez les documents qui vous sont adressés."}
-            </p>
-          </div>
+    <div className="min-h-screen bg-muted/30">
+      <div className="mx-auto flex w-full max-w-[1280px]">
+        {/* Sidebar desktop */}
+        <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-border bg-card px-3 py-4 lg:flex">
+          {sidebarInner}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-3 lg:px-8">
+          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-card/95 px-4 py-2.5 backdrop-blur lg:px-6">
             <div className="flex items-center gap-3">
               <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
                 <SheetTrigger asChild>
@@ -232,22 +268,24 @@ export function AppShell({
                     <Menu className="size-4" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="w-72 p-5">
+                <SheetContent side="left" className="flex w-72 flex-col p-4">
                   <SheetHeader className="p-0">
-                    <SheetTitle className="sr-only">Navigation ScanDoc</SheetTitle>
+                    <SheetTitle className="sr-only">Menu ScanDoc</SheetTitle>
                   </SheetHeader>
-                  <BrandMark />
-                  <div className="mt-8">
-                    <NavList
-                      view={view}
-                      onSelect={(next) => {
-                        onViewChange(next);
-                        setMobileNavOpen(false);
-                      }}
-                      isAdmin={Boolean(me?.isAdmin)}
-                      pendingAccounts={me?.pendingAccounts ?? 0}
-                    />
-                    <div className="mt-6 border-t border-border pt-3">
+                  <div className="flex flex-1 flex-col overflow-y-auto">
+                    <BrandMark />
+                    <div className="mt-6 flex-1">
+                      <NavList
+                        view={view}
+                        onSelect={(next) => {
+                          onViewChange(next);
+                          setMobileNavOpen(false);
+                        }}
+                        isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
+                        pendingAccounts={me?.pendingAccounts ?? 0}
+                      />
+                    </div>
+                    <div className="mt-4 border-t border-border pt-3">
                       <OnlinePeople />
                     </div>
                   </div>
@@ -256,17 +294,24 @@ export function AppShell({
               <div className="lg:hidden">
                 <BrandMark compact />
               </div>
-              <h1 className="hidden text-sm font-semibold text-foreground lg:block">
-                {current}
-              </h1>
+              <div className="hidden lg:block">
+                <h1 className="text-sm font-semibold text-foreground">
+                  {current}
+                </h1>
+                {me?.department?.name ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    {me.department.name}
+                  </p>
+                ) : null}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <NotificationsBell />
               {userMenu}
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-6 lg:px-8">{children}</main>
+          <main className="flex-1 px-4 py-5 lg:px-6 lg:py-6">{children}</main>
         </div>
       </div>
     </div>

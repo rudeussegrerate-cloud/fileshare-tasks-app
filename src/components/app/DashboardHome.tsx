@@ -8,12 +8,10 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import {
   AlertTriangle,
-  Building2,
-  CheckCircle2,
   Inbox,
   Loader2,
   Send,
-  Sparkles,
+  Upload,
   UserCheck,
 } from "lucide-react";
 import {
@@ -21,13 +19,6 @@ import {
   fileIconFor,
   formatDateTime,
 } from "./shared";
-
-type StatCard = {
-  label: string;
-  value: number;
-  icon: typeof Inbox;
-  tone: string;
-};
 
 export function DashboardHome({
   onOpen,
@@ -51,271 +42,193 @@ export function DashboardHome({
     );
   }
 
-  const cards: StatCard[] = [
-    {
-      label: "Documents reçus",
-      value: stats.received,
-      icon: Inbox,
-      tone: "bg-brand-soft text-brand",
-    },
-    {
-      label: "Documents envoyés",
-      value: stats.sent,
-      icon: Send,
-      tone: "bg-emerald-50 text-emerald-600",
-    },
-    {
-      label: "En attente de traitement",
-      value: stats.awaiting,
-      icon: Sparkles,
-      tone: "bg-amber-50 text-amber-600",
-    },
-    {
-      label: "Départements",
-      value: stats.departments,
-      icon: Building2,
-      tone: "bg-indigo-50 text-indigo-600",
-    },
-  ];
-
   const inboxList = Array.isArray(inbox) ? inbox : [];
   const sentList = Array.isArray(sent) ? sent : [];
-  const recentReceived = inboxList.slice(0, 4);
-  const recentSent = sentList.slice(0, 4);
-
-  // Tracking of the documents *this* person sent, not what they received.
-  const sentAwaiting = sentList.filter((d) => d.status === "envoye").length;
-  const sentInProgress = sentList.filter((d) => d.status === "en_cours").length;
-  const sentDone = sentList.filter((d) => d.status === "traite").length;
+  const recentReceived = inboxList.slice(0, 5);
+  const recentSent = sentList.slice(0, 5);
+  const firstName = (me.user.name ?? "Bonjour").split(" ")[0];
 
   return (
-    <div className="space-y-6">
-      <MembershipPanel />
-
-      <ActivityFeed onOpen={onOpen} />
-
+    <div className="mx-auto max-w-4xl space-y-6">
+      {/* 1. Accueil */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-lg font-semibold tracking-tight">
-            Tableau de bord
+          <h2 className="text-xl font-semibold tracking-tight">
+            Bonjour, {firstName}
           </h2>
-          <p className="text-xs text-muted-foreground">
-            Vue d'ensemble de vos échanges de documents entre départements.
+          <p className="text-sm text-muted-foreground">
+            {me.department?.name
+              ? `Département ${me.department.name}`
+              : "Espace documents ScanDoc"}
           </p>
         </div>
-        <Button onClick={onSend} className="gap-2">
-          <Send className="size-4" />
+        <Button onClick={onSend} className="gap-2 self-start">
+          <Upload className="size-4" />
           Envoyer un document
         </Button>
       </div>
 
+      {/* 2. Alertes uniquement si nécessaire */}
       {me.isAdmin && me.pendingAccounts > 0 ? (
-        <div className="flex items-start gap-3 rounded-sm border border-amber-200 bg-amber-50 px-4 py-3">
-          <UserCheck className="mt-0.5 size-4 shrink-0 text-amber-600" />
+        <button
+          type="button"
+          onClick={() => onNavigate("accounts")}
+          className="flex w-full items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-left transition hover:bg-amber-100/80"
+        >
+          <UserCheck className="mt-0.5 size-4 shrink-0 text-amber-700" />
+          <div>
+            <p className="text-sm font-medium text-amber-950">
+              {me.pendingAccounts} compte
+              {me.pendingAccounts > 1 ? "s" : ""} à valider
+            </p>
+            <p className="text-xs text-amber-800">
+              Touchez pour examiner les demandes
+            </p>
+          </div>
+        </button>
+      ) : null}
+
+      {!me.department && !me.isAdmin ? (
+        <div className="flex items-start gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-700" />
           <div className="text-sm">
-            <p className="font-medium text-amber-900">
-              {me.pendingAccounts} demande
-              {me.pendingAccounts > 1 ? "s" : ""} de compte en attente
+            <p className="font-medium text-amber-950">
+              Pas encore de département
             </p>
             <p className="mt-0.5 text-xs text-amber-800">
-              Validez les nouveaux comptes pour qu'ils puissent rejoindre un
-              département.
+              Le chef ou le DG doit valider votre adhésion pour envoyer et
+              recevoir des documents.
             </p>
-            <Button
-              size="sm"
-              variant="outline"
-              className="mt-2 border-amber-300 bg-white/70 text-amber-900"
-              onClick={() => onNavigate("accounts")}
-            >
-              Examiner les demandes
-            </Button>
           </div>
         </div>
       ) : null}
 
-      {!me.department ? (
-        <div className="flex items-start gap-3 rounded-sm border border-amber-200 bg-amber-50 px-4 py-3">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
-          <div className="text-sm">
-            <p className="font-medium text-amber-900">
-              Vous n'êtes rattaché à aucun département
-            </p>
-            <p className="mt-0.5 text-xs text-amber-800">
-              {me.isAdmin
-                ? "Créez les départements et nommez leurs chefs pour lancer les échanges."
-                : "Demandez au DG ou au chef de votre département de vous ajouter pour pouvoir envoyer et recevoir des documents."}
-            </p>
-            {me.isAdmin ? (
-              <Button
-                size="sm"
-                variant="outline"
-                className="mt-2 border-amber-300 bg-white/70 text-amber-900"
-                onClick={() => onNavigate("departments")}
-              >
-                Gérer les départements
-              </Button>
-            ) : null}
-          </div>
-        </div>
-      ) : null}
+      {/* Demandes / invitations (seulement si contenu) */}
+      <MembershipPanel showInviteForm={false} />
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card key={card.label} className="border-border/80 ">
-              <CardContent className="flex items-center gap-4 pt-6">
-                <div
-                  className={cn(
-                    "flex size-11 items-center justify-center rounded-sm",
-                    card.tone,
-                  )}
-                >
-                  <Icon className="size-5" />
-                </div>
-                <div>
-                  <p className="text-2xl font-bold tracking-tight">
-                    {card.value}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{card.label}</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      {/* 3. Chiffres clés — 3 max, cliquables */}
+      <div className="grid grid-cols-3 gap-3">
+        <button
+          type="button"
+          onClick={() => onNavigate("inbox")}
+          className="rounded-md border border-border bg-card p-4 text-left transition hover:border-brand/40 hover:shadow-sm"
+        >
+          <p className="text-2xl font-semibold tabular-nums">{stats.received}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Reçus</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate("sent")}
+          className="rounded-md border border-border bg-card p-4 text-left transition hover:border-brand/40 hover:shadow-sm"
+        >
+          <p className="text-2xl font-semibold tabular-nums">{stats.sent}</p>
+          <p className="mt-1 text-xs text-muted-foreground">Envoyés</p>
+        </button>
+        <button
+          type="button"
+          onClick={() => onNavigate("inbox")}
+          className="rounded-md border border-border bg-card p-4 text-left transition hover:border-brand/40 hover:shadow-sm"
+        >
+          <p className="text-2xl font-semibold tabular-nums text-amber-700">
+            {stats.awaiting}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">À traiter</p>
+        </button>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="border-border/80  lg:col-span-2">
-          <CardHeader className="flex-row items-center justify-between space-y-0 pb-3">
-            <CardTitle className="text-base">Documents récents reçus</CardTitle>
+      {/* 4. Documents récents — 2 colonnes claires */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="border-border shadow-none">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Inbox className="size-4 text-muted-foreground" />
+              Derniers reçus
+            </CardTitle>
             <Button
               variant="ghost"
               size="sm"
-              className="text-brand-sky"
+              className="h-7 text-xs"
               onClick={() => onNavigate("inbox")}
             >
               Tout voir
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-1 pt-0">
             {recentReceived.length === 0 ? (
-              <p className="rounded-sm border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
-                Aucun document reçu pour l'instant.
+              <p className="py-6 text-center text-xs text-muted-foreground">
+                Aucun document reçu
               </p>
             ) : (
-              <ul className="space-y-2">
-                {recentReceived.map((document) => {
-                  const Icon = fileIconFor(document.fileName);
-                  return (
-                    <li key={document._id}>
-                      <button
-                        type="button"
-                        onClick={() => onOpen(document._id)}
-                        className="flex w-full items-center gap-3 rounded-sm border border-border/70 bg-card px-3 py-2.5 text-left transition-colors hover:border-brand-sky/50"
-                      >
-                        <span className="flex size-9 shrink-0 items-center justify-center rounded-sm bg-brand-soft text-brand">
-                          <Icon className="size-4" />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">
-                            {document.fileName}
-                          </span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            De {document.senderName} ·{" "}
-                            {formatDateTime(document.createdAt)}
-                          </span>
-                        </span>
-                        <StatusBadge status={document.status} />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              recentReceived.map((doc) => (
+                <button
+                  key={doc._id}
+                  type="button"
+                  onClick={() => onOpen(doc._id)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-muted/60"
+                >
+                  <span className="text-lg">{fileIconFor(doc.contentType)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {doc.objet || doc.fileName}
+                    </p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {doc.senderName} · {formatDateTime(doc._creationTime)}
+                    </p>
+                  </div>
+                  <StatusBadge status={doc.status} />
+                </button>
+              ))
             )}
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
-          <Card className="border-border/80 ">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Actions rapides</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button className="w-full justify-start gap-2" onClick={onSend}>
-                <Send className="size-4" />
-                Envoyer un document
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => onNavigate("inbox")}
-              >
-                <Inbox className="size-4" />
-                Mes documents reçus
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => onNavigate("sent")}
-              >
-                <CheckCircle2 className="size-4" />
-                Suivre mes envois
-              </Button>
-              <Button
-                variant="outline"
-                className="w-full justify-start gap-2"
-                onClick={() => onNavigate("departments")}
-              >
-                <Building2 className="size-4" />
-                {me.isAdmin ? "Gérer les départements" : "Voir les départements"}
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-border/80 ">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base">Suivi de mes envois</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  Pas encore consultés
-                </span>
-                <span className="font-semibold">{sentAwaiting}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">En cours</span>
-                <span className="font-semibold">{sentInProgress}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Traités</span>
-                <span className="font-semibold text-emerald-600">
-                  {sentDone}
-                </span>
-              </div>
-              {recentSent.slice(0, 3).map((document) => (
+        <Card className="border-border shadow-none">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+              <Send className="size-4 text-muted-foreground" />
+              Derniers envoyés
+            </CardTitle>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => onNavigate("sent")}
+            >
+              Tout voir
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-1 pt-0">
+            {recentSent.length === 0 ? (
+              <p className="py-6 text-center text-xs text-muted-foreground">
+                Aucun document envoyé
+              </p>
+            ) : (
+              recentSent.map((doc) => (
                 <button
-                  key={document._id}
+                  key={doc._id}
                   type="button"
-                  onClick={() => onOpen(document._id)}
-                  className="flex w-full items-center justify-between gap-2 rounded-sm border border-border/60 px-3 py-2 text-left text-xs transition-colors hover:border-brand-sky/50"
+                  onClick={() => onOpen(doc._id)}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-2 text-left hover:bg-muted/60"
                 >
-                  <span className="min-w-0 flex-1 truncate font-medium">
-                    {document.fileName}
-                  </span>
-                  <StatusBadge status={document.status} />
+                  <span className="text-lg">{fileIconFor(doc.contentType)}</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">
+                      {doc.objet || doc.fileName}
+                    </p>
+                    <p className="truncate text-[11px] text-muted-foreground">
+                      {formatDateTime(doc._creationTime)}
+                    </p>
+                  </div>
+                  <StatusBadge status={doc.status} />
                 </button>
-              ))}
-              {recentSent.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Aucun envoi pour l'instant.
-                </p>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
+              ))
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {/* 5. Activité (secondaire) */}
+      <ActivityFeed onOpen={onOpen} />
     </div>
   );
 }

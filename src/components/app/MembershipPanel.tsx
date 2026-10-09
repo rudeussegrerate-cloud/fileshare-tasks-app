@@ -19,7 +19,12 @@ import { toast } from "sonner";
  * - Tout membre peut inviter
  * - Seul le chef / DG valide les adhésions
  */
-export function MembershipPanel() {
+export function MembershipPanel({
+  showInviteForm = true,
+}: {
+  /** false sur l'accueil pour rester léger ; true dans Départements */
+  showInviteForm?: boolean;
+}) {
   const me = useQuery(api.workspace.me);
   const pending = useQuery(api.departmentMembership.listPendingRequests, {});
   const myInvites = useQuery(api.departmentMembership.myInvitations);
@@ -43,8 +48,14 @@ export function MembershipPanel() {
 
   if (!me) return null;
 
+  const hasInvites = (myInvites?.length ?? 0) > 0;
+  const hasPending = canValidate && (pending?.length ?? 0) > 0;
+  const showInviteBox =
+    showInviteForm && canInvite && Boolean(me.department?._id);
+  if (!hasInvites && !hasPending && !showInviteBox) return null;
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {(myInvites?.length ?? 0) > 0 ? (
         <Card className="border-border">
           <CardHeader className="pb-2">

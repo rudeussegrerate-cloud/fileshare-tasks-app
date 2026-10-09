@@ -59,7 +59,7 @@ export function OnlinePeople({ compact = false }: { compact?: boolean }) {
           />
         </div>
       </div>
-      <ul className="max-h-56 space-y-0.5 overflow-y-auto px-1.5">
+      <ul className="max-h-40 space-y-0.5 overflow-y-auto px-1.5">
         {filtered.length === 0 ? (
           <li className="px-2 py-2 text-xs text-muted-foreground">
             Aucun résultat.
