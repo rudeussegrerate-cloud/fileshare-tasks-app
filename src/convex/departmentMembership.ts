@@ -1,21 +1,27 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
+import { pushNotification } from "./inAppNotifications";
 
 function isAdminRole(role: Doc<"users">["role"]) {
   return role === "admin" || role === "root";
 }
 
-async function requireUser(ctx: { db: any; auth: any }) {
-  const userId = await getAuthUserId(ctx);
+async function requireUser(ctx: {
+  // QueryCtx ou MutationCtx
+  db: { get: (id: Id<"users">) => Promise<Doc<"users"> | null> };
+  auth: MutationCtx["auth"];
+}) {
+  const userId = await getAuthUserId(ctx as MutationCtx);
   if (!userId) throw new Error("Non authentifié.");
   const user = await ctx.db.get(userId);
   if (!user) throw new Error("Utilisateur introuvable.");
   return user as Doc<"users">;
 }
 
-async function canManageDepartment(
+/** Chef du département ou DG/root */
+function canValidateMembership(
   user: Doc<"users">,
   departmentId: Id<"departments">,
 ) {
@@ -25,18 +31,70 @@ async function canManageDepartment(
   );
 }
 
+/** Membre du département (ou chef / DG) — peut inviter */
+function canInviteToDepartment(
+  user: Doc<"users">,
+  departmentId: Id<"departments">,
+) {
+  if (isAdminRole(user.role)) return true;
+  return user.departmentId === departmentId;
+}
+
+async function notifyDepartmentChefs(
+  ctx: MutationCtx,
+  departmentId: Id<"departments">,
+  title: string,
+  body: string,
+) {
+  const members = await ctx.db
+    .query("users")
+    .withIndex("by_department", (q) => q.eq("departmentId", departmentId))
+    .collect();
+  const chefs = members.filter((m) => m.departmentRole === "chef");
+  // Si aucun chef nommé, notifier les DG
+  if (chefs.length === 0) {
+    const all = await ctx.db.query("users").collect();
+    for (const u of all) {
+      if (isAdminRole(u.role) && u.accountStatus === "valide") {
+        await pushNotification(ctx, {
+          userId: u._id,
+          type: "department.join_request",
+          title,
+          body,
+        });
+      }
+    }
+    return;
+  }
+  for (const chef of chefs) {
+    await pushNotification(ctx, {
+      userId: chef._id,
+      type: "department.join_request",
+      title,
+      body,
+    });
+  }
+}
+
 /** Liste publique des départements (inscription). */
 export const listDepartmentsPublic = query({
   args: {},
   handler: async (ctx) => {
     const deps = await ctx.db.query("departments").collect();
     return deps
-      .map((d) => ({ _id: d._id, name: d.name, description: d.description ?? null }))
+      .map((d) => ({
+        _id: d._id,
+        name: d.name,
+        description: d.description ?? null,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name, "fr"));
   },
 });
 
-/** Demande d'intégration (après inscription ou depuis le profil). */
+/**
+ * Demande d'intégration (inscription ou profil).
+ * Notifie automatiquement le(s) chef(s) du département.
+ */
 export const requestJoin = mutation({
   args: { departmentId: v.id("departments") },
   handler: async (ctx, args) => {
@@ -61,7 +119,6 @@ export const requestJoin = mutation({
     );
     if (pending) return pending._id;
 
-    // Annuler les autres demandes pending
     for (const r of existing) {
       if (r.status === "pending") {
         await ctx.db.patch(r._id, { status: "cancelled" });
@@ -69,16 +126,26 @@ export const requestJoin = mutation({
     }
 
     await ctx.db.patch(user._id, { requestedDepartmentId: args.departmentId });
-    return await ctx.db.insert("departmentJoinRequests", {
+    const requestId = await ctx.db.insert("departmentJoinRequests", {
       userId: user._id,
       departmentId: args.departmentId,
       status: "pending",
       createdAt: Date.now(),
     });
+
+    const who = user.name ?? user.email ?? "Un utilisateur";
+    await notifyDepartmentChefs(
+      ctx,
+      args.departmentId,
+      "Demande d'adhésion",
+      `${who} souhaite rejoindre le département « ${dept.name} ». Validez ou refusez dans Départements.`,
+    );
+
+    return requestId;
   },
 });
 
-/** Chef / DG : liste des demandes en attente pour un département (ou tous si DG). */
+/** Chef / DG : demandes en attente */
 export const listPendingRequests = query({
   args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, args) => {
@@ -136,7 +203,7 @@ export const listPendingRequests = query({
   },
 });
 
-/** Chef / DG accepte ou refuse une demande. */
+/** Chef / DG accepte ou refuse une demande d'adhésion. */
 export const reviewRequest = mutation({
   args: {
     requestId: v.id("departmentJoinRequests"),
@@ -148,12 +215,13 @@ export const reviewRequest = mutation({
     if (!request || request.status !== "pending") {
       throw new Error("Demande introuvable ou déjà traitée.");
     }
-    if (!(await canManageDepartment(reviewer, request.departmentId))) {
-      throw new Error("Seul le chef du département ou le DG peut décider.");
+    if (!canValidateMembership(reviewer, request.departmentId)) {
+      throw new Error("Seul le chef du département ou le DG peut valider l'adhésion.");
     }
 
     const person = await ctx.db.get(request.userId);
     if (!person) throw new Error("Utilisateur introuvable.");
+    const dept = await ctx.db.get(request.departmentId);
 
     await ctx.db.patch(request._id, {
       status: args.accept ? "accepted" : "rejected",
@@ -165,10 +233,15 @@ export const reviewRequest = mutation({
       if (person.requestedDepartmentId === request.departmentId) {
         await ctx.db.patch(person._id, { requestedDepartmentId: undefined });
       }
+      await pushNotification(ctx, {
+        userId: person._id,
+        type: "department.join_rejected",
+        title: "Demande refusée",
+        body: `Votre demande pour rejoindre « ${dept?.name ?? "le département"} » a été refusée.`,
+      });
       return null;
     }
 
-    // Acceptation : rattacher si le compte est validé (sinon on conserve la demande acceptée + requested)
     if (person.accountStatus === "valide") {
       if (person.departmentId && person.departmentId !== request.departmentId) {
         throw new Error("Cette personne est déjà dans un autre département.");
@@ -178,16 +251,31 @@ export const reviewRequest = mutation({
         departmentRole: "membre",
         requestedDepartmentId: undefined,
       });
+      await pushNotification(ctx, {
+        userId: person._id,
+        type: "department.join_accepted",
+        title: "Adhésion acceptée",
+        body: `Vous avez rejoint le département « ${dept?.name ?? ""} ».`,
+      });
     } else {
       await ctx.db.patch(person._id, {
         requestedDepartmentId: request.departmentId,
+      });
+      await pushNotification(ctx, {
+        userId: person._id,
+        type: "department.join_accepted",
+        title: "Adhésion pré-acceptée",
+        body: `Le chef a accepté votre demande pour « ${dept?.name ?? ""} ». L'accès complet suivra la validation du compte par le DG.`,
       });
     }
     return null;
   },
 });
 
-/** Chef invite un utilisateur par email. */
+/**
+ * N'importe quel membre du département peut inviter quelqu'un.
+ * L'adhésion reste soumise à la validation du chef.
+ */
 export const inviteByEmail = mutation({
   args: {
     departmentId: v.id("departments"),
@@ -195,16 +283,23 @@ export const inviteByEmail = mutation({
   },
   handler: async (ctx, args) => {
     const inviter = await requireUser(ctx);
-    if (!(await canManageDepartment(inviter, args.departmentId))) {
-      throw new Error("Seul le chef ou le DG peut inviter.");
+    if (!canInviteToDepartment(inviter, args.departmentId)) {
+      throw new Error(
+        "Vous devez appartenir à ce département pour inviter quelqu'un.",
+      );
     }
+    if (inviter.accountStatus !== "valide" && !isAdminRole(inviter.role)) {
+      throw new Error("Votre compte doit être validé pour inviter.");
+    }
+
     const email = args.email.trim().toLowerCase();
-    if (!email.includes("@")) throw new Error("Adresse email invalide.");
+    if (!email.includes("@") || email.length < 5) {
+      throw new Error("Adresse email invalide.");
+    }
 
     const dept = await ctx.db.get(args.departmentId);
     if (!dept) throw new Error("Département introuvable.");
 
-    // Utilisateur existant ?
     const existingUser = await ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", email))
@@ -226,7 +321,7 @@ export const inviteByEmail = mutation({
       throw new Error("Une invitation est déjà en attente pour cet email.");
     }
 
-    return await ctx.db.insert("departmentInvitations", {
+    const invitationId = await ctx.db.insert("departmentInvitations", {
       departmentId: args.departmentId,
       inviteeEmail: email,
       inviteeUserId: existingUser?._id,
@@ -234,10 +329,21 @@ export const inviteByEmail = mutation({
       status: "pending",
       createdAt: Date.now(),
     });
+
+    if (existingUser) {
+      const inviterName = inviter.name ?? inviter.email ?? "Un collègue";
+      await pushNotification(ctx, {
+        userId: existingUser._id,
+        type: "department.invitation",
+        title: "Invitation à un département",
+        body: `${inviterName} vous invite à rejoindre « ${dept.name} ». Acceptez dans votre tableau de bord — le chef validera ensuite.`,
+      });
+    }
+
+    return invitationId;
   },
 });
 
-/** Invitations reçues par l'utilisateur connecté. */
 export const myInvitations = query({
   args: {},
   handler: async (ctx) => {
@@ -259,7 +365,7 @@ export const myInvitations = query({
         _id: inv._id,
         departmentId: inv.departmentId,
         departmentName: dept?.name ?? "Département",
-        invitedByName: inviter?.name ?? inviter?.email ?? "Chef",
+        invitedByName: inviter?.name ?? inviter?.email ?? "Collègue",
         createdAt: inv.createdAt,
       });
     }
@@ -267,7 +373,9 @@ export const myInvitations = query({
   },
 });
 
-/** Accepter ou refuser une invitation. */
+/**
+ * L'invité accepte → crée une demande d'adhésion pour le chef (pas d'entrée directe).
+ */
 export const respondInvitation = mutation({
   args: {
     invitationId: v.id("departmentInvitations"),
@@ -298,61 +406,142 @@ export const respondInvitation = mutation({
       );
     }
 
-    if (user.accountStatus !== "valide") {
-      // Garde la demande : rattachement dès validation DG
-      await ctx.db.patch(user._id, {
-        requestedDepartmentId: inv.departmentId,
+    // Déjà membre
+    if (user.departmentId === inv.departmentId) return null;
+
+    const dept = await ctx.db.get(inv.departmentId);
+
+    // Créer (ou réutiliser) une demande pending pour le chef
+    const existing = await ctx.db
+      .query("departmentJoinRequests")
+      .withIndex("by_user", (q) => q.eq("userId", user._id))
+      .collect();
+    const alreadyPending = existing.find(
+      (r) => r.status === "pending" && r.departmentId === inv.departmentId,
+    );
+    if (!alreadyPending) {
+      for (const r of existing) {
+        if (r.status === "pending") {
+          await ctx.db.patch(r._id, { status: "cancelled" });
+        }
+      }
+      await ctx.db.insert("departmentJoinRequests", {
+        userId: user._id,
+        departmentId: inv.departmentId,
+        status: "pending",
+        createdAt: Date.now(),
       });
-      return null;
     }
 
     await ctx.db.patch(user._id, {
-      departmentId: inv.departmentId,
-      departmentRole: "membre",
-      requestedDepartmentId: undefined,
+      requestedDepartmentId: inv.departmentId,
     });
+
+    const who = user.name ?? user.email ?? "Un utilisateur";
+    await notifyDepartmentChefs(
+      ctx,
+      inv.departmentId,
+      "Demande d'adhésion (invitation)",
+      `${who} a accepté une invitation pour « ${dept?.name ?? "le département"} ». Validez ou refusez l'adhésion.`,
+    );
+
     return null;
   },
 });
 
-/** Invitations envoyées pour un département (chef). */
+/** Invitations en cours du département (membres voient les leurs ; chef voit tout). */
 export const listSentInvitations = query({
   args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    let depId = args.departmentId;
-    if (!depId && user.departmentRole === "chef") {
-      depId = user.departmentId;
-    }
+    let depId = args.departmentId ?? user.departmentId;
     if (!depId) return [];
-    if (!(await canManageDepartment(user, depId))) return [];
+    if (!canInviteToDepartment(user, depId)) return [];
 
     const rows = await ctx.db
       .query("departmentInvitations")
       .withIndex("by_department", (q) => q.eq("departmentId", depId!))
       .collect();
+
+    const isChef = canValidateMembership(user, depId);
     return rows
       .filter((r) => r.status === "pending")
+      .filter((r) => isChef || r.invitedBy === user._id)
       .map((r) => ({
         _id: r._id,
         email: r.inviteeEmail,
         createdAt: r.createdAt,
+        invitedByMe: r.invitedBy === user._id,
       }))
       .sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
-/** Annuler une invitation. */
 export const cancelInvitation = mutation({
   args: { invitationId: v.id("departmentInvitations") },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
     const inv = await ctx.db.get(args.invitationId);
     if (!inv || inv.status !== "pending") return null;
-    if (!(await canManageDepartment(user, inv.departmentId))) {
-      throw new Error("Non autorisé.");
-    }
-    await ctx.db.patch(inv._id, { status: "cancelled", respondedAt: Date.now() });
+    const allowed =
+      inv.invitedBy === user._id ||
+      canValidateMembership(user, inv.departmentId);
+    if (!allowed) throw new Error("Non autorisé.");
+    await ctx.db.patch(inv._id, {
+      status: "cancelled",
+      respondedAt: Date.now(),
+    });
     return null;
+  },
+});
+
+/**
+ * Fil d'activité du département (style Facebook adapté au travail).
+ */
+export const departmentActivity = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const me = await ctx.db.get(userId);
+    if (!me || me.accountStatus !== "valide") return [];
+
+    const limit = Math.min(args.limit ?? 20, 40);
+    const docs = await ctx.db.query("documents").order("desc").take(80);
+    const events: Array<{
+      id: string;
+      kind: "document";
+      title: string;
+      body: string;
+      createdAt: number;
+      documentId?: Id<"documents">;
+    }> = [];
+
+    for (const d of docs) {
+      // Visibles si expéditeur/destinataire dans mon département, ou moi, ou admin
+      const sender = await ctx.db.get(d.senderId);
+      const recipient = await ctx.db.get(d.recipientId);
+      const sameDept =
+        me.departmentId &&
+        (sender?.departmentId === me.departmentId ||
+          recipient?.departmentId === me.departmentId);
+      const involved =
+        d.senderId === userId || d.recipientId === userId || isAdminRole(me.role);
+      if (!sameDept && !involved) continue;
+
+      events.push({
+        id: `doc-${d._id}`,
+        kind: "document",
+        title: d.objet || d.fileName,
+        body: `${d.senderName} → ${recipient?.name ?? "destinataire"} · ${
+          Array.isArray(d.tasks) ? d.tasks.slice(0, 2).join(", ") : d.task ?? ""
+        }`,
+        createdAt: d._creationTime,
+        documentId: d._id,
+      });
+      if (events.length >= limit) break;
+    }
+
+    return events;
   },
 });

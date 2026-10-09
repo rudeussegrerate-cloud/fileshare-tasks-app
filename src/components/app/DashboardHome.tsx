@@ -1,3 +1,4 @@
+import { ActivityFeed } from "./ActivityFeed";
 import { MembershipPanel } from "./MembershipPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,8 +46,6 @@ export function DashboardHome({
   if (!me || !stats || !inbox || !sent) {
     return (
       <div className="flex items-center justify-center py-20">
-      <MembershipPanel />
-
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
       </div>
     );
@@ -91,6 +90,10 @@ export function DashboardHome({
 
   return (
     <div className="space-y-6">
+      <MembershipPanel />
+
+      <ActivityFeed onOpen={onOpen} />
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold tracking-tight">

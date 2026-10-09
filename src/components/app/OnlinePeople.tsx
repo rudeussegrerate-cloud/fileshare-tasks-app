@@ -1,15 +1,29 @@
+import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
-import { Users } from "lucide-react";
+import { Search, Users } from "lucide-react";
+import { useMemo, useState } from "react";
 import { PresenceDot } from "./PresenceDot";
 import { initialsOf } from "./shared";
 
-/**
- * Liste des personnes (type Facebook) : en ligne en premier.
- */
+/** Annuaire de présence type Facebook, avec recherche. */
 export function OnlinePeople({ compact = false }: { compact?: boolean }) {
   const directory = useQuery(api.presence.onlineDirectory);
+  const [q, setQ] = useState("");
+
+  const filtered = useMemo(() => {
+    if (!directory) return [];
+    const needle = q.trim().toLowerCase();
+    if (!needle) return directory;
+    return directory.filter(
+      (p) =>
+        p.name.toLowerCase().includes(needle) ||
+        (p.email ?? "").toLowerCase().includes(needle) ||
+        (p.departmentName ?? "").toLowerCase().includes(needle) ||
+        (p.fonction ?? "").toLowerCase().includes(needle),
+    );
+  }, [directory, q]);
 
   if (directory === undefined) {
     return (
@@ -34,13 +48,24 @@ export function OnlinePeople({ compact = false }: { compact?: boolean }) {
           </span>
         ) : null}
       </div>
+      <div className="px-2">
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 size-3 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Rechercher…"
+            className="h-8 pl-7 text-xs"
+          />
+        </div>
+      </div>
       <ul className="max-h-56 space-y-0.5 overflow-y-auto px-1.5">
-        {directory.length === 0 ? (
+        {filtered.length === 0 ? (
           <li className="px-2 py-2 text-xs text-muted-foreground">
-            Aucun utilisateur visible pour le moment.
+            Aucun résultat.
           </li>
         ) : (
-          directory.map((person) => (
+          filtered.map((person) => (
             <li
               key={person._id}
               className={cn(

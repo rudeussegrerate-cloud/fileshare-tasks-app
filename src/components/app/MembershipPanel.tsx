@@ -14,7 +14,11 @@ import { Loader2, Mail, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-/** Demandes + invitations pour chefs / membres. */
+/**
+ * Invitations + demandes d'adhésion.
+ * - Tout membre peut inviter
+ * - Seul le chef / DG valide les adhésions
+ */
 export function MembershipPanel() {
   const me = useQuery(api.workspace.me);
   const pending = useQuery(api.departmentMembership.listPendingRequests, {});
@@ -25,27 +29,29 @@ export function MembershipPanel() {
   const cancelInv = useMutation(api.departmentMembership.cancelInvitation);
   const sent = useQuery(
     api.departmentMembership.listSentInvitations,
-    me?.isChef || me?.isAdmin
-      ? { departmentId: me?.department?._id as Id<"departments"> | undefined }
+    me?.department?._id
+      ? { departmentId: me.department._id as Id<"departments"> }
       : "skip",
   );
 
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const canInvite = Boolean(me?.isChef || me?.isAdmin);
+  const isMember = Boolean(me?.department?._id);
+  const canValidate = Boolean(me?.isChef || me?.isAdmin || me?.isRoot);
+  const canInvite = isMember || Boolean(me?.isAdmin || me?.isRoot);
 
   if (!me) return null;
 
   return (
     <div className="space-y-4">
-      {/* Invitations reçues */}
       {(myInvites?.length ?? 0) > 0 ? (
         <Card className="border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Invitations reçues</CardTitle>
             <CardDescription>
-              Un chef vous invite à rejoindre son département.
+              Acceptez pour demander l&apos;adhésion — le chef du département
+              validera ensuite.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -66,7 +72,9 @@ export function MembershipPanel() {
                     onClick={async () => {
                       try {
                         await respond({ invitationId: inv._id, accept: true });
-                        toast.success("Invitation acceptée");
+                        toast.success(
+                          "Invitation acceptée — en attente du chef",
+                        );
                       } catch (e) {
                         toast.error(
                           e instanceof Error ? e.message : "Erreur",
@@ -81,7 +89,10 @@ export function MembershipPanel() {
                     variant="outline"
                     onClick={async () => {
                       try {
-                        await respond({ invitationId: inv._id, accept: false });
+                        await respond({
+                          invitationId: inv._id,
+                          accept: false,
+                        });
                         toast.message("Invitation refusée");
                       } catch (e) {
                         toast.error(
@@ -99,17 +110,16 @@ export function MembershipPanel() {
         </Card>
       ) : null}
 
-      {/* Demandes à traiter (chef / DG) */}
-      {canInvite && (pending?.length ?? 0) > 0 ? (
+      {canValidate && (pending?.length ?? 0) > 0 ? (
         <Card className="border-border">
           <CardHeader className="pb-2">
             <CardTitle className="flex items-center gap-2 text-base">
               <UserPlus className="size-4" />
-              Demandes d&apos;intégration
+              Demandes d&apos;adhésion
             </CardTitle>
             <CardDescription>
-              Acceptez ou refusez les personnes qui souhaitent rejoindre votre
-              département.
+              Validez ou refusez les personnes qui souhaitent rejoindre le
+              département (inscription ou invitation).
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -136,7 +146,7 @@ export function MembershipPanel() {
                     onClick={async () => {
                       try {
                         await review({ requestId: r._id, accept: true });
-                        toast.success("Demande acceptée");
+                        toast.success("Adhésion acceptée");
                       } catch (e) {
                         toast.error(
                           e instanceof Error ? e.message : "Erreur",
@@ -169,7 +179,6 @@ export function MembershipPanel() {
         </Card>
       ) : null}
 
-      {/* Inviter par email */}
       {canInvite && me.department?._id ? (
         <Card className="border-border">
           <CardHeader className="pb-2">
@@ -178,7 +187,7 @@ export function MembershipPanel() {
               Inviter dans {me.department.name}
             </CardTitle>
             <CardDescription>
-              Envoyez une invitation à un utilisateur ScanDoc (par email).
+              Tout membre peut inviter. Le chef validera l&apos;adhésion.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -224,7 +233,10 @@ export function MembershipPanel() {
                     key={s._id}
                     className="flex items-center justify-between gap-2"
                   >
-                    <span>{s.email} · en attente</span>
+                    <span>
+                      {s.email} · en attente
+                      {s.invitedByMe ? " (vous)" : ""}
+                    </span>
                     <Button
                       type="button"
                       variant="ghost"
