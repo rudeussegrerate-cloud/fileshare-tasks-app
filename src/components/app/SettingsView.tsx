@@ -19,6 +19,11 @@ import {
   Bell,
   Building2,
   ChevronRight,
+  Sparkles,
+  Lock,
+  Info,
+  Download,
+  Clock,
   Crown,
   FileText,
   HelpCircle,
@@ -129,9 +134,11 @@ export function SettingsView({
       <div>
         <h2 className="text-lg font-semibold tracking-tight">Paramètres</h2>
         <p className="text-sm text-muted-foreground">
-          Gérez votre compte, vos préférences et les options selon vos droits.
+          Compte, sécurité, préférences et administration — selon votre rôle.
         </p>
       </div>
+
+      <SectionHeading title="Mon compte" description="Identité et informations professionnelles" />
 
       {/* —— Profil —— */}
       <Card className="border-border">
@@ -231,12 +238,17 @@ export function SettingsView({
         </CardContent>
       </Card>
 
+      <SectionHeading
+        title="Préférences"
+        description="Affichage et notifications sur cet appareil"
+      />
+
       {/* —— Préférences —— */}
       <Card className="border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Settings2 className="size-4" />
-            Préférences d&apos;affichage
+            Affichage
           </CardTitle>
           <CardDescription>
             Réglages enregistrés sur cet appareil.
@@ -338,6 +350,46 @@ export function SettingsView({
         </CardContent>
       </Card>
 
+
+      <SectionHeading
+        title="Espace de travail"
+        description="Accès rapide aux fonctions quotidiennes"
+      />
+      <Card className="border-border">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="size-4" />
+            Raccourcis
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <ActionRow
+            icon={Upload}
+            title="Nouveau document"
+            description="Envoyer un fichier à un collègue"
+            onClick={() => go("send")}
+          />
+          <ActionRow
+            icon={Inbox}
+            title="Documents reçus"
+            description="Consulter et traiter vos réceptions"
+            onClick={() => go("inbox")}
+          />
+          <ActionRow
+            icon={Send}
+            title="Documents envoyés"
+            description="Suivre l'état de vos envois"
+            onClick={() => go("sent")}
+          />
+          <ActionRow
+            icon={Building2}
+            title="Départements"
+            description="Organisation et membres"
+            onClick={() => go("departments")}
+          />
+        </CardContent>
+      </Card>
+
       {/* —— Département (si rattaché ou chef) —— */}
       {(me.department || me.isChef) && (
         <Card className="border-border">
@@ -413,12 +465,23 @@ export function SettingsView({
               description="Créer les départements et désigner les chefs"
               onClick={() => go("departments")}
             />
+            <ActionRow
+              icon={FileText}
+              title="Documents de l'organisation"
+              description="Vue d'ensemble via le tableau de bord et les listes"
+              onClick={() => go("home")}
+            />
             {stats ? (
-              <p className="pt-1 text-xs text-muted-foreground">
-                Organisation : {stats.departments} département
-                {stats.departments > 1 ? "s" : ""}
-              </p>
+              <div className="grid grid-cols-3 gap-2 pt-2">
+                <Stat label="Départements" value={stats.departments} />
+                <Stat label="Reçus (vous)" value={stats.received} />
+                <Stat label="Envoyés (vous)" value={stats.sent} />
+              </div>
             ) : null}
+            <p className="pt-1 text-xs text-muted-foreground">
+              Journal d&apos;audit : section ci-dessous. Export CSV disponible
+              dans les listes de documents.
+            </p>
           </CardContent>
         </Card>
       )}
@@ -451,6 +514,40 @@ export function SettingsView({
         </Card>
       )}
 
+      <SectionHeading
+        title="Informations"
+        description="Aide, version et confidentialité"
+      />
+
+      <Card className="border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Info className="size-4" />
+            À propos de ScanDoc
+          </CardTitle>
+          <CardDescription>
+            Plateforme professionnelle d&apos;échange de documents entre
+            départements.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <p>
+            <strong className="text-foreground">Version :</strong> 2.1 —
+            octobre 2026
+          </p>
+          <p>
+            <strong className="text-foreground">Confidentialité :</strong> les
+            documents et données de compte sont réservés au personnel autorisé.
+            Ne partagez pas vos identifiants.
+          </p>
+          <p>
+            <strong className="text-foreground">Support :</strong> contactez le
+            DG ou le service informatique de votre organisation en cas de
+            problème d&apos;accès.
+          </p>
+        </CardContent>
+      </Card>
+
       {/* —— Aide —— */}
       <Card className="border-border">
         <CardHeader>
@@ -462,18 +559,23 @@ export function SettingsView({
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>
             <strong className="text-foreground">Envoyer un document :</strong>{" "}
-            choisissez le fichier, le destinataire, l&apos;objet, la personne
-            « de la part de », puis les tâches.
+            fichier, destinataire, objet, « de la part de », tâches à cocher.
           </p>
           <p>
             <strong className="text-foreground">Statuts :</strong> Envoyé →
-            Consulté → En cours → Traité. Le destinataire met à jour le statut.
+            Consulté → En cours → Traité.
+          </p>
+          <p>
+            <strong className="text-foreground">Département :</strong> à
+            l&apos;inscription vous pouvez demander un département ; le chef
+            valide. Tout membre peut inviter un collègue ; seul le chef
+            confirme l&apos;adhésion.
           </p>
           {(me.isChef || me.isAdmin) && (
             <p>
-              <strong className="text-foreground">Chefs / DG :</strong> un chef
-              envoie dans son département ; le DG peut envoyer partout et
-              valider les comptes.
+              <strong className="text-foreground">Chefs / DG :</strong> valider
+              les adhésions, gérer les membres ; le DG valide aussi les
+              comptes.
             </p>
           )}
         </CardContent>
@@ -522,12 +624,17 @@ export function SettingsView({
         </Card>
       )}
 
+      <SectionHeading
+        title="Sécurité"
+        description="Mot de passe, session et confidentialité"
+      />
+
       {/* —— Compte & sécurité —— */}
       <Card className="border-border">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <KeyRound className="size-4" />
-            Compte & sécurité
+            Mot de passe & session
           </CardTitle>
           <CardDescription>
             Email de connexion :{" "}
@@ -678,6 +785,17 @@ export function SettingsView({
             )}
           </div>
 
+          <div className="rounded-sm border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <p className="flex items-center gap-1.5 font-medium text-foreground">
+              <Clock className="size-3.5" />
+              Déconnexion automatique
+            </p>
+            <p className="mt-1">
+              Après 30 minutes sans activité, la session est fermée pour
+              protéger vos documents.
+            </p>
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
             <p className="text-xs text-muted-foreground">
               Session active · {me.user.email ?? "compte"}
@@ -696,6 +814,20 @@ export function SettingsView({
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+
+function SectionHeading({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className="pt-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </h3>
+      {description ? (
+        <p className="mt-0.5 text-xs text-muted-foreground/80">{description}</p>
+      ) : null}
     </div>
   );
 }
