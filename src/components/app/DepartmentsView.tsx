@@ -35,6 +35,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import {
+  ArrowLeft,
   Building2,
   Crown,
   Info,
@@ -43,6 +44,7 @@ import {
   Trash2,
   UserPlus,
   UserRound,
+  Users,
   X,
 } from "lucide-react";
 import { useState } from "react";
@@ -222,7 +224,7 @@ function CreateSubDepartmentDialog({
 
   const submit = async () => {
     if (!parent || !name.trim()) {
-      toast.error("Le nom du sous-département est obligatoire.");
+      toast.error("Le nom du groupe est obligatoire.");
       return;
     }
     setSaving(true);
@@ -232,7 +234,7 @@ function CreateSubDepartmentDialog({
         name: name.trim(),
         description: description.trim() || undefined,
       });
-      toast.success("Sous-département créé.");
+      toast.success("Groupe créé.");
       setName("");
       setDescription("");
       onOpenChange(false);
@@ -249,9 +251,9 @@ function CreateSubDepartmentDialog({
     <Dialog open={parent !== null} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Sous-département</DialogTitle>
+          <DialogTitle>Groupe</DialogTitle>
           <DialogDescription>
-            Créer un sous-département dans « {parent?.name} ».
+            Créer un groupe dans « {parent?.name} ».
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -420,6 +422,8 @@ export function DepartmentsView() {
   const [pendingDelete, setPendingDelete] = useState<Id<"departments"> | null>(
     null,
   );
+  /** Drill-down : département ouvert (style groupes) */
+  const [openDeptId, setOpenDeptId] = useState<Id<"departments"> | null>(null);
 
   const handleRemove = async (userId: Id<"users">) => {
     try {
@@ -485,43 +489,55 @@ export function DepartmentsView() {
             ) : undefined
           }
         />
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {departments.map((department) => {
-            const canManage =
-              me.isAdmin ||
-              (me.isChef && me.department?._id === department._id);
-
+      ) : openDeptId ? (
+        (() => {
+          const department = departments.find((d) => d._id === openDeptId);
+          if (!department) {
             return (
-              <Card key={department._id} className="border-border/80 shadow-none">
+              <Button variant="outline" onClick={() => setOpenDeptId(null)}>
+                Retour
+              </Button>
+            );
+          }
+          const children = departments.filter(
+            (d) => d.parentId === department._id,
+          );
+          const isParentChef =
+            me.isChef && me.department?._id === department._id;
+          const canManage =
+            me.isAdmin ||
+            isParentChef ||
+            (me.isChef && me.department?._id === department._id);
+
+          return (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1.5"
+                  onClick={() => setOpenDeptId(null)}
+                >
+                  <ArrowLeft className="size-4" />
+                  Tous les départements
+                </Button>
+              </div>
+
+              <Card className="border-border">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <CardTitle className="flex items-center gap-2 text-base">
                         <Building2 className="size-4 text-brand" />
                         <span className="truncate">{department.name}</span>
-                        {department.isSubDepartment ? (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] font-normal"
-                          >
-                            Sous-dép.
-                          </Badge>
-                        ) : null}
                       </CardTitle>
                       {department.description ? (
                         <p className="mt-1 text-xs text-muted-foreground">
                           {department.description}
                         </p>
                       ) : null}
-                      {department.childCount > 0 ? (
-                        <p className="mt-1 text-[11px] text-muted-foreground">
-                          {department.childCount} sous-département
-                          {department.childCount > 1 ? "s" : ""}
-                        </p>
-                      ) : null}
                     </div>
-                    <Badge variant="outline" className="shrink-0 border-border text-[10px]">
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
                       {department.members.length} membre
                       {department.members.length > 1 ? "s" : ""}
                     </Badge>
@@ -529,10 +545,13 @@ export function DepartmentsView() {
 
                   {!department.chief ? (
                     <p className="mt-2 text-xs text-amber-700">
-                      Aucun chef désigné : personne ne peut encore ajouter de
-                      membres à ce département.
+                      Aucun chef désigné.
                     </p>
-                  ) : null}
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Chef : {department.chief.name}
+                    </p>
+                  )}
 
                   {canManage ? (
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -568,27 +587,11 @@ export function DepartmentsView() {
                         <UserPlus className="size-3.5" />
                         Ajouter un membre
                       </Button>
-                      {!department.isSubDepartment ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1.5"
-                          onClick={() =>
-                            setSubParent({
-                              id: department._id,
-                              name: department.name,
-                            })
-                          }
-                        >
-                          <Plus className="size-3.5" />
-                          Sous-département
-                        </Button>
-                      ) : null}
                       {me.isAdmin ? (
                         <Button
                           size="sm"
                           variant="ghost"
-                          className="gap-1.5 text-destructive hover:text-destructive"
+                          className="gap-1.5 text-destructive"
                           onClick={() => setPendingDelete(department._id)}
                         >
                           <Trash2 className="size-3.5" />
@@ -600,9 +603,12 @@ export function DepartmentsView() {
                 </CardHeader>
 
                 <CardContent className="space-y-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    Membres
+                  </p>
                   {department.members.length === 0 ? (
                     <p className="rounded-lg border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
-                      Aucun membre pour l'instant.
+                      Aucun membre pour l&apos;instant.
                     </p>
                   ) : (
                     <ul className="space-y-1.5">
@@ -625,21 +631,18 @@ export function DepartmentsView() {
                           {member.departmentRole === "chef" ? (
                             <Badge
                               variant="outline"
-                              className="gap-1 border-amber-200 bg-amber-50 text-[10px] text-amber-700"
+                              className="border-amber-200 bg-amber-50 text-[10px] text-amber-700"
                             >
-                              <Crown className="size-3" />
                               Chef
                             </Badge>
                           ) : null}
                           {canManage &&
-                          member._id !== me.user._id &&
                           !(member.departmentRole === "chef" && !me.isAdmin) ? (
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="size-7 text-muted-foreground hover:text-destructive"
+                              className="size-8 text-muted-foreground hover:text-destructive"
                               onClick={() => void handleRemove(member._id)}
-                              title="Retirer du département"
                             >
                               <X className="size-3.5" />
                             </Button>
@@ -650,25 +653,185 @@ export function DepartmentsView() {
                   )}
                 </CardContent>
               </Card>
-            );
-          })}
+
+              {/* Groupes / groupes rattachés (style Facebook groups) */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-sm font-semibold">Groupes</h3>
+                    <p className="text-xs text-muted-foreground">
+                      Sous-groupes rattachés à « {department.name} »
+                    </p>
+                  </div>
+                  {canManage ? (
+                    <Button
+                      size="sm"
+                      className="gap-1.5"
+                      onClick={() =>
+                        setSubParent({
+                          id: department._id,
+                          name: department.name,
+                        })
+                      }
+                    >
+                      <Plus className="size-3.5" />
+                      Créer un groupe
+                    </Button>
+                  ) : null}
+                </div>
+
+                {children.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
+                    Aucun groupe pour le moment.
+                    {canManage
+                      ? " Créez un groupe pour organiser des équipes à l'intérieur de ce département."
+                      : ""}
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {children.map((sub) => {
+                      const canManageSub =
+                        me.isAdmin ||
+                        isParentChef ||
+                        (me.isChef && me.department?._id === sub._id);
+                      return (
+                        <Card
+                          key={sub._id}
+                          className="border-border bg-secondary/30"
+                        >
+                          <CardHeader className="pb-2">
+                            <CardTitle className="flex items-center gap-2 text-sm">
+                              <Users className="size-3.5 text-brand" />
+                              <span className="truncate">{sub.name}</span>
+                            </CardTitle>
+                            {sub.description ? (
+                              <p className="text-xs text-muted-foreground">
+                                {sub.description}
+                              </p>
+                            ) : null}
+                            <p className="text-[11px] text-muted-foreground">
+                              {sub.members.length} membre
+                              {sub.members.length > 1 ? "s" : ""}
+                              {sub.chief ? ` · Chef : ${sub.chief.name}` : ""}
+                            </p>
+                          </CardHeader>
+                          <CardContent className="space-y-2">
+                            {canManageSub ? (
+                              <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 gap-1 text-xs"
+                                  onClick={() =>
+                                    setPersonDialog({
+                                      mode: "member",
+                                      departmentId: sub._id,
+                                      departmentName: sub.name,
+                                    })
+                                  }
+                                >
+                                  <UserPlus className="size-3" />
+                                  Membre
+                                </Button>
+                                {me.isAdmin ? (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 gap-1 text-xs"
+                                    onClick={() =>
+                                      setPersonDialog({
+                                        mode: "chief",
+                                        departmentId: sub._id,
+                                        departmentName: sub.name,
+                                      })
+                                    }
+                                  >
+                                    <Crown className="size-3" />
+                                    Chef
+                                  </Button>
+                                ) : null}
+                              </div>
+                            ) : null}
+                            {sub.members.length > 0 ? (
+                              <ul className="space-y-1">
+                                {sub.members.slice(0, 5).map((m) => (
+                                  <li
+                                    key={m._id}
+                                    className="flex items-center gap-2 text-xs"
+                                  >
+                                    <span className="flex size-6 items-center justify-center rounded-full bg-brand-soft text-[9px] font-semibold text-brand">
+                                      {initialsOf(m.name)}
+                                    </span>
+                                    <span className="truncate">{m.name}</span>
+                                  </li>
+                                ))}
+                                {sub.members.length > 5 ? (
+                                  <li className="text-[11px] text-muted-foreground">
+                                    +{sub.members.length - 5} autres
+                                  </li>
+                                ) : null}
+                              </ul>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground">
+                                Aucun membre
+                              </p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()
+      ) : (
+        <div className="grid gap-4 lg:grid-cols-2">
+          {departments
+            .filter((d) => !d.parentId)
+            .map((department) => {
+              const childCount = departments.filter(
+                (d) => d.parentId === department._id,
+              ).length;
+              return (
+                <button
+                  key={department._id}
+                  type="button"
+                  onClick={() => setOpenDeptId(department._id)}
+                  className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-brand/40 hover:bg-secondary/40"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-2 text-base font-semibold">
+                        <Building2 className="size-4 shrink-0 text-brand" />
+                        <span className="truncate">{department.name}</span>
+                      </p>
+                      {department.description ? (
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                          {department.description}
+                        </p>
+                      ) : null}
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        {department.members.length} membre
+                        {department.members.length > 1 ? "s" : ""}
+                        {department.chief
+                          ? ` · Chef : ${department.chief.name}`
+                          : " · Pas de chef"}
+                        {childCount > 0
+                          ? ` · ${childCount} groupe${childCount > 1 ? "s" : ""}`
+                          : ""}
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                      Ouvrir
+                    </Badge>
+                  </div>
+                </button>
+              );
+            })}
         </div>
       )}
-
-      {me.isChef && !me.isAdmin && me.department ? (
-        <div className="flex items-start gap-2 rounded-lg border border-brand-sky/25 bg-brand-soft/60 px-4 py-3 text-xs text-muted-foreground">
-          <UserRound className="mt-0.5 size-4 shrink-0 text-brand-sky" />
-          <p>
-            En tant que chef du département{" "}
-            <span className="font-medium text-foreground">
-              {me.department.name}
-            </span>
-            , vous pouvez rattacher des personnes qui ont déjà un compte. La
-            création des départements et la nomination des chefs restent
-            réservées au DG.
-          </p>
-        </div>
-      ) : null}
 
       <CreateDepartmentDialog open={creating} onOpenChange={setCreating} />
       <CreateSubDepartmentDialog

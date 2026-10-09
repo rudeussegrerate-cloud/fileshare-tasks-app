@@ -446,6 +446,10 @@ export function SendDocument({
                           {department.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
+                          {(department as { parentName?: string | null })
+                            .parentName
+                            ? `Groupe de ${(department as { parentName?: string | null }).parentName} · `
+                            : ""}
                           {department.members.length} membre
                           {department.members.length > 1 ? "s" : ""}
                           {department.chief

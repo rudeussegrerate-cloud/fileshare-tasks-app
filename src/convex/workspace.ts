@@ -323,12 +323,16 @@ export const listDepartments = query({
           (d) => d.parentId === department._id,
         );
 
+        const parent = department.parentId
+          ? departments.find((d) => d._id === department.parentId)
+          : null;
         return {
           _id: department._id,
           name: department.name,
           description: department.description ?? null,
           createdAt: department.createdAt,
           parentId: department.parentId ?? null,
+          parentName: parent?.name ?? null,
           isSubDepartment: Boolean(department.parentId),
           childCount: children.length,
           chief: members.find((m) => m.departmentRole === "chef") ?? null,
