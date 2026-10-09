@@ -1,3 +1,4 @@
+import { MembershipPanel } from "./MembershipPanel";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -377,6 +378,8 @@ export function DepartmentsView() {
           </Button>
         ) : null}
       </div>
+
+      <MembershipPanel />
 
       {departments.length === 0 ? (
         <EmptyState

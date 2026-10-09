@@ -34,6 +34,7 @@ import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
 import { NotificationsBell } from "./NotificationsBell";
+import { OnlinePeople } from "./OnlinePeople";
 import { PresenceDot } from "./PresenceDot";
 import { initialsOf } from "./shared";
 
@@ -205,6 +206,9 @@ export function AppShell({
               isAdmin={Boolean(me?.isAdmin)}
               pendingAccounts={me?.pendingAccounts ?? 0}
             />
+            <div className="mt-6 border-t border-border pt-3">
+              <OnlinePeople />
+            </div>
           </div>
           <div className="rounded-sm border border-border bg-brand-soft/50 p-3">
             <p className="text-xs font-medium text-foreground">
@@ -243,6 +247,9 @@ export function AppShell({
                       isAdmin={Boolean(me?.isAdmin)}
                       pendingAccounts={me?.pendingAccounts ?? 0}
                     />
+                    <div className="mt-6 border-t border-border pt-3">
+                      <OnlinePeople />
+                    </div>
                   </div>
                 </SheetContent>
               </Sheet>

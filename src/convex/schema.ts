@@ -87,6 +87,8 @@ const schema = defineSchema(
       createdAt: v.optional(v.number()),
       // Présence : dernière activité (heartbeat client)
       lastSeenAt: v.optional(v.number()),
+      // Département souhaité à l'inscription (en attendant acceptation chef)
+      requestedDepartmentId: v.optional(v.id("departments")),
     })
       .index("email", ["email"]) // index for the email. do not remove or modify
       .index("by_department", ["departmentId"]),
@@ -144,6 +146,45 @@ const schema = defineSchema(
       .index("by_recipient_status", ["recipientId", "status"])
       .index("by_recipient_archived", ["recipientId", "archivedAt"])
       .index("by_sender_archived", ["senderId", "archivedAt"]),
+
+
+    // Demandes d'intégration dans un département (utilisateur → chef)
+    departmentJoinRequests: defineTable({
+      userId: v.id("users"),
+      departmentId: v.id("departments"),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("accepted"),
+        v.literal("rejected"),
+        v.literal("cancelled"),
+      ),
+      createdAt: v.number(),
+      reviewedBy: v.optional(v.id("users")),
+      reviewedAt: v.optional(v.number()),
+    })
+      .index("by_department", ["departmentId"])
+      .index("by_user", ["userId"])
+      .index("by_status", ["status"]),
+
+    // Invitations chef → utilisateur
+    departmentInvitations: defineTable({
+      departmentId: v.id("departments"),
+      inviteeEmail: v.string(),
+      inviteeUserId: v.optional(v.id("users")),
+      invitedBy: v.id("users"),
+      status: v.union(
+        v.literal("pending"),
+        v.literal("accepted"),
+        v.literal("rejected"),
+        v.literal("cancelled"),
+      ),
+      createdAt: v.number(),
+      respondedAt: v.optional(v.number()),
+    })
+      .index("by_email", ["inviteeEmail"])
+      .index("by_department", ["departmentId"])
+      .index("by_invitee", ["inviteeUserId"])
+      .index("by_status", ["status"]),
 
     // Journal d'audit — traçabilité des actions importantes
     auditLogs: defineTable({

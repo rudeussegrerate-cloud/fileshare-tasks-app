@@ -536,16 +536,33 @@ async function reviewAccount(
     );
   }
 
-  await ctx.db.patch(userId, {
+  const patch: Record<string, unknown> = {
     accountStatus: status,
     reviewedBy: reviewer._id,
     reviewedAt: Date.now(),
-    // A rejected account must not hold a department seat: removing the
-    // validation frees the person so they can be placed elsewhere later.
-    ...(status === "rejete"
-      ? { departmentId: undefined, departmentRole: undefined }
-      : {}),
-  });
+  };
+  if (status === "rejete") {
+    patch.departmentId = undefined;
+    patch.departmentRole = undefined;
+    patch.requestedDepartmentId = undefined;
+  } else if (status === "valide" && target.requestedDepartmentId && !target.departmentId) {
+    // Si le chef a déjà accepté la demande, rattacher maintenant
+    const requests = await ctx.db
+      .query("departmentJoinRequests")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    const accepted = requests.find(
+      (r) =>
+        r.departmentId === target.requestedDepartmentId &&
+        r.status === "accepted",
+    );
+    if (accepted) {
+      patch.departmentId = target.requestedDepartmentId;
+      patch.departmentRole = "membre";
+      patch.requestedDepartmentId = undefined;
+    }
+  }
+  await ctx.db.patch(userId, patch as any);
   return null;
 }
 

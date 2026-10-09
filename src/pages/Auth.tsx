@@ -16,6 +16,9 @@ import {
 } from "@/components/ui/tabs";
 
 import { useAuth } from "@/hooks/use-auth";
+import { api } from "@/convex/_generated/api";
+import { useMutation, useQuery } from "convex/react";
+import type { Id } from "@/convex/_generated/dataModel";
 import { ArrowLeft, ArrowRight, FileText, Loader2, ShieldCheck } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
@@ -123,6 +126,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [resetEmail, setResetEmail] = useState("");
   const [info, setInfo] = useState<string | null>(null);
   const [cguAccepted, setCguAccepted] = useState(false);
+  const [requestedDepartmentId, setRequestedDepartmentId] = useState<string>("");
+  const departments = useQuery(api.departmentMembership.listDepartmentsPublic);
+  const requestJoin = useMutation(api.departmentMembership.requestJoin);
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -272,16 +278,26 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setIsLoading(true);
     try {
       await signIn("password", {
-        email: String(formData.get("email") ?? "").trim(),
+        email: String(formData.get("email") ?? "").trim().toLowerCase(),
         password,
         flow: "signUp",
         name: String(formData.get("name") ?? "").trim(),
         fonction: String(formData.get("fonction") ?? "").trim(),
         phone: String(formData.get("phone") ?? "").trim(),
       });
+      if (requestedDepartmentId) {
+        try {
+          await requestJoin({
+            departmentId: requestedDepartmentId as Id<"departments">,
+          });
+        } catch (joinErr) {
+          console.warn("Demande département:", joinErr);
+        }
+      }
       toast.success("Compte créé", {
-        description:
-          "Votre demande a été transmise au DG. Vous serez notifié dès sa validation.",
+        description: requestedDepartmentId
+          ? "Compte créé. Le DG validera votre compte ; le chef de département traitera votre demande d'intégration."
+          : "Votre demande a été transmise au DG. Vous serez notifié dès sa validation.",
       });
       navigate(redirect);
     } catch (signUpError) {
@@ -583,6 +599,26 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         placeholder="Ex : +228 90 00 00 00"
                         disabled={isLoading}
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-department">Département souhaité</Label>
+                      <select
+                        id="signup-department"
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        value={requestedDepartmentId}
+                        onChange={(e) => setRequestedDepartmentId(e.target.value)}
+                        disabled={isLoading}
+                      >
+                        <option value="">— Choisir (optionnel) —</option>
+                        {(departments ?? []).map((d) => (
+                          <option key={d._id} value={d._id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="text-[11px] text-muted-foreground">
+                        Le chef de ce département devra accepter votre intégration.
+                      </p>
                     </div>
                   </div>
                   <div className="space-y-2">

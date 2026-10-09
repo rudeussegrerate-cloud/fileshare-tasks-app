@@ -1,3 +1,4 @@
+import { MembershipPanel } from "./MembershipPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { api } from "@/convex/_generated/api";
@@ -44,6 +45,8 @@ export function DashboardHome({
   if (!me || !stats || !inbox || !sent) {
     return (
       <div className="flex items-center justify-center py-20">
+      <MembershipPanel />
+
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
       </div>
     );

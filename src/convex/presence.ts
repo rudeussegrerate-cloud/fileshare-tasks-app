@@ -41,8 +41,55 @@ export const statusFor = query({
     for (const id of args.userIds) {
       const user = await ctx.db.get(id);
       result[id] =
-        Boolean(user?.lastSeenAt) && now - (user!.lastSeenAt as number) < ONLINE_MS;
+        Boolean(user?.lastSeenAt) &&
+        now - (user!.lastSeenAt as number) < ONLINE_MS;
     }
     return result;
+  },
+});
+
+/**
+ * Annuaire de présence type Facebook : tous les comptes validés visibles
+ * par un utilisateur connecté (avec indicateur en ligne).
+ */
+export const onlineDirectory = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const me = await ctx.db.get(userId);
+    if (!me || me.accountStatus !== "valide") return [];
+
+    const now = Date.now();
+    const users = await ctx.db.query("users").collect();
+    const rows = [];
+    for (const u of users) {
+      if (u.accountStatus !== "valide") continue;
+      if (!u.name && !u.email) continue;
+      if (u.isAnonymous) continue;
+      const department = u.departmentId
+        ? await ctx.db.get(u.departmentId)
+        : null;
+      const online =
+        Boolean(u.lastSeenAt) && now - (u.lastSeenAt as number) < ONLINE_MS;
+      rows.push({
+        _id: u._id,
+        name: u.name ?? u.email ?? "Utilisateur",
+        email: u.email ?? null,
+        fonction: u.fonction ?? null,
+        departmentName: department?.name ?? null,
+        departmentRole: u.departmentRole ?? null,
+        online,
+        lastSeenAt: u.lastSeenAt ?? null,
+        isSelf: u._id === userId,
+      });
+    }
+    // En ligne d'abord, puis alpha
+    rows.sort((a, b) => {
+      if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1;
+      if (a.online !== b.online) return a.online ? -1 : 1;
+      return a.name.localeCompare(b.name, "fr");
+    });
+    return rows;
   },
 });
