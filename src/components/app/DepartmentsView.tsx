@@ -208,6 +208,86 @@ function AssignPersonDialog({
   );
 }
 
+function CreateSubDepartmentDialog({
+  parent,
+  onOpenChange,
+}: {
+  parent: { id: Id<"departments">; name: string } | null;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const createSub = useMutation(api.workspace.createSubDepartment);
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const submit = async () => {
+    if (!parent || !name.trim()) {
+      toast.error("Le nom du sous-département est obligatoire.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await createSub({
+        parentId: parent.id,
+        name: name.trim(),
+        description: description.trim() || undefined,
+      });
+      toast.success("Sous-département créé.");
+      setName("");
+      setDescription("");
+      onOpenChange(false);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Création impossible.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={parent !== null} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Sous-département</DialogTitle>
+          <DialogDescription>
+            Créer un sous-département dans « {parent?.name} ».
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1.5">
+            <Label htmlFor="sub-name">Nom</Label>
+            <Input
+              id="sub-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex. : Cellule qualité"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="sub-desc">Description (optionnel)</Label>
+            <Textarea
+              id="sub-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Annuler
+          </Button>
+          <Button onClick={() => void submit()} disabled={saving}>
+            {saving ? <Loader2 className="size-4 animate-spin" /> : null}
+            Créer
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function CreateDepartmentDialog({
   open,
   onOpenChange,
@@ -328,6 +408,10 @@ export function DepartmentsView() {
   const deleteDepartment = useMutation(api.workspace.deleteDepartment);
 
   const [creating, setCreating] = useState(false);
+  const [subParent, setSubParent] = useState<{
+    id: Id<"departments">;
+    name: string;
+  } | null>(null);
   const [personDialog, setPersonDialog] = useState<{
     mode: PersonMode;
     departmentId: Id<"departments">;
@@ -416,10 +500,24 @@ export function DepartmentsView() {
                       <CardTitle className="flex items-center gap-2 text-base">
                         <Building2 className="size-4 text-brand" />
                         <span className="truncate">{department.name}</span>
+                        {department.isSubDepartment ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] font-normal"
+                          >
+                            Sous-dép.
+                          </Badge>
+                        ) : null}
                       </CardTitle>
                       {department.description ? (
                         <p className="mt-1 text-xs text-muted-foreground">
                           {department.description}
+                        </p>
+                      ) : null}
+                      {department.childCount > 0 ? (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {department.childCount} sous-département
+                          {department.childCount > 1 ? "s" : ""}
                         </p>
                       ) : null}
                     </div>
@@ -470,6 +568,22 @@ export function DepartmentsView() {
                         <UserPlus className="size-3.5" />
                         Ajouter un membre
                       </Button>
+                      {!department.isSubDepartment ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5"
+                          onClick={() =>
+                            setSubParent({
+                              id: department._id,
+                              name: department.name,
+                            })
+                          }
+                        >
+                          <Plus className="size-3.5" />
+                          Sous-département
+                        </Button>
+                      ) : null}
                       {me.isAdmin ? (
                         <Button
                           size="sm"
@@ -557,6 +671,12 @@ export function DepartmentsView() {
       ) : null}
 
       <CreateDepartmentDialog open={creating} onOpenChange={setCreating} />
+      <CreateSubDepartmentDialog
+        parent={subParent}
+        onOpenChange={(open) => {
+          if (!open) setSubParent(null);
+        }}
+      />
 
       <AssignPersonDialog
         mode={personDialog?.mode ?? null}

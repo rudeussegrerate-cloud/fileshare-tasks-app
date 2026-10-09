@@ -94,12 +94,14 @@ const schema = defineSchema(
       .index("by_department", ["departmentId"]),
 
     // Departments are created by the DG (admin), who also appoints their chef.
+    // Un chef peut créer des sous-départements (parentId).
     departments: defineTable({
       name: v.string(),
       description: v.optional(v.string()),
       createdBy: v.id("users"),
       createdAt: v.number(),
-    }),
+      parentId: v.optional(v.id("departments")),
+    }).index("by_parent", ["parentId"]),
 
     // A document (file) sent from one person to another, with the task the
     // receiver must perform and the automatic summary of its content.

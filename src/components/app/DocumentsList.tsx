@@ -29,7 +29,7 @@ type Mode = "inbox" | "sent";
 
 const FILTERS: Array<{ key: "all" | DocumentStatus; label: string }> = [
   { key: "all", label: "Tous" },
-  { key: "envoye", label: "En attente" },
+  { key: "envoye", label: "Envoyé" },
   { key: "consulte", label: "Consulté" },
   { key: "en_cours", label: "En cours" },
   { key: "traite", label: "Traité" },

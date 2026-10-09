@@ -31,13 +31,15 @@ function canValidateMembership(
   );
 }
 
-/** Membre du département (ou chef / DG) — peut inviter */
+/** Chef du département (ou DG) uniquement — peut inviter dans SON département */
 function canInviteToDepartment(
   user: Doc<"users">,
   departmentId: Id<"departments">,
 ) {
   if (isAdminRole(user.role)) return true;
-  return user.departmentId === departmentId;
+  return (
+    user.departmentRole === "chef" && user.departmentId === departmentId
+  );
 }
 
 async function notifyDepartmentChefs(
@@ -323,8 +325,8 @@ export const reviewRequest = mutation({
 });
 
 /**
- * N'importe quel membre du département peut inviter quelqu'un.
- * L'adhésion reste soumise à la validation du chef.
+ * Seul le chef du département (ou le DG) peut inviter quelqu'un
+ * dans ce département.
  */
 export const inviteByEmail = mutation({
   args: {
@@ -335,7 +337,7 @@ export const inviteByEmail = mutation({
     const inviter = await requireUser(ctx);
     if (!canInviteToDepartment(inviter, args.departmentId)) {
       throw new Error(
-        "Vous devez appartenir à ce département pour inviter quelqu'un.",
+        "Seul le chef de ce département (ou le DG) peut envoyer une invitation.",
       );
     }
     if (inviter.accountStatus !== "valide" && !isAdminRole(inviter.role)) {

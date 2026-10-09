@@ -70,7 +70,11 @@ export default function Dashboard() {
     <>
       <PresenceHeartbeat />
       <InactivityLogout />
-      <AppShell view={view} onViewChange={setView}>
+      <AppShell
+        view={view}
+        onViewChange={setView}
+        onOpenDocument={(id) => setOpenDocumentId(id)}
+      >
       {view === "home" ? (
         <DashboardHome
           onOpen={setOpenDocumentId}

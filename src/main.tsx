@@ -188,7 +188,11 @@ createRoot(document.getElementById("root")!).render(
               {/* Entrée : login direct si non connecté */}
               <Route
                 path="/"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
+                element={
+                  <RequireAuth redirectImmediately>
+                    <Dashboard />
+                  </RequireAuth>
+                }
               />
               <Route
                 path="/auth"

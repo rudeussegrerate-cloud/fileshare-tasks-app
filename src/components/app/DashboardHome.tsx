@@ -101,6 +101,7 @@ export function DashboardHome({
           type="button"
           onClick={() => onNavigate("inbox")}
           className="rounded-sm border border-border bg-card p-3 text-center hover:bg-secondary"
+          title="Reçus non encore traités (envoyé + consulté + en cours)"
         >
           <p className="text-2xl font-semibold tabular-nums text-amber-600">
             {stats.awaiting}
@@ -108,6 +109,22 @@ export function DashboardHome({
           <p className="text-xs text-muted-foreground">À traiter</p>
         </button>
       </div>
+      {stats.byStatus ? (
+        <div className="flex flex-wrap gap-2 text-[11px] text-muted-foreground">
+          <span className="rounded-full border border-border px-2 py-0.5">
+            Envoyé : {stats.byStatus.envoye}
+          </span>
+          <span className="rounded-full border border-border px-2 py-0.5">
+            Consulté : {stats.byStatus.consulte}
+          </span>
+          <span className="rounded-full border border-border px-2 py-0.5">
+            En cours : {stats.byStatus.en_cours}
+          </span>
+          <span className="rounded-full border border-border px-2 py-0.5">
+            Traité : {stats.byStatus.traite}
+          </span>
+        </div>
+      ) : null}
 
       {/* Derniers reçus */}
       <div className="space-y-2">

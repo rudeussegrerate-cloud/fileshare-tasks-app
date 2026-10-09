@@ -16,7 +16,7 @@ import { toast } from "sonner";
 
 /**
  * Invitations + demandes d'adhésion.
- * - Tout membre peut inviter
+ * - Seul le chef / DG peut inviter dans son département
  * - Seul le chef / DG valide les adhésions
  */
 export function MembershipPanel({
@@ -42,9 +42,9 @@ export function MembershipPanel({
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const isMember = Boolean(me?.department?._id);
   const canValidate = Boolean(me?.isChef || me?.isAdmin || me?.isRoot);
-  const canInvite = isMember || Boolean(me?.isAdmin || me?.isRoot);
+  // Invitation : chef du département concerné (ou DG) uniquement
+  const canInvite = Boolean(me?.isChef || me?.isAdmin || me?.isRoot);
 
   if (!me) return null;
 

@@ -149,10 +149,12 @@ function NavList({
 export function AppShell({
   view,
   onViewChange,
+  onOpenDocument,
   children,
 }: {
   view: AppView;
   onViewChange: (view: AppView) => void;
+  onOpenDocument?: (id: import("@/convex/_generated/dataModel").Id<"documents">) => void;
   children: ReactNode;
 }) {
   const me = useQuery(api.workspace.me);
@@ -306,7 +308,11 @@ export function AppShell({
               </div>
             </div>
             <div className="flex items-center gap-1.5">
-              <NotificationsBell />
+              <NotificationsBell
+                onOpenDocument={onOpenDocument}
+                onOpenAccounts={() => onViewChange("accounts")}
+                onOpenDepartments={() => onViewChange("departments")}
+              />
               {userMenu}
             </div>
           </header>

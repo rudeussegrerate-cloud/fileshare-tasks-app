@@ -733,14 +733,30 @@ export const stats = query({
     const activeReceived = received.filter((d) => !d.archivedAt);
     const activeSent = sentDocs.filter((d) => !d.archivedAt);
 
+    // Aligné avec les libellés UI :
+    // - awaiting (« À traiter ») = reçus pas encore « Traité »
+    //   (envoyé + consulté + en cours)
+    const inProgress = activeReceived.filter(
+      (d) => d.status === "en_cours",
+    ).length;
+    const done = activeReceived.filter((d) => d.status === "traite").length;
+    const awaiting = activeReceived.filter((d) => d.status !== "traite").length;
+
     return {
       received: activeReceived.length,
       sent: activeSent.length,
-      awaiting: activeReceived.filter((d) => d.status === "envoye").length,
-      inProgress: activeReceived.filter((d) => d.status === "en_cours").length,
-      done: activeReceived.filter((d) => d.status === "traite").length,
+      awaiting,
+      inProgress,
+      done,
+      byStatus: {
+        envoye: activeReceived.filter((d) => d.status === "envoye").length,
+        consulte: activeReceived.filter((d) => d.status === "consulte").length,
+        en_cours: inProgress,
+        traite: done,
+      },
       departments: departmentCount,
-      archived: received.filter((d) => d.archivedAt).length +
+      archived:
+        received.filter((d) => d.archivedAt).length +
         sentDocs.filter((d) => d.archivedAt).length,
     };
   },

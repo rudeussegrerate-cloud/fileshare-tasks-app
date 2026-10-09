@@ -298,7 +298,11 @@ export const listDepartments = query({
     return departments
       .map((department) => {
         const members = users
-          .filter((u) => u.departmentId === department._id)
+          .filter(
+            (u) =>
+              u.departmentId === department._id &&
+              (u.accountStatus === "valide" || !u.accountStatus),
+          )
           .map((u) => ({
             _id: u._id,
             name: displayName(u),
@@ -313,11 +317,18 @@ export const listDepartments = query({
             return a.name.localeCompare(b.name);
           });
 
+        const children = departments.filter(
+          (d) => d.parentId === department._id,
+        );
+
         return {
           _id: department._id,
           name: department.name,
           description: department.description ?? null,
           createdAt: department.createdAt,
+          parentId: department.parentId ?? null,
+          isSubDepartment: Boolean(department.parentId),
+          childCount: children.length,
           chief: members.find((m) => m.departmentRole === "chef") ?? null,
           members,
         };
@@ -346,6 +357,52 @@ export const createDepartment = mutation({
       description: args.description?.trim() || undefined,
       createdBy: admin._id,
       createdAt: Date.now(),
+    });
+
+    if (args.chiefId) {
+      await assignPerson(ctx, {
+        userId: args.chiefId,
+        departmentId,
+        departmentRole: "chef",
+      });
+    }
+
+    return departmentId;
+  },
+});
+
+/**
+ * Sous-département : le chef du département parent (ou le DG) peut en créer un.
+ */
+export const createSubDepartment = mutation({
+  args: {
+    parentId: v.id("departments"),
+    name: v.string(),
+    description: v.optional(v.string()),
+    chiefId: v.optional(v.id("users")),
+  },
+  handler: async (ctx, args) => {
+    const user = await requireUser(ctx);
+    const parent = await ctx.db.get(args.parentId);
+    if (!parent) throw new Error("Département parent introuvable.");
+
+    const isParentChef =
+      user.departmentId === args.parentId && user.departmentRole === "chef";
+    if (!isAdminRole(user.role) && !isParentChef) {
+      throw new Error(
+        "Seul le chef de ce département (ou le DG) peut créer un sous-département.",
+      );
+    }
+
+    const name = args.name.trim();
+    if (!name) throw new Error("Le nom du sous-département est obligatoire.");
+
+    const departmentId = await ctx.db.insert("departments", {
+      name,
+      description: args.description?.trim() || undefined,
+      createdBy: user._id,
+      createdAt: Date.now(),
+      parentId: args.parentId,
     });
 
     if (args.chiefId) {
