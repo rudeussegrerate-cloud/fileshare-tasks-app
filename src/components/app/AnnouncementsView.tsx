@@ -14,10 +14,13 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import {
+  Globe,
   Loader2,
+  Lock,
   Megaphone,
   Pin,
   Trash2,
+  UserRound,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -37,6 +40,7 @@ export function AnnouncementsView() {
   const create = useMutation(api.announcements.create);
   const remove = useMutation(api.announcements.remove);
   const react = useMutation(api.announcements.react);
+  const potentialViewers = useQuery(api.announcements.listPotentialViewers);
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -45,6 +49,11 @@ export function AnnouncementsView() {
     "normal",
   );
   const [pinned, setPinned] = useState(false);
+  const [visibility, setVisibility] = useState<"public" | "private" | "custom">(
+    "public",
+  );
+  const [selectedViewers, setSelectedViewers] = useState<string[]>([]);
+  const [viewerSearch, setViewerSearch] = useState("");
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
 
@@ -67,6 +76,11 @@ export function AnnouncementsView() {
         origin: (origin.trim() || defaultOrigin).trim(),
         priority,
         pinned: canPin ? pinned : false,
+        visibility,
+        viewerIds:
+          visibility === "custom"
+            ? (selectedViewers as Id<"users">[])
+            : undefined,
       });
       toast.success("Annonce publiée");
       setTitle("");
@@ -74,6 +88,8 @@ export function AnnouncementsView() {
       setOrigin("");
       setPriority("normal");
       setPinned(false);
+      setVisibility("public");
+      setSelectedViewers([]);
       setShowForm(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Publication impossible");
@@ -152,6 +168,131 @@ export function AnnouncementsView() {
                   required
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>Visibilité *</Label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <button
+                    type="button"
+                    onClick={() => setVisibility("public")}
+                    className={cn(
+                      "flex flex-col items-start gap-1 rounded-md border p-3 text-left text-sm transition-colors",
+                      visibility === "public"
+                        ? "border-brand bg-brand-soft"
+                        : "border-border hover:bg-muted/50",
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Globe className="size-3.5" />
+                      Publique
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Tous les départements
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisibility("private")}
+                    className={cn(
+                      "flex flex-col items-start gap-1 rounded-md border p-3 text-left text-sm transition-colors",
+                      visibility === "private"
+                        ? "border-brand bg-brand-soft"
+                        : "border-border hover:bg-muted/50",
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <Lock className="size-3.5" />
+                      Privée
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Uniquement mon département
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVisibility("custom")}
+                    className={cn(
+                      "flex flex-col items-start gap-1 rounded-md border p-3 text-left text-sm transition-colors",
+                      visibility === "custom"
+                        ? "border-brand bg-brand-soft"
+                        : "border-border hover:bg-muted/50",
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5 font-medium">
+                      <UserRound className="size-3.5" />
+                      Personnalisée
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      Personnes choisies
+                    </span>
+                  </button>
+                </div>
+                {visibility === "private" && !me?.department?._id ? (
+                  <p className="text-xs text-amber-700">
+                    Vous n&apos;êtes rattaché à aucun département : l&apos;annonce
+                    privée ne sera visible que pour vous (et le DG).
+                  </p>
+                ) : null}
+                {visibility === "custom" ? (
+                  <div className="space-y-2 rounded-md border border-border p-3">
+                    <Input
+                      className="h-8 text-xs"
+                      placeholder="Filtrer les personnes…"
+                      value={viewerSearch}
+                      onChange={(e) => setViewerSearch(e.target.value)}
+                    />
+                    <ul className="max-h-40 space-y-1 overflow-y-auto">
+                      {(potentialViewers ?? [])
+                        .filter(
+                          (p) =>
+                            viewerSearch.trim() === "" ||
+                            p.name
+                              .toLowerCase()
+                              .includes(viewerSearch.toLowerCase()) ||
+                            (p.fonction ?? "")
+                              .toLowerCase()
+                              .includes(viewerSearch.toLowerCase()),
+                        )
+                        .map((p) => {
+                          const checked = selectedViewers.includes(p._id);
+                          return (
+                            <li key={p._id}>
+                              <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/60">
+                                <input
+                                  type="checkbox"
+                                  className="size-4"
+                                  checked={checked}
+                                  onChange={() => {
+                                    setSelectedViewers((prev) =>
+                                      checked
+                                        ? prev.filter((id) => id !== p._id)
+                                        : [...prev, p._id],
+                                    );
+                                  }}
+                                />
+                                <span className="min-w-0 flex-1 truncate">
+                                  {p.name}
+                                  {p.fonction ? (
+                                    <span className="text-xs text-muted-foreground">
+                                      {" "}
+                                      · {p.fonction}
+                                    </span>
+                                  ) : null}
+                                </span>
+                              </label>
+                            </li>
+                          );
+                        })}
+                    </ul>
+                    <p className="text-[11px] text-muted-foreground">
+                      {selectedViewers.length} personne
+                      {selectedViewers.length > 1 ? "s" : ""} sélectionnée
+                      {selectedViewers.length > 1 ? "s" : ""}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
               <div className="flex flex-wrap gap-3">
                 <div className="space-y-1.5">
                   <Label>Priorité</Label>
@@ -265,6 +406,13 @@ export function AnnouncementsView() {
                           {a.origin}
                           {a.authorDepartmentName
                             ? ` · ${a.authorDepartmentName}`
+                            : ""}
+                        </span>
+                        <span className="block">
+                          <strong className="text-foreground">Visibilité :</strong>{" "}
+                          {a.visibilityLabel}
+                          {a.visibility === "custom" && a.viewerCount != null
+                            ? ` (${a.viewerCount})`
                             : ""}
                         </span>
                         <span className="block text-muted-foreground">

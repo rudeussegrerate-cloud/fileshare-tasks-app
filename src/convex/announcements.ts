@@ -1,7 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type MutationCtx } from "./_generated/server";
+import { mutation, query } from "./_generated/server";
 import { pushNotification } from "./inAppNotifications";
 
 const REACTIONS = ["👍", "❤️", "👏", "🎉", "😮"] as const;
@@ -25,9 +25,28 @@ function roleLabel(user: Doc<"users">) {
   return "Membre";
 }
 
-/** Qui peut publier : comptes validés (tout le personnel). */
 function canPost(user: Doc<"users">) {
   return user.accountStatus === "valide" || isAdmin(user.role);
+}
+
+function canViewAnnouncement(
+  a: Doc<"announcements">,
+  me: Doc<"users">,
+): boolean {
+  // Auteur et DG voient toujours
+  if (a.authorId === me._id || isAdmin(me.role)) return true;
+
+  const visibility = a.visibility ?? "public";
+  if (visibility === "public") return true;
+
+  if (visibility === "private") {
+    if (!a.departmentId || !me.departmentId) return false;
+    return a.departmentId === me.departmentId;
+  }
+
+  // custom
+  const viewers = a.viewerIds ?? [];
+  return viewers.includes(me._id);
 }
 
 export const list = query({
@@ -47,7 +66,9 @@ export const list = query({
     });
 
     const out = [];
-    for (const a of rows.slice(0, limit)) {
+    for (const a of rows) {
+      if (!canViewAnnouncement(a, me)) continue;
+
       const reactions = await ctx.db
         .query("announcementReactions")
         .withIndex("by_announcement", (q) => q.eq("announcementId", a._id))
@@ -60,6 +81,7 @@ export const list = query({
         if (r.userId === userId) myReaction = r.emoji;
       }
 
+      const visibility = a.visibility ?? "public";
       out.push({
         _id: a._id,
         title: a.title,
@@ -72,15 +94,47 @@ export const list = query({
         authorRoleLabel: a.authorRoleLabel ?? null,
         priority: a.priority ?? "normal",
         pinned: Boolean(a.pinned),
+        visibility,
+        visibilityLabel:
+          visibility === "public"
+            ? "Publique — tous les départements"
+            : visibility === "private"
+              ? "Privée — mon département"
+              : "Personnalisée — personnes choisies",
+        viewerCount:
+          visibility === "custom" ? (a.viewerIds?.length ?? 0) : null,
         createdAt: a.createdAt,
         reactionCounts: counts,
         reactionTotal: reactions.length,
         myReaction,
-        canDelete:
-          a.authorId === userId || isAdmin(me.role),
+        canDelete: a.authorId === userId || isAdmin(me.role),
       });
+      if (out.length >= limit) break;
     }
     return out;
+  },
+});
+
+/** Collègues sélectionnables pour une annonce personnalisée */
+export const listPotentialViewers = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const users = await ctx.db.query("users").collect();
+    return users
+      .filter(
+        (u) =>
+          u._id !== userId &&
+          (u.accountStatus === "valide" || isAdmin(u.role)),
+      )
+      .map((u) => ({
+        _id: u._id,
+        name: u.name ?? u.email ?? "Utilisateur",
+        fonction: u.fonction ?? null,
+        departmentId: u.departmentId ?? null,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name, "fr"));
   },
 });
 
@@ -97,6 +151,12 @@ export const create = mutation({
       ),
     ),
     pinned: v.optional(v.boolean()),
+    visibility: v.union(
+      v.literal("public"),
+      v.literal("private"),
+      v.literal("custom"),
+    ),
+    viewerIds: v.optional(v.array(v.id("users"))),
   },
   handler: async (ctx, args) => {
     const me = await requireUser(ctx);
@@ -111,13 +171,29 @@ export const create = mutation({
     if (body.length < 5) throw new Error("Message trop court.");
     if (origin.length < 2) throw new Error("Indiquez la provenance de l'annonce.");
 
+    if (args.visibility === "private" && !me.departmentId && !isAdmin(me.role)) {
+      throw new Error(
+        "Vous devez appartenir à un département pour une annonce privée.",
+      );
+    }
+
+    let viewerIds: Id<"users">[] | undefined;
+    if (args.visibility === "custom") {
+      const raw = args.viewerIds ?? [];
+      // Dédupliquer, exclure soi (ajouté à la logique de vue via auteur)
+      const set = new Set(raw.filter((id) => id !== me._id));
+      if (set.size === 0) {
+        throw new Error("Choisissez au moins une personne pour une annonce personnalisée.");
+      }
+      viewerIds = [...set];
+    }
+
     let departmentName: string | undefined;
     if (me.departmentId) {
       const dep = await ctx.db.get(me.departmentId);
       departmentName = dep?.name;
     }
 
-    // Seuls chef / DG peuvent épingler
     const canPin = isAdmin(me.role) || me.departmentRole === "chef";
     const pinned = canPin && Boolean(args.pinned);
 
@@ -132,16 +208,35 @@ export const create = mutation({
       authorRoleLabel: roleLabel(me),
       priority: args.priority ?? "normal",
       pinned,
+      visibility: args.visibility,
+      departmentId:
+        args.visibility === "private" ? me.departmentId : undefined,
+      viewerIds,
       createdAt: Date.now(),
     });
 
-    // Notifier les collègues validés (sauf l'auteur)
-    const users = await ctx.db.query("users").collect();
+    // Notifications ciblées selon la visibilité
     const authorLabel = me.name ?? "Un collègue";
+    const users = await ctx.db.query("users").collect();
+    const notifyTargets: Doc<"users">[] = [];
+
     for (const u of users) {
       if (u._id === me._id) continue;
-      if (u.accountStatus && u.accountStatus !== "valide") continue;
-      if (!u.accountStatus && !isAdmin(u.role)) continue;
+      if (u.accountStatus && u.accountStatus !== "valide" && !isAdmin(u.role)) {
+        continue;
+      }
+      if (args.visibility === "public") {
+        notifyTargets.push(u);
+      } else if (args.visibility === "private") {
+        if (me.departmentId && u.departmentId === me.departmentId) {
+          notifyTargets.push(u);
+        }
+      } else if (args.visibility === "custom" && viewerIds?.includes(u._id)) {
+        notifyTargets.push(u);
+      }
+    }
+
+    for (const u of notifyTargets) {
       await pushNotification(ctx, {
         userId: u._id,
         type: "announcement.new",
@@ -175,7 +270,6 @@ export const remove = mutation({
   },
 });
 
-/** Ajouter / changer / retirer une réaction (un emoji par utilisateur). */
 export const react = mutation({
   args: {
     announcementId: v.id("announcements"),
@@ -191,6 +285,9 @@ export const react = mutation({
     }
     const a = await ctx.db.get(args.announcementId);
     if (!a) throw new Error("Annonce introuvable.");
+    if (!canViewAnnouncement(a, me)) {
+      throw new Error("Vous n'avez pas accès à cette annonce.");
+    }
 
     const existing = await ctx.db
       .query("announcementReactions")
@@ -204,7 +301,10 @@ export const react = mutation({
         await ctx.db.delete(existing._id);
         return null;
       }
-      await ctx.db.patch(existing._id, { emoji: args.emoji, createdAt: Date.now() });
+      await ctx.db.patch(existing._id, {
+        emoji: args.emoji,
+        createdAt: Date.now(),
+      });
       return existing._id;
     }
 

@@ -273,11 +273,21 @@ const schema = defineSchema(
         v.union(v.literal("normal"), v.literal("important"), v.literal("urgent")),
       ),
       pinned: v.optional(v.boolean()),
+      // Visibilité
+      // public  = tous les départements
+      // private = uniquement le département de l'auteur
+      // custom  = liste d'utilisateurs (viewerIds)
+      visibility: v.optional(
+        v.union(v.literal("public"), v.literal("private"), v.literal("custom")),
+      ),
+      departmentId: v.optional(v.id("departments")), // pour private
+      viewerIds: v.optional(v.array(v.id("users"))), // pour custom (+ auteur toujours inclus côté logique)
       createdAt: v.number(),
       updatedAt: v.optional(v.number()),
     })
       .index("by_created", ["createdAt"])
-      .index("by_author", ["authorId"]),
+      .index("by_author", ["authorId"])
+      .index("by_department", ["departmentId"]),
 
     announcementReactions: defineTable({
       announcementId: v.id("announcements"),
