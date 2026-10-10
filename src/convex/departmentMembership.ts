@@ -230,7 +230,10 @@ export const requestJoin = mutation({
 export const listPendingRequests = query({
   args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, args) => {
-    const user = await requireUser(ctx);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const user = await ctx.db.get(userId);
+    if (!user) return [];
     let departmentIds: Id<"departments">[] = [];
     if (isAdminRole(user.role)) {
       if (args.departmentId) departmentIds = [args.departmentId];
@@ -442,7 +445,10 @@ export const inviteByEmail = mutation({
 export const listInvitableUsers = query({
   args: { departmentId: v.id("departments") },
   handler: async (ctx, args) => {
-    const inviter = await requireUser(ctx);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const inviter = await ctx.db.get(userId);
+    if (!inviter) return [];
     if (!canInviteToDepartment(inviter, args.departmentId)) return [];
     const users = await ctx.db.query("users").collect();
     return users

@@ -54,6 +54,7 @@ export const generateMediaUploadUrl = mutation({
 export const list = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    try {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     const me = await ctx.db.get(userId);
@@ -71,10 +72,16 @@ export const list = query({
     for (const a of rows) {
       if (!canViewAnnouncement(a, me)) continue;
 
-      const reactions = await ctx.db
-        .query("announcementReactions")
-        .withIndex("by_announcement", (q) => q.eq("announcementId", a._id))
-        .collect();
+      let reactions: Doc<"announcementReactions">[] = [];
+      try {
+        reactions = await ctx.db
+          .query("announcementReactions")
+          .withIndex("by_announcement", (q) => q.eq("announcementId", a._id))
+          .collect();
+      } catch {
+        const allR = await ctx.db.query("announcementReactions").collect();
+        reactions = allR.filter((r) => r.announcementId === a._id);
+      }
 
       const counts: Record<string, number> = {};
       let myReaction: string | null = null;
@@ -83,10 +90,16 @@ export const list = query({
         if (r.userId === userId) myReaction = r.emoji;
       }
 
-      const comments = await ctx.db
-        .query("announcementComments")
-        .withIndex("by_announcement", (q) => q.eq("announcementId", a._id))
-        .collect();
+      let comments: Doc<"announcementComments">[] = [];
+      try {
+        comments = await ctx.db
+          .query("announcementComments")
+          .withIndex("by_announcement", (q) => q.eq("announcementId", a._id))
+          .collect();
+      } catch {
+        const allC = await ctx.db.query("announcementComments").collect();
+        comments = allC.filter((c) => c.announcementId === a._id);
+      }
       comments.sort((x, y) => x.createdAt - y.createdAt);
 
       const visibility = a.visibility ?? "public";
@@ -135,6 +148,10 @@ export const list = query({
       if (out.length >= limit) break;
     }
     return out;
+    } catch (e) {
+      console.error("[announcements.list]", e);
+      return [];
+    }
   },
 });
 
