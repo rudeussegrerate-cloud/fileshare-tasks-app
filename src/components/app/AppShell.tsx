@@ -105,11 +105,10 @@ function RedBadge({
   return (
     <span
       className={cn(
-        "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums shadow-sm",
-        active
-          ? "bg-white text-red-600"
-          : "bg-red-500 text-white",
+        "ml-auto flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1 text-[11px] font-bold leading-none tabular-nums",
+        active ? "bg-white text-red-600" : "bg-[#e41e3f] text-white",
       )}
+      aria-label={`${count} non lus`}
     >
       {label}
     </span>

@@ -162,12 +162,12 @@ export default function Dashboard() {
       {view === "accounts" ? <AccountsView /> : null}
 
       {view === "actualites" ? (
-        <ViewErrorBoundary label="Actualités">
+        <ViewErrorBoundary key="actualites" label="Actualités">
           <ActualitesView />
         </ViewErrorBoundary>
       ) : null}
       {view === "announcements" ? (
-        <ViewErrorBoundary label="Annonces">
+        <ViewErrorBoundary key="announcements" label="Annonces">
           <AnnouncementsView />
         </ViewErrorBoundary>
       ) : null}
