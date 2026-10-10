@@ -731,7 +731,19 @@ export const auditTrail = query({
 export const stats = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireUserId(ctx);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) {
+      return {
+        received: 0,
+        sent: 0,
+        awaiting: 0,
+        inProgress: 0,
+        done: 0,
+        byStatus: { envoye: 0, consulte: 0, en_cours: 0, traite: 0 },
+        departments: 0,
+        archived: 0,
+      };
+    }
 
     const received = await ctx.db
       .query("documents")

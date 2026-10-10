@@ -93,18 +93,43 @@ function BrandMark({ compact = false }: { compact?: boolean }) {
   return <BrandLogo compact={compact} />;
 }
 
+function RedBadge({
+  count,
+  active,
+}: {
+  count: number;
+  active?: boolean;
+}) {
+  if (count <= 0) return null;
+  const label = count > 99 ? "99+" : String(count);
+  return (
+    <span
+      className={cn(
+        "ml-auto flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums shadow-sm",
+        active
+          ? "bg-white text-red-600"
+          : "bg-red-500 text-white",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
 function NavList({
   view,
   onSelect,
   isAdmin,
   pendingAccounts,
   unreadMessages,
+  pendingTasks,
 }: {
   view: AppView;
   onSelect: (view: AppView) => void;
   isAdmin: boolean;
   pendingAccounts: number;
   unreadMessages?: number;
+  pendingTasks?: number;
 }) {
   return (
     <nav className="space-y-5">
@@ -134,17 +159,14 @@ function NavList({
                   >
                     <Icon className="size-4 shrink-0 opacity-90" />
                     <span className="flex-1 text-left">{item.label}</span>
-                    {item.key === "accounts" && pendingAccounts > 0 ? (
-                      <span
-                        className={cn(
-                          "rounded-full px-1.5 text-[10px] font-semibold",
-                          active
-                            ? "bg-white/20 text-white"
-                            : "bg-amber-100 text-amber-800",
-                        )}
-                      >
-                        {pendingAccounts}
-                      </span>
+                    {item.key === "messages" ? (
+                      <RedBadge count={unreadMessages ?? 0} active={active} />
+                    ) : null}
+                    {item.key === "inbox" ? (
+                      <RedBadge count={pendingTasks ?? 0} active={active} />
+                    ) : null}
+                    {item.key === "accounts" ? (
+                      <RedBadge count={pendingAccounts} active={active} />
                     ) : null}
                   </button>
                 );
@@ -172,6 +194,9 @@ export function AppShell({
 }) {
   const me = useQuery(api.workspace.me);
   const unreadMessages = useQuery(api.chat.unreadTotal);
+  const docStats = useQuery(api.documents.stats);
+  const notifUnread = useQuery(api.inAppNotifications.unreadCount);
+  const pendingTasks = docStats?.awaiting ?? 0;
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -250,6 +275,7 @@ export function AppShell({
           isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
           pendingAccounts={me?.pendingAccounts ?? 0}
           unreadMessages={unreadMessages ?? 0}
+          pendingTasks={pendingTasks}
         />
       </div>
       <div className="mt-3 border-t border-border pt-3">
@@ -307,6 +333,7 @@ export function AppShell({
                         isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
                         pendingAccounts={me?.pendingAccounts ?? 0}
                         unreadMessages={unreadMessages ?? 0}
+                        pendingTasks={pendingTasks}
                       />
                     </div>
                     <div className="mt-4 border-t border-border pt-3">
