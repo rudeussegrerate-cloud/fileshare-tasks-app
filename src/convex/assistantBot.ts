@@ -6,22 +6,22 @@ import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 
 const SITE_HELP = `
-Tu es l'assistant personnel de l'utilisateur sur ScanDoc, une application d'échange de documents entre départements.
+Tu es un assistant personnel EXPRESSIF et intelligent sur ScanDoc (échange de documents entre départements).
 
-Fonctions du site :
-- Accueil : aperçu des documents reçus/envoyés
-- Envoyer : transmettre un fichier avec objet, "de la part de", tâches
-- Reçus / Envoyés : listes et suivi des statuts (Envoyé → Consulté → En cours → Traité)
-- Départements : rejoindre un département (demande validée par le chef), inviter des collègues
-- Messages : discuter avec les collègues
-- Paramètres : profil, sécurité, préférences
-- Comptes (DG seulement) : valider les nouveaux comptes
+Personnalité :
+- Tu as des émotions légères (encouragement, patience, humour doux selon l'humeur configurée).
+- Tu es précis : tu indiques les menus exacts (Accueil, Envoyer, Reçus, Envoyés, Messages, Actualités, Départements, Paramètres).
+- Tu proposes souvent la prochaine étape concrète.
+- Français simple, max 6 lignes, pas de jargon technique.
 
-Règles :
-- Réponds en français, phrases courtes, maximum 6 lignes.
-- Aide concrètement (où cliquer, quoi faire).
-- Ne révèle jamais de détails techniques (erreurs serveur, tokens).
-- Si tu ne sais pas : oriente vers le DG ou le chef de département.
+Fonctions :
+- Documents : envoyer (objet, de la part de, tâches), suivre les statuts Envoyé→Consulté→En cours→Traité
+- Messages : chat entre collègues
+- Actualités : annonces publiques / privées / personnalisées + réactions
+- Départements et sous-groupes : demandes d'adhésion, invitations
+- Assistant flottant déplaçable
+
+Sécurité : ne jamais afficher d'erreurs serveur, tokens ou secrets.
 `;
 
 function ruleBasedReply(question: string, botName: string, mood: string): string {
@@ -61,10 +61,16 @@ function ruleBasedReply(question: string, botName: string, mood: string): string
   if (/paramètre|profil|déconnecter/.test(q)) {
     return `${greeting}\nTout se trouve dans **Paramètres** : profil, mot de passe, thème, et déconnexion.`;
   }
-  if (/aide|perdu|où|comment|problème|bug|erreur/.test(q)) {
-    return `${greeting}\nJe peux vous guider : envoi de documents, départements, messages, statuts, compte.\nPosez une question précise, par exemple « Comment rejoindre un département ? ».`;
+  if (/actualité|annonce|fil|news/.test(q)) {
+    return `${greeting}\nLes annonces sont dans **Actualités** (menu). Vous pouvez publier (publique, privée ou personnalisée) et réagir avec des emoji.`;
   }
-  return `${greeting}\nJe n'ai pas tout compris. Essayez : « Comment envoyer un document ? », « Comment rejoindre un département ? » ou « Où sont mes messages ? ».`;
+  if (/photo|image|scan|résumé|expliquer/.test(q)) {
+    return `${greeting}\nQuand vous envoyez une photo ou un scan, ScanDoc tente de **décrire ou résumer** le contenu automatiquement pour le destinataire.`;
+  }
+  if (/aide|perdu|où|comment|problème|bug|erreur/.test(q)) {
+    return `${greeting}\nJe suis là 👋 Indiquez ce que vous voulez faire : envoyer un document, lire les actualités, écrire à un collègue, rejoindre un groupe…\nExemple : « Comment envoyer un document ? »`;
+  }
+  return `${greeting}\nJe n'ai pas tout saisi, mais on va y arriver. Essayez : « Comment envoyer un document ? », « Où sont les actualités ? » ou « Comment rejoindre un département ? ».`;
 }
 
 /** Réponse de l'assistant (IA si dispo, sinon règles site). */

@@ -99,16 +99,16 @@ export function AnnouncementsView() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl space-y-5 animate-in-up">
+    <div className="mx-auto flex max-w-2xl flex-col space-y-5 animate-in-up">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <Megaphone className="size-5 text-brand" />
-            Annonces
+            Actualités
           </h2>
           <p className="text-sm text-muted-foreground">
-            Informations officielles de l&apos;organisation — auteur, poste et
-            provenance visibles.
+            Fil d&apos;annonces de l&apos;organisation — faites défiler comme
+            sur un réseau social. Auteur, poste et provenance visibles.
           </p>
         </div>
         <Button
@@ -354,7 +354,7 @@ export function AnnouncementsView() {
           Aucune annonce pour le moment. Soyez le premier à en publier une.
         </p>
       ) : (
-        <ul className="space-y-4">
+        <ul className="max-h-[calc(100vh-12rem)] space-y-4 overflow-y-auto pb-8 pr-1">
           {list.map((a) => (
             <li key={a._id}>
               <Card

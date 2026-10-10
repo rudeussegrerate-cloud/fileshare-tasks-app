@@ -333,6 +333,10 @@ export const getForSummary = internalQuery({
       task: document.tasks?.join(" · ") ?? document.task ?? "",
       objet: document.objet ?? "",
       extractedText: document.extractedText ?? "",
+      contentType: document.contentType ?? "",
+      storageId: document.storageId,
+      // URL signée pour analyse vision (images)
+      fileUrl: await ctx.storage.getUrl(document.storageId),
     };
   },
 });

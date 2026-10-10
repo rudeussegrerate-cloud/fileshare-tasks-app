@@ -24,6 +24,7 @@ import {
   LayoutDashboard,
   LogOut,
   Megaphone,
+  Newspaper,
   Menu,
   MessageCircle,
   Send,
@@ -68,7 +69,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       { key: "inbox", label: "Reçus", icon: Inbox },
       { key: "sent", label: "Envoyés", icon: Send },
       { key: "messages", label: "Messages", icon: MessageCircle },
-      { key: "announcements", label: "Annonces", icon: Megaphone },
+      { key: "announcements", label: "Actualités", icon: Newspaper },
     ],
   },
   {

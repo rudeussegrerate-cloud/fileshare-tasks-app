@@ -11,6 +11,7 @@ import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { AnnouncementsView } from "@/components/app/AnnouncementsView";
 import { MessagesView } from "@/components/app/MessagesView";
+import { SmartAutomations } from "@/components/app/SmartAutomations";
 import { SmartTips } from "@/components/app/SmartTips";
 import { FloatingAssistant } from "@/components/app/FloatingAssistant";
 import { SettingsView } from "@/components/app/SettingsView";
@@ -136,6 +137,7 @@ export default function Dashboard() {
 
       <FloatingAssistant />
       <SmartTips />
+      <SmartAutomations />
 
       <DocumentDetailDialog
         documentId={openDocumentId}
