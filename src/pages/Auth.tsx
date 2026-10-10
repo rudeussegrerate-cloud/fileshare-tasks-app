@@ -317,7 +317,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-brand-deep via-brand to-brand-sky/70 px-4 py-12">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f0f2f5] px-4 py-12">
       <div
         className="absolute inset-0 opacity-[0.07]"
         style={{
@@ -330,7 +330,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       <div className="relative w-full max-w-md">
         {/* Accueil = page de connexion : pas de lien retour superflu */}
 
-        <Card className="border-0 shadow-2xl">
+        <Card className="border-0 shadow-lg rounded-xl">
           <CardHeader className="text-center">
             <div className="flex justify-center">
               <span className="flex size-14 items-center justify-center rounded-2xl bg-brand text-primary-foreground shadow-sm">
@@ -708,7 +708,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             )}
           </CardContent>
 
-          <div className="flex items-center justify-center gap-1.5 rounded-b-lg border-t bg-muted px-6 py-3 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center gap-1.5 rounded-b-xl border-t bg-[#f0f2f5] px-6 py-3 text-xs text-muted-foreground">
             <ShieldCheck className="size-3.5" />
             Accès réservé au personnel de l'entreprise
           </div>

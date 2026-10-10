@@ -5,10 +5,10 @@
 
 /* DO NOT CHANGE */
 @theme inline {
-  --radius-sm: 2px;
-  --radius-md: 3px;
-  --radius-lg: 4px;
-  --radius-xl: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -40,59 +40,6 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
-}
-
-/*
-  Interface professionnelle type intranet / outil métier
-  - Bleu marine + accent or discret
-  - Fond gris neutre, cartes blanches
-  - Pas de dégradés ni d'effets décoratifs
-*/
-:root {
-  --radius: 3px;
-  --background: #f0f2f5;
-  --foreground: #1c2430;
-  --card: #ffffff;
-  --card-foreground: #1c2430;
-  --popover: #ffffff;
-  --popover-foreground: #1c2430;
-  /* Bleu marine professionnel */
-  --primary: #1e3a5f;
-  --primary-foreground: #ffffff;
-  --secondary: #e8ecf1;
-  --secondary-foreground: #1c2430;
-  --muted: #e8ecf1;
-  --muted-foreground: #5a6570;
-  --accent: #f7f3e9;
-  --accent-foreground: #1c2430;
-  --destructive: #b42318;
-  --border: #c5ccd6;
-  --input: #a8b0bc;
-  --ring: #1e3a5f;
-
-  /* Or en accent (réf. FOAD), utilisé avec parcimonie */
-  --brand: #1e3a5f;
-  --brand-deep: #152a45;
-  --brand-sky: #2c5282;
-  --brand-accent: #9a7b0f;
-  --brand-soft: #eef2f7;
-
-  --chart-1: #1e3a5f;
-  --chart-2: #9a7b0f;
-  --chart-3: #2d6a4f;
-  --chart-4: #9b2226;
-  --chart-5: #4a5568;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1c2430;
-  --sidebar-primary: #1e3a5f;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eef2f7;
-  --sidebar-accent-foreground: #1c2430;
-  --sidebar-border: #c5ccd6;
-  --sidebar-ring: #1e3a5f;
-}
-
-@theme inline {
   --color-brand: var(--brand);
   --color-brand-deep: var(--brand-deep);
   --color-brand-sky: var(--brand-sky);
@@ -100,194 +47,138 @@
   --color-brand-soft: var(--brand-soft);
 }
 
+/*
+  Style inspiré Facebook / fil social moderne :
+  - Fond gris clair #f0f2f5
+  - Cartes blanches arrondies, ombre très légère
+  - Bleu accent type réseau social
+  - Typo nette, bordures discrètes
+*/
+:root {
+  --radius: 10px;
+  --background: #f0f2f5;
+  --foreground: #050505;
+  --card: #ffffff;
+  --card-foreground: #050505;
+  --popover: #ffffff;
+  --popover-foreground: #050505;
+  /* Bleu type Facebook, un peu adouci pour usage pro */
+  --primary: #0866ff;
+  --primary-foreground: #ffffff;
+  --secondary: #e4e6eb;
+  --secondary-foreground: #050505;
+  --muted: #f0f2f5;
+  --muted-foreground: #65676b;
+  --accent: #e7f3ff;
+  --accent-foreground: #0866ff;
+  --destructive: #e41e3f;
+  --border: #ccd0d5;
+  --input: #ccd0d5;
+  --ring: #0866ff;
+
+  --brand: #0866ff;
+  --brand-deep: #0652cc;
+  --brand-sky: #4b92ff;
+  --brand-accent: #e41e3f;
+  --brand-soft: #e7f3ff;
+
+  --chart-1: #0866ff;
+  --chart-2: #42b72a;
+  --chart-3: #f7b928;
+  --chart-4: #e41e3f;
+  --chart-5: #65676b;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #050505;
+  --sidebar-primary: #0866ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e7f3ff;
+  --sidebar-accent-foreground: #0866ff;
+  --sidebar-border: #e4e6eb;
+  --sidebar-ring: #0866ff;
+}
+
 .dark {
-  --background: #121820;
-  --foreground: #e8ecf1;
-  --card: #1a222d;
-  --card-foreground: #e8ecf1;
-  --popover: #1a222d;
-  --popover-foreground: #e8ecf1;
-  --primary: #7ba3d4;
-  --primary-foreground: #121820;
-  --secondary: #2a3444;
-  --secondary-foreground: #e8ecf1;
-  --muted: #2a3444;
-  --muted-foreground: #9aa5b5;
-  --accent: #2a3444;
-  --accent-foreground: #e8ecf1;
-  --destructive: #f97066;
-  --border: #3a4556;
-  --input: #3a4556;
-  --ring: #7ba3d4;
-  --brand: #7ba3d4;
-  --brand-deep: #5b8ab8;
-  --brand-sky: #8bb0d8;
-  --brand-accent: #d4b84a;
-  --brand-soft: #2a3444;
-  --sidebar: #161d27;
-  --sidebar-foreground: #e8ecf1;
-  --sidebar-primary: #7ba3d4;
-  --sidebar-primary-foreground: #121820;
-  --sidebar-accent: #2a3444;
-  --sidebar-accent-foreground: #e8ecf1;
-  --sidebar-border: #3a4556;
-  --sidebar-ring: #7ba3d4;
+  --background: #18191a;
+  --foreground: #e4e6eb;
+  --card: #242526;
+  --card-foreground: #e4e6eb;
+  --popover: #242526;
+  --popover-foreground: #e4e6eb;
+  --primary: #4b92ff;
+  --primary-foreground: #ffffff;
+  --secondary: #3a3b3c;
+  --secondary-foreground: #e4e6eb;
+  --muted: #3a3b3c;
+  --muted-foreground: #b0b3b8;
+  --accent: #3a3b3c;
+  --accent-foreground: #4b92ff;
+  --destructive: #e41e3f;
+  --border: #3e4042;
+  --input: #3e4042;
+  --ring: #4b92ff;
+  --brand: #4b92ff;
+  --brand-deep: #0866ff;
+  --brand-sky: #6aa8ff;
+  --brand-accent: #e41e3f;
+  --brand-soft: #2d3438;
+  --sidebar: #242526;
+  --sidebar-foreground: #e4e6eb;
+  --sidebar-primary: #4b92ff;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #3a3b3c;
+  --sidebar-accent-foreground: #e4e6eb;
+  --sidebar-border: #3e4042;
+  --sidebar-ring: #4b92ff;
 }
 
 @layer base {
   * {
     @apply border-border;
   }
-  html {
-    font-size: 16px;
-  }
   body {
-    @apply bg-background text-foreground;
-    line-height: 1.5;
-    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    @apply bg-background text-foreground antialiased;
+    font-family:
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      Roboto,
+      Helvetica,
+      Arial,
+      sans-serif;
+    font-size: 15px;
+    line-height: 1.3333;
   }
-  button:not([disabled]),
-  [role="button"]:not([disabled]) {
-    cursor: pointer;
-  }
-  h1, h2, h3 {
-    color: var(--brand-deep);
-    font-weight: 600;
-  }
-}
-
-/*
-  Compatibilité postes / navigateurs anciens :
-  - Désactive les animations coûteuses si l'OS le demande
-  - Fallbacks pour backdrop-filter et blur (souvent absents ou lents)
-*/
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.01em;
   }
 }
 
-/* Sur machines lentes : limiter les animations CSS utilitaires */
-@media (prefers-reduced-motion: no-preference) {
-  .motion-safe-only {
-    /* classe utilitaire pour les effets optionnels */
+/* Cartes type fil Facebook */
+@layer components {
+  .fb-card {
+    @apply rounded-xl border-0 bg-card shadow-sm;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      0 0 0 1px rgba(0, 0, 0, 0.04);
+  }
+  .fb-chip {
+    @apply rounded-full bg-secondary px-3 py-1.5 text-sm font-medium text-foreground;
+  }
+  .fb-composer {
+    @apply flex items-center gap-3 rounded-xl bg-card px-3 py-2.5 shadow-sm;
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.1),
+      0 0 0 1px rgba(0, 0, 0, 0.04);
   }
 }
 
-/* Fallback backdrop-blur → fond opaque (IE / vieux Edge / Chrome < 76) */
-@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .backdrop-blur,
-  [class*="backdrop-blur"] {
-    background-color: var(--background) !important;
-    -webkit-backdrop-filter: none !important;
-    backdrop-filter: none !important;
-  }
-}
-
-/* Blur décoratif : désactivé sur vieux navigateurs (coûteux GPU) */
-@supports not (filter: blur(1px)) {
-  .blur-3xl,
-  .blur-2xl,
-  .blur-xl,
-  [class*="blur-"] {
-    filter: none !important;
-    opacity: 0.15;
-  }
-}
-
-/* Animation spin légère et compatible (loader) */
-@keyframes sc-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-.animate-spin {
-  animation: sc-spin 0.8s linear infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-spin {
-    animation: none;
-  }
-}
-
-/* Animations optionnelles (activées via Paramètres → html.scandoc-anim) */
-html.scandoc-anim .sc-fade-in {
-  animation: sc-fade-in 0.35s ease-out both;
-}
-html.scandoc-anim .sc-slide-up {
-  animation: sc-slide-up 0.4s ease-out both;
-}
-html.scandoc-anim button:not(:disabled),
-html.scandoc-anim a,
-html.scandoc-anim [role="button"] {
-  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-}
-html.scandoc-anim button:not(:disabled):active {
-  transform: scale(0.98);
-}
-html.scandoc-anim .sc-card-hover:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-@keyframes sc-fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes sc-slide-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html.scandoc-anim .sc-fade-in,
-  html.scandoc-anim .sc-slide-up,
-  html.scandoc-anim button,
-  html.scandoc-anim a {
-    animation: none !important;
-    transition: none !important;
-    transform: none !important;
-  }
-}
-
-
-/* —— Animations ScanDoc (désactivées si reduced-motion) —— */
-@keyframes scandoc-fade-up {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes scandoc-msg-in {
-  from { opacity: 0; transform: translateY(6px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-@keyframes scandoc-pulse-soft {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(30, 58, 95, 0.25); }
-  50% { box-shadow: 0 0 0 8px rgba(30, 58, 95, 0); }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  .animate-in-up {
-    animation: scandoc-fade-up 0.35s ease-out both;
-  }
-  .animate-msg {
-    animation: scandoc-msg-in 0.25s ease-out both;
-  }
-  .animate-soft-pulse {
-    animation: scandoc-pulse-soft 2.5s ease-in-out infinite;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-in-up,
-  .animate-msg,
-  .animate-soft-pulse {
-    animation: none !important;
+/* Scrollbar discrète */
+@layer utilities {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #ccd0d5 transparent;
   }
 }

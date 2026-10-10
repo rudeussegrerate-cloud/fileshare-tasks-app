@@ -49,7 +49,7 @@ export function ActualitesView() {
   const [showReacts, setShowReacts] = useState<string | null>(null);
 
   return (
-    <div className="mx-auto max-w-xl space-y-4">
+    <div className="mx-auto max-w-[680px] space-y-4">
       <div className="px-1">
         <h1 className="text-xl font-bold tracking-tight">Actualités</h1>
         <p className="text-sm text-muted-foreground">
@@ -88,7 +88,7 @@ export function ActualitesView() {
             return (
               <li
                 key={id}
-                className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm"
+                className="fb-card overflow-hidden"
               >
                 {/* En-tête type Facebook */}
                 <div className="flex items-start gap-3 px-4 pt-3">

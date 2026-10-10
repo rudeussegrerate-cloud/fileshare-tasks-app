@@ -150,9 +150,9 @@ function NavList({
                     type="button"
                     onClick={() => onSelect(item.key)}
                     className={cn(
-                      "flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-colors",
                       active
-                        ? "bg-brand text-primary-foreground"
+                        ? "bg-brand-soft text-brand"
                         : "text-foreground hover:bg-secondary",
                     )}
                   >
@@ -308,7 +308,7 @@ export function AppShell({
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-card/95 px-4 py-2.5 backdrop-blur lg:px-6">
+          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border/50 bg-card px-4 py-2 shadow-sm lg:px-6">
             <div className="flex items-center gap-3">
               <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
                 <SheetTrigger asChild>
