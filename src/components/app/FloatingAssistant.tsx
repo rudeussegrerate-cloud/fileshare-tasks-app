@@ -779,23 +779,41 @@ export function FloatingAssistant() {
                       }
                       setUploadingAvatar(true);
                       try {
-                        toast.message("Style Ghibli en cours…");
-                        const styled = await stylizeToGhibli(file);
+                        toast.message("Transformation style Ghibli…");
+                        let blob: Blob;
+                        try {
+                          blob = await stylizeToGhibli(file);
+                        } catch {
+                          toast.message("Style simplifié (photo originale)…");
+                          blob = file;
+                        }
                         const postUrl = await genAvatarUrl({});
                         const result = await fetch(postUrl, {
                           method: "POST",
-                          headers: { "Content-Type": "image/png" },
-                          body: styled,
+                          headers: {
+                            "Content-Type": blob.type || "image/png",
+                          },
+                          body: blob,
                         });
-                        if (!result.ok) throw new Error("Échec de l'envoi");
-                        const json = (await result.json()) as { storageId: string };
+                        if (!result.ok) {
+                          throw new Error(
+                            `Échec de l'envoi (${result.status}). Réessayez.`,
+                          );
+                        }
+                        const json = (await result.json()) as {
+                          storageId: string;
+                        };
                         await setAvatar({
-                          storageId: json.storageId as import("@/convex/_generated/dataModel").Id<"_storage">,
+                          storageId:
+                            json.storageId as import("@/convex/_generated/dataModel").Id<"_storage">,
                         });
-                        toast.success("Avatar style Ghibli appliqué");
+                        toast.success("Avatar du bot mis à jour");
                       } catch (err) {
+                        console.error("[avatar]", err);
                         toast.error(
-                          err instanceof Error ? err.message : "Upload impossible",
+                          err instanceof Error
+                            ? err.message
+                            : "Upload de la photo impossible",
                         );
                       } finally {
                         setUploadingAvatar(false);
