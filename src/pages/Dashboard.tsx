@@ -37,7 +37,11 @@ class ViewErrorBoundary extends React.Component<
       return (
         <div className="mx-auto max-w-lg rounded-lg border border-border bg-card p-6 text-center">
           <p className="font-semibold">Impossible d&apos;afficher {this.props.label}</p>
-          <p className="mt-2 text-sm text-muted-foreground">{this.state.error}</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {/CONVEX|Server Error|Request ID/i.test(this.state.error)
+              ? "Chargement temporairement indisponible. Réessayez dans un instant."
+              : this.state.error}
+          </p>
           <button
             type="button"
             className="mt-4 rounded-md bg-brand px-4 py-2 text-sm text-primary-foreground"
