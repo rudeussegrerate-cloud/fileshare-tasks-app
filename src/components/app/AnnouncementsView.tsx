@@ -36,10 +36,7 @@ const PRIORITY_LABEL: Record<string, string> = {
 
 export function AnnouncementsView() {
   const me = useQuery(api.workspace.me);
-  const list = useQuery(api.announcements.list, "skip"); // fil = Actualités
   const create = useMutation(api.announcements.create);
-  const remove = useMutation(api.announcements.remove);
-  const react = useMutation(api.announcements.react);
   const potentialViewers = useQuery(api.announcements.listPotentialViewers);
 
   const [title, setTitle] = useState("");
@@ -377,159 +374,11 @@ export function AnnouncementsView() {
         </Card>
       ) : null}
 
-      {list === undefined ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
-      ) : list.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">
-          Aucune annonce pour le moment. Soyez le premier à en publier une.
-        </p>
-      ) : (
-        <ul className="max-h-[calc(100vh-12rem)] space-y-4 overflow-y-auto pb-8 pr-1">
-          {list.map((a) => (
-            <li key={a._id}>
-              <Card
-                className={cn(
-                  "border-border shadow-none transition-shadow hover:shadow-sm",
-                  a.priority === "urgent" && "border-red-300 bg-red-50/30",
-                  a.priority === "important" && "border-amber-300 bg-amber-50/20",
-                  a.pinned && "ring-1 ring-brand/30",
-                )}
-              >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start gap-3">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
-                      {initialsOf(a.authorName)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <CardTitle className="text-base leading-snug">
-                          {a.title}
-                        </CardTitle>
-                        {a.pinned ? (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">
-                            <Pin className="size-3" />
-                            Épinglée
-                          </span>
-                        ) : null}
-                        {a.priority !== "normal" ? (
-                          <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                              a.priority === "urgent"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-amber-100 text-amber-900",
-                            )}
-                          >
-                            {PRIORITY_LABEL[a.priority]}
-                          </span>
-                        ) : null}
-                      </div>
-                      <CardDescription className="mt-1 space-y-0.5 text-xs">
-                        <span className="block">
-                          <strong className="text-foreground">De :</strong>{" "}
-                          {a.authorName}
-                          {a.authorFonction ? ` · ${a.authorFonction}` : ""}
-                          {a.authorRoleLabel ? ` · ${a.authorRoleLabel}` : ""}
-                        </span>
-                        <span className="block">
-                          <strong className="text-foreground">Provenance :</strong>{" "}
-                          {a.origin}
-                          {a.authorDepartmentName
-                            ? ` · ${a.authorDepartmentName}`
-                            : ""}
-                        </span>
-                        <span className="block">
-                          <strong className="text-foreground">Visibilité :</strong>{" "}
-                          {a.visibilityLabel}
-                          {a.visibility === "custom" && a.viewerCount != null
-                            ? ` (${a.viewerCount})`
-                            : ""}
-                        </span>
-                        <span className="block text-muted-foreground">
-                          {formatDateTime(a.createdAt)}
-                        </span>
-                      </CardDescription>
-                    </div>
-                    {a.canDelete ? (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-                        onClick={async () => {
-                          if (!confirm("Supprimer cette annonce ?")) return;
-                          try {
-                            await remove({
-                              announcementId: a._id as Id<"announcements">,
-                            });
-                            toast.message("Annonce supprimée");
-                          } catch (err) {
-                            toast.error(
-                              err instanceof Error ? err.message : "Erreur",
-                            );
-                          }
-                        }}
-                      >
-                        <Trash2 className="size-4" />
-                      </Button>
-                    ) : null}
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {a.body}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
-                    {REACTIONS.map((emoji) => {
-                      const count = a.reactionCounts[emoji] ?? 0;
-                      const active = a.myReaction === emoji;
-                      return (
-                        <button
-                          key={emoji}
-                          type="button"
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm transition-colors",
-                            active
-                              ? "border-brand bg-brand-soft"
-                              : "border-border hover:bg-muted/70",
-                          )}
-                          onClick={async () => {
-                            try {
-                              await react({
-                                announcementId: a._id as Id<"announcements">,
-                                emoji,
-                              });
-                            } catch (err) {
-                              toast.error(
-                                err instanceof Error ? err.message : "Erreur",
-                              );
-                            }
-                          }}
-                        >
-                          <span>{emoji}</span>
-                          {count > 0 ? (
-                            <span className="text-xs font-medium tabular-nums text-muted-foreground">
-                              {count}
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                    {a.reactionTotal > 0 ? (
-                      <span className="ml-auto text-[11px] text-muted-foreground">
-                        {a.reactionTotal} réaction
-                        {a.reactionTotal > 1 ? "s" : ""}
-                      </span>
-                    ) : null}
-                  </div>
-                </CardContent>
-              </Card>
-            </li>
-          ))}
-        </ul>
-      )}
+
+      <p className="rounded-xl border border-dashed bg-muted/40 px-4 py-6 text-center text-sm text-muted-foreground">
+        Les annonces publiées apparaissent dans{" "}
+        <strong className="text-foreground">Actualités</strong>.
+      </p>
     </div>
   );
 }

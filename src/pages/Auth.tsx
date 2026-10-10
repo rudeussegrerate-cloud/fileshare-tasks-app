@@ -19,7 +19,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
-import { ArrowLeft, ArrowRight, FileText, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { BrandLogo } from "@/components/Logo";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
@@ -333,11 +334,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         <Card className="border-0 shadow-lg rounded-xl">
           <CardHeader className="text-center">
             <div className="flex justify-center">
-              <span className="flex size-14 items-center justify-center rounded-2xl bg-brand text-primary-foreground shadow-sm">
-                <FileText className="size-6" />
-              </span>
+              <BrandLogo />
             </div>
-            <CardTitle className="text-xl">ScanDoc</CardTitle>
+            <CardTitle className="sr-only">ScanDoc</CardTitle>
             <CardDescription>
               Connectez-vous ou créez votre compte pour accéder à l'espace de
               travail.

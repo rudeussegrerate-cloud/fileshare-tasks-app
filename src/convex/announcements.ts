@@ -30,61 +30,55 @@ function canPost(user: Doc<"users">) {
 }
 
 /**
- * Liste ultra-défensive : ne lance JAMAIS d'erreur vers le client.
+ * Liste des annonces — ne doit jamais échouer côté client.
  */
 export const list = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     try {
-      let userId: Id<"users"> | null = null;
-      try {
-        userId = await getAuthUserId(ctx);
-      } catch {
-        return [];
-      }
+      const userId = await getAuthUserId(ctx);
       if (!userId) return [];
-
-      let me: Doc<"users"> | null = null;
-      try {
-        me = (await ctx.db.get(userId)) as Doc<"users"> | null;
-      } catch {
-        return [];
-      }
+      const me = await ctx.db.get(userId);
       if (!me) return [];
 
       const limit = Math.min(Math.max(args.limit ?? 40, 1), 80);
+      const rows = await ctx.db.query("announcements").collect();
+      rows.sort(
+        (a: any, b: any) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0),
+      );
 
-      let rows: any[] = [];
+      let reactions: any[] = [];
+      let comments: any[] = [];
       try {
-        rows = await ctx.db.query("announcements").collect();
-      } catch (e) {
-        console.error("announcements collect", e);
-        return [];
-      }
-
-      try {
-        rows.sort(
-          (a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0),
-        );
+        reactions = await ctx.db.query("announcementReactions").collect();
       } catch {
-        /* ignore sort errors */
+        reactions = [];
+      }
+      try {
+        comments = await ctx.db.query("announcementComments").collect();
+      } catch {
+        comments = [];
       }
 
       const out: any[] = [];
-
-      for (const a of rows) {
+      for (const a of rows as any[]) {
         try {
-          const isAuthor = a.authorId === me._id;
+          const isAuthor = String(a.authorId) === String(me._id);
           const admin = isAdmin(me.role);
           if (!isAuthor && !admin) {
             const vis = a.visibility ?? "public";
             if (vis === "private") {
-              if (!a.departmentId || a.departmentId !== me.departmentId) {
+              if (
+                !a.departmentId ||
+                String(a.departmentId) !== String(me.departmentId ?? "")
+              ) {
                 continue;
               }
             } else if (vis === "custom") {
               const ids = Array.isArray(a.viewerIds) ? a.viewerIds : [];
-              if (!ids.includes(me._id)) continue;
+              if (!ids.some((id: any) => String(id) === String(me._id))) {
+                continue;
+              }
             }
           }
 
@@ -96,6 +90,21 @@ export const list = query({
               mediaUrl = null;
             }
           }
+
+          const rs = reactions.filter(
+            (r) => String(r.announcementId) === String(a._id),
+          );
+          const counts: Record<string, number> = {};
+          let myReaction: string | null = null;
+          for (const r of rs) {
+            counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+            if (String(r.userId) === String(userId)) myReaction = r.emoji;
+          }
+          const cs = comments
+            .filter((c) => String(c.announcementId) === String(a._id))
+            .sort(
+              (x, y) => Number(x.createdAt ?? 0) - Number(y.createdAt ?? 0),
+            );
 
           out.push({
             _id: a._id,
@@ -120,67 +129,31 @@ export const list = query({
             mediaType: a.mediaType ?? null,
             mediaUrl,
             createdAt: Number(a.createdAt ?? 0),
-            reactionCounts: {} as Record<string, number>,
-            reactionTotal: 0,
-            myReaction: null as string | null,
-            comments: [] as any[],
-            commentCount: 0,
+            reactionCounts: counts,
+            reactionTotal: rs.length,
+            myReaction,
+            comments: cs.map((c) => ({
+              _id: c._id,
+              authorName: c.authorName,
+              body: c.body,
+              createdAt: c.createdAt,
+              isMine: String(c.authorId) === String(userId),
+            })),
+            commentCount: cs.length,
             canDelete: isAuthor || admin,
           });
-
           if (out.length >= limit) break;
         } catch (rowErr) {
-          console.error("announcement row skip", rowErr);
+          console.error("row skip", rowErr);
         }
       }
-
-      try {
-        const reactions = await ctx.db
-          .query("announcementReactions")
-          .collect();
-        const comments = await ctx.db.query("announcementComments").collect();
-        for (const item of out) {
-          const rs = reactions.filter(
-            (r: any) => String(r.announcementId) === String(item._id),
-          );
-          const counts: Record<string, number> = {};
-          let my: string | null = null;
-          for (const r of rs) {
-            counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
-            if (String(r.userId) === String(userId)) my = r.emoji;
-          }
-          item.reactionCounts = counts;
-          item.reactionTotal = rs.length;
-          item.myReaction = my;
-          const cs = comments
-            .filter(
-              (c: any) => String(c.announcementId) === String(item._id),
-            )
-            .sort(
-              (x: any, y: any) =>
-                Number(x.createdAt) - Number(y.createdAt),
-            );
-          item.comments = cs.map((c: any) => ({
-            _id: c._id,
-            authorName: c.authorName,
-            body: c.body,
-            createdAt: c.createdAt,
-            isMine: String(c.authorId) === String(userId),
-          }));
-          item.commentCount = cs.length;
-        }
-      } catch (enrichErr) {
-        console.error("announcements enrich", enrichErr);
-      }
-
       return out;
     } catch (e) {
-      console.error("announcements.list fatal", e);
+      console.error("announcements.list", e);
       return [];
     }
   },
 });
-
 
 export const listPotentialViewers = query({
   args: {},
@@ -305,8 +278,8 @@ export const create = mutation({
       createdAt: Date.now(),
     });
 
-    const authorLabel = me.name ?? "Un collègue";
     try {
+      const authorLabel = me.name ?? "Un collègue";
       const users = await ctx.db.query("users").collect();
       for (const u of users) {
         if (u._id === me._id) continue;
@@ -354,12 +327,10 @@ export const remove = mutation({
       throw new Error("Vous ne pouvez pas supprimer cette annonce.");
     }
     try {
-      const reactions = await ctx.db.query("announcementReactions").collect();
-      for (const r of reactions) {
+      for (const r of await ctx.db.query("announcementReactions").collect()) {
         if (r.announcementId === args.announcementId) await ctx.db.delete(r._id);
       }
-      const comments = await ctx.db.query("announcementComments").collect();
-      for (const c of comments) {
+      for (const c of await ctx.db.query("announcementComments").collect()) {
         if (c.announcementId === args.announcementId) await ctx.db.delete(c._id);
       }
       if ((a as any).mediaStorageId) {
