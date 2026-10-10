@@ -9,6 +9,7 @@ import { ProfileSetup } from "@/components/app/ProfileSetup";
 import { SendDocument } from "@/components/app/SendDocument";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
+import { AnnouncementsView } from "@/components/app/AnnouncementsView";
 import { MessagesView } from "@/components/app/MessagesView";
 import { SmartTips } from "@/components/app/SmartTips";
 import { FloatingAssistant } from "@/components/app/FloatingAssistant";
@@ -124,6 +125,8 @@ export default function Dashboard() {
       {view === "departments" ? <DepartmentsView /> : null}
 
       {view === "accounts" ? <AccountsView /> : null}
+
+      {view === "announcements" ? <AnnouncementsView /> : null}
 
       {view === "messages" ? (
         <MessagesView initialUserId={chatUserId} />

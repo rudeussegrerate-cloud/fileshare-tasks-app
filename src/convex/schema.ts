@@ -256,6 +256,37 @@ const schema = defineSchema(
       body: v.string(),
       createdAt: v.number(),
     }).index("by_user", ["userId", "createdAt"]),
+
+    // Annonces internes (mur d'information)
+    announcements: defineTable({
+      authorId: v.id("users"),
+      title: v.string(),
+      body: v.string(),
+      // Provenance / contexte
+      origin: v.string(), // ex. Direction, Département RH, Service IT
+      // Snapshot auteur au moment de la publication
+      authorName: v.string(),
+      authorFonction: v.optional(v.string()),
+      authorDepartmentName: v.optional(v.string()),
+      authorRoleLabel: v.optional(v.string()), // DG, Chef, Membre…
+      priority: v.optional(
+        v.union(v.literal("normal"), v.literal("important"), v.literal("urgent")),
+      ),
+      pinned: v.optional(v.boolean()),
+      createdAt: v.number(),
+      updatedAt: v.optional(v.number()),
+    })
+      .index("by_created", ["createdAt"])
+      .index("by_author", ["authorId"]),
+
+    announcementReactions: defineTable({
+      announcementId: v.id("announcements"),
+      userId: v.id("users"),
+      emoji: v.string(), // 👍 ❤️ 👏 🎉 😮
+      createdAt: v.number(),
+    })
+      .index("by_announcement", ["announcementId"])
+      .index("by_user_announcement", ["userId", "announcementId"]),
   },
   {
     schemaValidation: false,

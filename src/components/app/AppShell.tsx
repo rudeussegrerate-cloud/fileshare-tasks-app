@@ -23,6 +23,7 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  Megaphone,
   Menu,
   MessageCircle,
   Send,
@@ -45,6 +46,7 @@ export type AppView =
   | "inbox"
   | "sent"
   | "messages"
+  | "announcements"
   | "departments"
   | "accounts"
   | "settings";
@@ -66,6 +68,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       { key: "inbox", label: "Reçus", icon: Inbox },
       { key: "sent", label: "Envoyés", icon: Send },
       { key: "messages", label: "Messages", icon: MessageCircle },
+      { key: "announcements", label: "Annonces", icon: Megaphone },
     ],
   },
   {
