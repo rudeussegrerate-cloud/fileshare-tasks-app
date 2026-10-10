@@ -38,8 +38,39 @@ function relativeTime(ts: number) {
   return formatDateTime(ts);
 }
 
+
+type FeedItem = {
+  _id: string;
+  title: string;
+  body: string;
+  origin: string;
+  authorName: string;
+  authorFonction?: string | null;
+  authorDepartmentName?: string | null;
+  authorRoleLabel?: string | null;
+  priority?: string;
+  pinned?: boolean;
+  visibility?: string;
+  visibilityLabel?: string;
+  mediaType?: string | null;
+  mediaUrl?: string | null;
+  createdAt: number;
+  reactionCounts?: Record<string, number>;
+  reactionTotal?: number;
+  myReaction?: string | null;
+  comments?: Array<{
+    _id: string;
+    authorName: string;
+    body: string;
+    createdAt: number;
+    isMine?: boolean;
+  }>;
+  commentCount?: number;
+  canDelete?: boolean;
+};
+
 export function ActualitesView() {
-  const list = useQuery(api.announcements.list, { limit: 50 });
+  const list = useQuery(api.announcements.list, { limit: 50 }) as FeedItem[] | undefined;
   const react = useMutation(api.announcements.react);
   const addComment = useMutation(api.announcements.addComment);
   const remove = useMutation(api.announcements.remove);
