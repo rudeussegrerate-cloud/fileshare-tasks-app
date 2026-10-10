@@ -36,7 +36,7 @@ const PRIORITY_LABEL: Record<string, string> = {
 
 export function AnnouncementsView() {
   const me = useQuery(api.workspace.me);
-  const list = useQuery(api.announcements.list, { limit: 40 });
+  const list = useQuery(api.announcements.list, "skip"); // fil = Actualités
   const create = useMutation(api.announcements.create);
   const remove = useMutation(api.announcements.remove);
   const react = useMutation(api.announcements.react);

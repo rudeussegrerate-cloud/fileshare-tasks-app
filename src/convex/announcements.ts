@@ -29,253 +29,190 @@ function canPost(user: Doc<"users">) {
   return user.accountStatus === "valide" || isAdmin(user.role);
 }
 
-function canView(
-  a: any,
-  me: Doc<"users">,
-): boolean {
-  if (a.authorId === me._id) return true;
-  if (isAdmin(me.role)) return true;
-  const vis = a.visibility ?? "public";
-  if (vis === "public") return true;
-  if (vis === "private") {
-    return !!(a.departmentId && me.departmentId && a.departmentId === me.departmentId);
-  }
-  if (vis === "custom") {
-    const ids: string[] = Array.isArray(a.viewerIds) ? a.viewerIds : [];
-    return ids.includes(me._id);
-  }
-  return true;
-}
+/**
+ * Liste ultra-défensive : ne lance JAMAIS d'erreur vers le client.
+ */
+export const list = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, args) => {
+    try {
+      let userId: Id<"users"> | null = null;
+      try {
+        userId = await getAuthUserId(ctx);
+      } catch {
+        return [];
+      }
+      if (!userId) return [];
+
+      let me: Doc<"users"> | null = null;
+      try {
+        me = (await ctx.db.get(userId)) as Doc<"users"> | null;
+      } catch {
+        return [];
+      }
+      if (!me) return [];
+
+      const limit = Math.min(Math.max(args.limit ?? 40, 1), 80);
+
+      let rows: any[] = [];
+      try {
+        rows = await ctx.db.query("announcements").collect();
+      } catch (e) {
+        console.error("announcements collect", e);
+        return [];
+      }
+
+      try {
+        rows.sort(
+          (a, b) => Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0),
+        );
+      } catch {
+        /* ignore sort errors */
+      }
+
+      const out: any[] = [];
+
+      for (const a of rows) {
+        try {
+          const isAuthor = a.authorId === me._id;
+          const admin = isAdmin(me.role);
+          if (!isAuthor && !admin) {
+            const vis = a.visibility ?? "public";
+            if (vis === "private") {
+              if (!a.departmentId || a.departmentId !== me.departmentId) {
+                continue;
+              }
+            } else if (vis === "custom") {
+              const ids = Array.isArray(a.viewerIds) ? a.viewerIds : [];
+              if (!ids.includes(me._id)) continue;
+            }
+          }
+
+          let mediaUrl: string | null = null;
+          if (a.mediaStorageId) {
+            try {
+              mediaUrl = await ctx.storage.getUrl(a.mediaStorageId);
+            } catch {
+              mediaUrl = null;
+            }
+          }
+
+          out.push({
+            _id: a._id,
+            title: String(a.title ?? ""),
+            body: String(a.body ?? ""),
+            origin: String(a.origin ?? ""),
+            authorId: a.authorId,
+            authorName: String(a.authorName ?? "Utilisateur"),
+            authorFonction: a.authorFonction ?? null,
+            authorDepartmentName: a.authorDepartmentName ?? null,
+            authorRoleLabel: a.authorRoleLabel ?? null,
+            priority: a.priority ?? "normal",
+            pinned: Boolean(a.pinned),
+            visibility: a.visibility ?? "public",
+            visibilityLabel:
+              (a.visibility ?? "public") === "public"
+                ? "Publique"
+                : a.visibility === "private"
+                  ? "Privée"
+                  : "Personnalisée",
+            viewerCount: Array.isArray(a.viewerIds) ? a.viewerIds.length : null,
+            mediaType: a.mediaType ?? null,
+            mediaUrl,
+            createdAt: Number(a.createdAt ?? 0),
+            reactionCounts: {} as Record<string, number>,
+            reactionTotal: 0,
+            myReaction: null as string | null,
+            comments: [] as any[],
+            commentCount: 0,
+            canDelete: isAuthor || admin,
+          });
+
+          if (out.length >= limit) break;
+        } catch (rowErr) {
+          console.error("announcement row skip", rowErr);
+        }
+      }
+
+      try {
+        const reactions = await ctx.db
+          .query("announcementReactions")
+          .collect();
+        const comments = await ctx.db.query("announcementComments").collect();
+        for (const item of out) {
+          const rs = reactions.filter(
+            (r: any) => String(r.announcementId) === String(item._id),
+          );
+          const counts: Record<string, number> = {};
+          let my: string | null = null;
+          for (const r of rs) {
+            counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+            if (String(r.userId) === String(userId)) my = r.emoji;
+          }
+          item.reactionCounts = counts;
+          item.reactionTotal = rs.length;
+          item.myReaction = my;
+          const cs = comments
+            .filter(
+              (c: any) => String(c.announcementId) === String(item._id),
+            )
+            .sort(
+              (x: any, y: any) =>
+                Number(x.createdAt) - Number(y.createdAt),
+            );
+          item.comments = cs.map((c: any) => ({
+            _id: c._id,
+            authorName: c.authorName,
+            body: c.body,
+            createdAt: c.createdAt,
+            isMine: String(c.authorId) === String(userId),
+          }));
+          item.commentCount = cs.length;
+        }
+      } catch (enrichErr) {
+        console.error("announcements enrich", enrichErr);
+      }
+
+      return out;
+    } catch (e) {
+      console.error("announcements.list fatal", e);
+      return [];
+    }
+  },
+});
+
+
+export const listPotentialViewers = query({
+  args: {},
+  handler: async (ctx) => {
+    try {
+      const userId = await getAuthUserId(ctx);
+      if (!userId) return [];
+      const users = await ctx.db.query("users").collect();
+      return users
+        .filter(
+          (u) =>
+            u._id !== userId &&
+            (u.accountStatus === "valide" || isAdmin(u.role)),
+        )
+        .map((u) => ({
+          _id: u._id,
+          name: u.name ?? u.email ?? "Utilisateur",
+          fonction: u.fonction ?? null,
+          departmentId: u.departmentId ?? null,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+    } catch {
+      return [];
+    }
+  },
+});
 
 export const generateMediaUploadUrl = mutation({
   args: {},
   handler: async (ctx) => {
     await requireUser(ctx);
     return await ctx.storage.generateUploadUrl();
-  },
-});
-
-/** Liste des annonces — version minimale stable */
-export const listFeed = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return [];
-    const me = await ctx.db.get(userId);
-    if (!me) return [];
-
-    const limit = Math.min(args.limit ?? 40, 80);
-    const rows = await ctx.db.query("announcements").collect();
-
-    rows.sort((a: any, b: any) => {
-      const pin = Number(!!b.pinned) - Number(!!a.pinned);
-      if (pin !== 0) return pin;
-      return (b.createdAt ?? 0) - (a.createdAt ?? 0);
-    });
-
-    const result = [];
-    for (const a of rows as any[]) {
-      if (!canView(a, me)) continue;
-
-      result.push({
-        _id: a._id,
-        title: String(a.title ?? ""),
-        body: String(a.body ?? ""),
-        origin: String(a.origin ?? ""),
-        authorId: a.authorId,
-        authorName: String(a.authorName ?? "Utilisateur"),
-        authorFonction: a.authorFonction ?? null,
-        authorDepartmentName: a.authorDepartmentName ?? null,
-        authorRoleLabel: a.authorRoleLabel ?? null,
-        priority: a.priority ?? "normal",
-        pinned: !!a.pinned,
-        visibility: a.visibility ?? "public",
-        visibilityLabel:
-          (a.visibility ?? "public") === "public"
-            ? "Publique"
-            : (a.visibility ?? "") === "private"
-              ? "Privée — mon département"
-              : "Personnalisée",
-        viewerCount: Array.isArray(a.viewerIds) ? a.viewerIds.length : null,
-        mediaType: a.mediaType ?? null,
-        mediaUrl: null as string | null,
-        createdAt: a.createdAt ?? 0,
-        reactionCounts: {} as Record<string, number>,
-        reactionTotal: 0,
-        myReaction: null as string | null,
-        comments: [] as Array<{
-          _id: string;
-          authorName: string;
-          body: string;
-          createdAt: number;
-          isMine: boolean;
-        }>,
-        commentCount: 0,
-        canDelete: a.authorId === userId || isAdmin(me.role),
-      });
-
-      if (result.length >= limit) break;
-    }
-
-    // Enrichir réactions / commentaires / média sans faire échouer la liste
-    try {
-      const reactions = await ctx.db.query("announcementReactions").collect();
-      const comments = await ctx.db.query("announcementComments").collect();
-      for (const item of result) {
-        const id = item._id;
-        const rs = reactions.filter((r: any) => r.announcementId === id);
-        const counts: Record<string, number> = {};
-        let my: string | null = null;
-        for (const r of rs as any[]) {
-          counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
-          if (r.userId === userId) my = r.emoji;
-        }
-        item.reactionCounts = counts;
-        item.reactionTotal = rs.length;
-        item.myReaction = my;
-        const cs = comments
-          .filter((c: any) => c.announcementId === id)
-          .sort((x: any, y: any) => x.createdAt - y.createdAt);
-        item.comments = cs.map((c: any) => ({
-          _id: c._id,
-          authorName: c.authorName,
-          body: c.body,
-          createdAt: c.createdAt,
-          isMine: c.authorId === userId,
-        }));
-        item.commentCount = cs.length;
-      }
-    } catch (e) {
-      console.error("[announcements.list] enrich", e);
-    }
-
-    // Médias
-    try {
-      for (const item of result) {
-        const row = (rows as any[]).find((r) => r._id === item._id);
-        if (row?.mediaStorageId) {
-          item.mediaUrl = await ctx.storage.getUrl(row.mediaStorageId);
-          item.mediaType = row.mediaType ?? item.mediaType;
-        }
-      }
-    } catch (e) {
-      console.error("[announcements.list] media", e);
-    }
-
-    return result;
-  },
-});
-
-/** Alias stable pour les clients existants */
-export const list = query({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    // Délègue la même logique minimaliste
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return [];
-    const me = await ctx.db.get(userId);
-    if (!me) return [];
-    const limit = Math.min(args.limit ?? 40, 80);
-    const rows = await ctx.db.query("announcements").collect();
-    rows.sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-    const out: any[] = [];
-    for (const a of rows as any[]) {
-      if (a.authorId !== me._id && me.role !== "admin" && me.role !== "root") {
-        const vis = a.visibility ?? "public";
-        if (vis === "private" && a.departmentId !== me.departmentId) continue;
-        if (vis === "custom") {
-          const ids = Array.isArray(a.viewerIds) ? a.viewerIds : [];
-          if (!ids.includes(me._id)) continue;
-        }
-      }
-      let mediaUrl: string | null = null;
-      if (a.mediaStorageId) {
-        try {
-          mediaUrl = await ctx.storage.getUrl(a.mediaStorageId);
-        } catch {
-          mediaUrl = null;
-        }
-      }
-      out.push({
-        _id: a._id,
-        title: String(a.title ?? ""),
-        body: String(a.body ?? ""),
-        origin: String(a.origin ?? ""),
-        authorId: a.authorId,
-        authorName: String(a.authorName ?? "Utilisateur"),
-        authorFonction: a.authorFonction ?? null,
-        authorDepartmentName: a.authorDepartmentName ?? null,
-        authorRoleLabel: a.authorRoleLabel ?? null,
-        priority: a.priority ?? "normal",
-        pinned: !!a.pinned,
-        visibility: a.visibility ?? "public",
-        visibilityLabel: "Publique",
-        viewerCount: null,
-        mediaType: a.mediaType ?? null,
-        mediaUrl,
-        createdAt: a.createdAt ?? 0,
-        reactionCounts: {},
-        reactionTotal: 0,
-        myReaction: null,
-        comments: [],
-        commentCount: 0,
-        canDelete: a.authorId === userId || me.role === "admin" || me.role === "root",
-      });
-      if (out.length >= limit) break;
-    }
-    // Enrichir réactions + commentaires
-    try {
-      const reactions = await ctx.db.query("announcementReactions").collect();
-      const comments = await ctx.db.query("announcementComments").collect();
-      for (const item of out) {
-        const rs = reactions.filter((r: any) => r.announcementId === item._id);
-        const counts: Record<string, number> = {};
-        let my: string | null = null;
-        for (const r of rs as any[]) {
-          counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
-          if (r.userId === userId) my = r.emoji;
-        }
-        item.reactionCounts = counts;
-        item.reactionTotal = rs.length;
-        item.myReaction = my;
-        const cs = comments
-          .filter((c: any) => c.announcementId === item._id)
-          .sort((x: any, y: any) => x.createdAt - y.createdAt);
-        item.comments = cs.map((c: any) => ({
-          _id: c._id,
-          authorName: c.authorName,
-          body: c.body,
-          createdAt: c.createdAt,
-          isMine: c.authorId === userId,
-        }));
-        item.commentCount = cs.length;
-      }
-    } catch (e) {
-      console.error("[list enrich]", e);
-    }
-    return out;
-  },
-});
-
-export const listPotentialViewers = query({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return [];
-    const users = await ctx.db.query("users").collect();
-    return users
-      .filter(
-        (u) =>
-          u._id !== userId &&
-          (u.accountStatus === "valide" || isAdmin(u.role)),
-      )
-      .map((u) => ({
-        _id: u._id,
-        name: u.name ?? u.email ?? "Utilisateur",
-        fonction: u.fonction ?? null,
-        departmentId: u.departmentId ?? null,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name, "fr"));
   },
 });
 
@@ -369,30 +306,38 @@ export const create = mutation({
     });
 
     const authorLabel = me.name ?? "Un collègue";
-    const users = await ctx.db.query("users").collect();
-    for (const u of users) {
-      if (u._id === me._id) continue;
-      if (u.accountStatus && u.accountStatus !== "valide" && !isAdmin(u.role)) {
-        continue;
+    try {
+      const users = await ctx.db.query("users").collect();
+      for (const u of users) {
+        if (u._id === me._id) continue;
+        if (
+          u.accountStatus &&
+          u.accountStatus !== "valide" &&
+          !isAdmin(u.role)
+        ) {
+          continue;
+        }
+        let ok = false;
+        if (args.visibility === "public") ok = true;
+        else if (
+          args.visibility === "private" &&
+          me.departmentId &&
+          u.departmentId === me.departmentId
+        ) {
+          ok = true;
+        } else if (args.visibility === "custom" && viewerIds?.includes(u._id)) {
+          ok = true;
+        }
+        if (!ok) continue;
+        await pushNotification(ctx, {
+          userId: u._id,
+          type: "announcement.new",
+          title: "Nouvelle annonce",
+          body: `${authorLabel} · ${title}`,
+        });
       }
-      let ok = false;
-      if (args.visibility === "public") ok = true;
-      else if (
-        args.visibility === "private" &&
-        me.departmentId &&
-        u.departmentId === me.departmentId
-      ) {
-        ok = true;
-      } else if (args.visibility === "custom" && viewerIds?.includes(u._id)) {
-        ok = true;
-      }
-      if (!ok) continue;
-      await pushNotification(ctx, {
-        userId: u._id,
-        type: "announcement.new",
-        title: "Nouvelle annonce",
-        body: `${authorLabel} · ${title}`,
-      });
+    } catch (e) {
+      console.error("notify", e);
     }
 
     return id;
@@ -408,20 +353,24 @@ export const remove = mutation({
     if (a.authorId !== me._id && !isAdmin(me.role)) {
       throw new Error("Vous ne pouvez pas supprimer cette annonce.");
     }
-    const reactions = await ctx.db.query("announcementReactions").collect();
-    for (const r of reactions) {
-      if (r.announcementId === args.announcementId) await ctx.db.delete(r._id);
-    }
-    const comments = await ctx.db.query("announcementComments").collect();
-    for (const c of comments) {
-      if (c.announcementId === args.announcementId) await ctx.db.delete(c._id);
-    }
-    if ((a as any).mediaStorageId) {
-      try {
-        await ctx.storage.delete((a as any).mediaStorageId);
-      } catch {
-        /* ignore */
+    try {
+      const reactions = await ctx.db.query("announcementReactions").collect();
+      for (const r of reactions) {
+        if (r.announcementId === args.announcementId) await ctx.db.delete(r._id);
       }
+      const comments = await ctx.db.query("announcementComments").collect();
+      for (const c of comments) {
+        if (c.announcementId === args.announcementId) await ctx.db.delete(c._id);
+      }
+      if ((a as any).mediaStorageId) {
+        try {
+          await ctx.storage.delete((a as any).mediaStorageId);
+        } catch {
+          /* ignore */
+        }
+      }
+    } catch (e) {
+      console.error("remove cleanup", e);
     }
     await ctx.db.delete(args.announcementId);
     return null;
@@ -440,7 +389,6 @@ export const react = mutation({
     }
     const a = await ctx.db.get(args.announcementId);
     if (!a) throw new Error("Annonce introuvable.");
-    if (!canView(a, me)) throw new Error("Vous n'avez pas accès à cette annonce.");
 
     const all = await ctx.db.query("announcementReactions").collect();
     const existing = all.find(
@@ -477,7 +425,6 @@ export const addComment = mutation({
     const me = await requireUser(ctx);
     const a = await ctx.db.get(args.announcementId);
     if (!a) throw new Error("Annonce introuvable.");
-    if (!canView(a, me)) throw new Error("Vous n'avez pas accès à cette annonce.");
     const body = args.body.trim().slice(0, 1000);
     if (body.length < 1) throw new Error("Commentaire vide.");
     return await ctx.db.insert("announcementComments", {
