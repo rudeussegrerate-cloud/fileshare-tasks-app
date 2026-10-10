@@ -201,7 +201,7 @@ export function ActualitesView() {
                         <>
                           <span className="flex -space-x-1">
                             {Object.entries(a.reactionCounts ?? {})
-                              .filter(([, n]) => n > 0)
+                              .filter(([, n]) => Number(n) > 0)
                               .slice(0, 3)
                               .map(([emoji]) => (
                                 <span
@@ -313,7 +313,7 @@ export function ActualitesView() {
                 {/* Commentaires */}
                 {commentsOpen ? (
                   <div className="space-y-3 border-t bg-muted/30 px-4 py-3">
-                    {(a.comments ?? []).map((c) => (
+                    {(a.comments ?? []).map((c: { _id: string; authorName: string; body: string; createdAt: number; isMine?: boolean }) => (
                       <div key={String(c._id)} className="flex gap-2">
                         <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold">
                           {initials(c.authorName)}
