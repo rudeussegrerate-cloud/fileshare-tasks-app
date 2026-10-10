@@ -1,3 +1,4 @@
+import React from "react";
 import { AccountStatusScreen } from "@/components/app/AccountStatusScreen";
 import { AccountsView } from "@/components/app/AccountsView";
 import { AppShell, type AppView } from "@/components/app/AppShell";
