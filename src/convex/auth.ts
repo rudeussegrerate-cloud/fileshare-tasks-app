@@ -1,7 +1,6 @@
 // Auth providers: password (+ reset), email OTP, anonymous, Google OAuth.
 
 import { convexAuth } from "@convex-dev/auth/server";
-import { Anonymous } from "@convex-dev/auth/providers/Anonymous";
 import { Password } from "@convex-dev/auth/providers/Password";
 import Google from "@auth/core/providers/google";
 import { emailOtp } from "./auth/emailOtp";
@@ -32,6 +31,18 @@ const passwordProvider = Password({
     if (password.length < 8) {
       throw new Error("Le mot de passe doit contenir au moins 8 caractères.");
     }
+    if (password.length > 128) {
+      throw new Error("Mot de passe trop long.");
+    }
+    if (!/[a-z]/.test(password)) {
+      throw new Error("Le mot de passe doit contenir au moins une minuscule.");
+    }
+    if (!/[A-Z]/.test(password)) {
+      throw new Error("Le mot de passe doit contenir au moins une majuscule.");
+    }
+    if (!/[0-9]/.test(password)) {
+      throw new Error("Le mot de passe doit contenir au moins un chiffre.");
+    }
   },
 });
 
@@ -39,7 +50,6 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
     passwordProvider,
     emailOtp,
-    Anonymous,
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
       clientSecret: process.env.AUTH_GOOGLE_SECRET,

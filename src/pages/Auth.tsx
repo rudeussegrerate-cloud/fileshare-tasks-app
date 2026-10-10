@@ -79,6 +79,9 @@ function friendlyError(
   if (/password.*(short|least|length|weak|\b8\b)/i.test(message)) {
     return "Le mot de passe doit contenir au moins 8 caractères.";
   }
+  if (/majuscule|minuscule|chiffre|uppercase|lowercase|digit|number/i.test(message)) {
+    return "Le mot de passe doit contenir une majuscule, une minuscule et un chiffre.";
+  }
   if (/network|fetch|timeout|Failed to fetch|Load failed/i.test(message)) {
     return "Problème de connexion. Vérifiez votre réseau et réessayez.";
   }
@@ -264,6 +267,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     const confirmation = String(formData.get("confirmation") ?? "");
     if (password.length < 8) {
       setError("Le mot de passe doit contenir au moins 8 caractères.");
+      return;
+    }
+    if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
+      setError(
+        "Le mot de passe doit contenir une majuscule, une minuscule et un chiffre.",
+      );
       return;
     }
     if (password !== confirmation) {
@@ -639,7 +648,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         name="password"
                         type="password"
                         autoComplete="new-password"
-                        placeholder="8 caractères minimum"
+                        placeholder="Majuscule, minuscule, chiffre — 8+ car."
                         disabled={isLoading}
                         required
                         minLength={8}

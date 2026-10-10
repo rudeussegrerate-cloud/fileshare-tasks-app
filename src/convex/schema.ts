@@ -75,6 +75,7 @@ const schema = defineSchema(
       fonction: v.optional(v.string()),
       phone: v.optional(v.string()),
       profileCompletedAt: v.optional(v.number()),
+      cguAcceptedAt: v.optional(v.number()),
 
       // account approval by the DG (auto-approved for the DG himself).
       accountStatus: v.optional(accountStatusValidator),
@@ -246,6 +247,7 @@ const schema = defineSchema(
       mood: v.string(), // joyeux | calme | motivant | sérieux | blagueur
       personality: v.string(), // comment se comporter
       color: v.string(), // couleur du personnage
+      gender: v.optional(v.union(v.literal("male"), v.literal("female"), v.literal("neutral"))),
       avatarStorageId: v.optional(v.id("_storage")),
       createdAt: v.number(),
       updatedAt: v.number(),
@@ -308,6 +310,11 @@ const schema = defineSchema(
       body: v.string(),
       createdAt: v.number(),
     }).index("by_announcement", ["announcementId", "createdAt"]),
+    rateLimits: defineTable({
+      key: v.string(), // userId:action
+      count: v.number(),
+      windowStart: v.number(),
+    }).index("by_key", ["key"]),
   },
   {
     schemaValidation: false,

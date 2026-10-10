@@ -28,6 +28,7 @@ export const getMyBot = query({
       mood: "calme",
       personality: "Patient, clair, encourageant. Explique les étapes une par une.",
       color: "navy",
+      gender: "neutral" as const,
       avatarUrl: null as string | null,
       createdAt: 0,
       updatedAt: 0,
@@ -42,6 +43,9 @@ export const saveMyBot = mutation({
     mood: v.string(),
     personality: v.string(),
     color: v.string(),
+    gender: v.optional(
+      v.union(v.literal("male"), v.literal("female"), v.literal("neutral")),
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await getAuthUserId(ctx);
@@ -55,6 +59,7 @@ export const saveMyBot = mutation({
       : "navy";
     const personality = args.personality.trim().slice(0, 300) ||
       "Patient et clair.";
+    const gender = args.gender ?? "neutral";
 
     const existing = await ctx.db
       .query("botProfiles")
@@ -67,6 +72,7 @@ export const saveMyBot = mutation({
         mood,
         personality,
         color,
+        gender,
         updatedAt: now,
       });
       return existing._id;
@@ -77,6 +83,7 @@ export const saveMyBot = mutation({
       mood,
       personality,
       color,
+      gender,
       createdAt: now,
       updatedAt: now,
     });

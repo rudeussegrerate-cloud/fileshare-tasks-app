@@ -12,6 +12,7 @@ import {
 import { documentStatusValidator, summaryStatusValidator } from "./schema";
 import type { Doc, Id } from "./_generated/dataModel";
 import { pushNotification } from "./inAppNotifications";
+import { assertRateLimit, sanitizeText } from "./lib/security";
 
 type DbCtx = QueryCtx | MutationCtx;
 
@@ -185,6 +186,14 @@ export const send = mutation({
     const userId = await requireUserId(ctx);
     const sender = await ctx.db.get(userId);
     if (!sender) throw new Error("Compte introuvable.");
+
+    // Anti-abus : max 20 envois / 10 minutes
+    await assertRateLimit(ctx, {
+      userId,
+      action: "document.sent",
+      maxPerWindow: 20,
+      windowMs: 10 * 60 * 1000,
+    });
 
     // Validation serveur des fichiers
     validateFile({

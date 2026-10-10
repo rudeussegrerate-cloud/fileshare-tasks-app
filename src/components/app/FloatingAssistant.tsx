@@ -55,6 +55,7 @@ function BotAvatar({
   bounce = false,
   emotion = "idle",
   photoUrl,
+  gender = "neutral",
 }: {
   color: string;
   mood: string;
@@ -62,11 +63,16 @@ function BotAvatar({
   bounce?: boolean;
   emotion?: IdleEmotion;
   photoUrl?: string | null;
+  gender?: "male" | "female" | "neutral";
 }) {
   const dim =
     size === "lg" ? "size-[72px]" : size === "sm" ? "size-10" : "size-14";
-  const palette = HAIR[color] ?? HAIR.navy!;
-  const skin = "#ffdbac";
+  let palette = HAIR[color] ?? HAIR.navy!;
+  // Avatar masculin type sticker : cheveux verts, traits plus nets
+  if (gender === "male" && !photoUrl) {
+    palette = { hair: "#5cb85c", hairDark: "#3d8b3d", accent: "#2d6a2d" };
+  }
+  const skin = gender === "male" ? "#f0d0a0" : "#ffdbac";
   const skinShade = "#f5c99a";
 
   // Photo utilisateur comme visage (toujours animée)
@@ -331,6 +337,7 @@ export function FloatingAssistant() {
   const [mood, setMood] = useState("calme");
   const [personality, setPersonality] = useState("");
   const [color, setColor] = useState("navy");
+  const [gender, setGender] = useState<"male" | "female" | "neutral">("neutral");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Position du bot (glisser-déposer), mémorisée
@@ -383,6 +390,7 @@ export function FloatingAssistant() {
     setMood(bot.mood);
     setPersonality(bot.personality);
     setColor(bot.color);
+    if ("gender" in bot && bot.gender) setGender(bot.gender as "male" | "female" | "neutral");
   }, [bot]);
 
   useEffect(() => {
@@ -536,6 +544,7 @@ export function FloatingAssistant() {
             bounce={!dragging}
             emotion={open ? "idle" : idleEmotion}
             photoUrl={bot && "avatarUrl" in bot ? bot.avatarUrl : null}
+            gender={gender}
           />
           <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold shadow">
             {botName}
@@ -722,6 +731,32 @@ export function FloatingAssistant() {
               </div>
             </div>
             <div className="space-y-1.5">
+              <div className="space-y-1.5">
+                <Label>Genre de l&apos;assistant</Label>
+                <div className="flex flex-wrap gap-2">
+                  {(
+                    [
+                      ["male", "Homme"],
+                      ["female", "Femme"],
+                      ["neutral", "Neutre"],
+                    ] as const
+                  ).map(([id, label]) => (
+                    <Button
+                      key={id}
+                      type="button"
+                      size="sm"
+                      variant={gender === id ? "default" : "outline"}
+                      onClick={() => setGender(id)}
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Homme : avatar sticker aux cheveux verts. Ou importez une photo
+                  (style Ghibli).
+                </p>
+              </div>
               <Label>Photo de l&apos;assistant (avatar)</Label>
               <p className="text-[11px] text-muted-foreground">
                 Importez une photo : elle est transformée en style Ghibli et devient le visage animé du bot.
@@ -804,7 +839,7 @@ export function FloatingAssistant() {
                 type="button"
                 onClick={async () => {
                   try {
-                    await saveBot({ name, mood, personality, color });
+                    await saveBot({ name, mood, personality, color, gender });
                     toast.success("Assistant enregistré");
                     setSettings(false);
                   } catch (e) {

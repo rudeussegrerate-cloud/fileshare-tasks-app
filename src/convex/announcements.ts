@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
 import { pushNotification } from "./inAppNotifications";
+import { assertRateLimit, sanitizeText, writeAudit } from "./lib/security";
 
 const REACTIONS = ["👍", "❤️", "👏", "🎉", "😮"] as const;
 
@@ -205,9 +206,15 @@ export const create = mutation({
       throw new Error("Votre compte doit être validé pour publier une annonce.");
     }
 
-    const title = args.title.trim().slice(0, 120);
-    const body = args.body.trim().slice(0, 4000);
-    const origin = args.origin.trim().slice(0, 80);
+    await assertRateLimit(ctx, {
+      userId: me._id,
+      action: "announcement.create",
+      maxPerWindow: 15,
+      windowMs: 30 * 60 * 1000,
+    });
+    const title = sanitizeText(args.title, 120);
+    const body = sanitizeText(args.body, 4000);
+    const origin = sanitizeText(args.origin, 80);
     if (title.length < 3) throw new Error("Titre trop court.");
     if (body.length < 2 && !args.mediaStorageId) {
       throw new Error("Ajoutez un message ou un média.");
@@ -294,6 +301,12 @@ export const create = mutation({
       });
     }
 
+    await writeAudit(ctx, {
+      action: "announcement.create",
+      actorId: me._id,
+      actorName: me.name ?? me.email ?? "Utilisateur",
+      details: title,
+    });
     return id;
   },
 });

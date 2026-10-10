@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { pushNotification } from "./inAppNotifications";
+import { assertRateLimit, sanitizeText, writeAudit } from "./lib/security";
 
 async function requireUser(ctx: MutationCtx | { db: any; auth: any }) {
   const userId = await getAuthUserId(ctx);
@@ -162,7 +163,13 @@ export const sendMessage = mutation({
     if (conv.participantA !== me._id && conv.participantB !== me._id) {
       throw new Error("Non autorisé.");
     }
-    const body = args.body.trim().slice(0, 2000);
+    await assertRateLimit(ctx, {
+      userId: me._id,
+      action: "chat.message",
+      maxPerWindow: 60,
+      windowMs: 5 * 60 * 1000,
+    });
+    const body = sanitizeText(args.body, 2000);
     if (!body) throw new Error("Message vide.");
 
     const msgId = await ctx.db.insert("chatMessages", {
