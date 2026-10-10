@@ -92,7 +92,7 @@ function BotAvatar({
             "relative h-full w-full overflow-hidden rounded-full border-2 border-white shadow-lg ring-2",
             emotion === "sleep" && "opacity-80 grayscale-[30%]",
           )}
-          style={{ ringColor: palette.accent }}
+          
         >
           <img
             src={photoUrl}
