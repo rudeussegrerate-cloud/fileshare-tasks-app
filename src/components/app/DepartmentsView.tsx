@@ -454,29 +454,33 @@ export function DepartmentsView() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <div className="flex size-9 items-center justify-center rounded-lg bg-brand-soft text-brand">
-            <Building2 className="size-4" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">Départements</h2>
-            <p className="text-xs text-muted-foreground">
-              {me.isAdmin
-                ? "Créez les départements, désignez les chefs et gardez une vue d'ensemble."
-                : me.isChef
-                  ? "Ajoutez les membres de votre département."
-                  : "Composition des départements de l'entreprise."}
-            </p>
-          </div>
-        </div>
-        {me.isAdmin ? (
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold tracking-tight">
+          Départements & groupes
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Structure de l&apos;organisation. Le chef valide les adhésions, gère
+          les membres et le logo. Le DG crée les départements.
+        </p>
+      </div>
+      <div className="rounded-xl border border-dashed border-border bg-card/80 p-4 text-xs text-muted-foreground">
+        <p className="mb-1 font-medium text-foreground">Comment ça marche ?</p>
+        <ul className="list-inside list-disc space-y-1">
+          <li>Demande d&apos;adhésion → notification au chef → acceptation ou refus</li>
+          <li>Invitation par e-mail ou depuis la liste des utilisateurs</li>
+          <li>Sous-groupes : le chef peut y inviter les membres du département parent</li>
+          <li>Logo : visible par tous une fois défini par le chef</li>
+        </ul>
+      </div>
+
+      {me.isAdmin ? (
+        <div className="flex justify-end">
           <Button onClick={() => setCreating(true)} className="gap-2">
             <Plus className="size-4" />
             Nouveau département
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
       <JoinGroupsPanel />
       <MembershipPanel />

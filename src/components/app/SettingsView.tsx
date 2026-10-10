@@ -151,11 +151,11 @@ export function SettingsView({
     label: string;
     icon: typeof UserRound;
   }> = [
-    { id: "profil", label: "Profil", icon: UserRound },
-    { id: "preferences", label: "Préférences", icon: Settings2 },
-    { id: "securite", label: "Sécurité", icon: KeyRound },
-    { id: "navigation", label: "Navigation", icon: FileText },
-    { id: "aide", label: "Aide", icon: HelpCircle },
+    { id: "profil", label: "Mon profil & rôle", icon: UserRound },
+    { id: "preferences", label: "Préférences d'affichage", icon: Settings2 },
+    { id: "securite", label: "Sécurité & mot de passe", icon: KeyRound },
+    { id: "navigation", label: "Raccourcis & organisation", icon: FileText },
+    { id: "aide", label: "Aide & guide d'utilisation", icon: HelpCircle },
   ];
 
   return (

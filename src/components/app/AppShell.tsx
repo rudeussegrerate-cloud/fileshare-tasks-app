@@ -63,27 +63,32 @@ type NavItem = {
 /** Navigation groupée pour éviter la confusion */
 const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
-    title: "Documents",
+    title: "Travail",
     items: [
       { key: "home", label: "Accueil", icon: LayoutDashboard },
-      { key: "send", label: "Envoyer", icon: Upload },
-      { key: "inbox", label: "Reçus", icon: Inbox },
-      { key: "sent", label: "Envoyés", icon: Send },
-      { key: "messages", label: "Messages", icon: MessageCircle },
+      { key: "send", label: "Envoyer un document", icon: Upload },
+      { key: "inbox", label: "Documents reçus", icon: Inbox },
+      { key: "sent", label: "Documents envoyés", icon: Send },
+      { key: "messages", label: "Messagerie", icon: MessageCircle },
+    ],
+  },
+  {
+    title: "Communication",
+    items: [
       { key: "actualites", label: "Actualités", icon: Newspaper },
-      { key: "announcements", label: "Annonces", icon: Megaphone },
+      { key: "announcements", label: "Publier une annonce", icon: Megaphone },
     ],
   },
   {
     title: "Organisation",
     items: [
-      { key: "departments", label: "Départements", icon: Building2 },
-      { key: "accounts", label: "Comptes", icon: UserCheck, adminOnly: true },
+      { key: "departments", label: "Départements & groupes", icon: Building2 },
+      { key: "accounts", label: "Comptes utilisateurs", icon: UserCheck, adminOnly: true },
     ],
   },
   {
-    title: "Compte",
-    items: [{ key: "settings", label: "Paramètres", icon: Settings }],
+    title: "Mon espace",
+    items: [{ key: "settings", label: "Paramètres & sécurité", icon: Settings }],
   },
 ];
 

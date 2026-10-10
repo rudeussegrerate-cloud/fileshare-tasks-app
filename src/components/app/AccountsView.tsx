@@ -117,6 +117,33 @@ export function AccountsView() {
 
   return (
     <div className="space-y-5">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold tracking-tight">Comptes utilisateurs</h2>
+        <p className="text-sm text-muted-foreground">
+          Validation des inscriptions, attribution des rôles (DG) et suivi des
+          statuts. Réservé au directeur général.
+        </p>
+      </div>
+      <div className="rounded-xl border border-border/70 bg-card p-4 text-xs text-muted-foreground">
+        <p className="mb-2 font-medium text-foreground">Statuts & actions</p>
+        <ul className="list-inside list-disc space-y-1">
+          <li>
+            <strong className="text-foreground">En attente</strong> — vient de
+            s&apos;inscrire ; validez ou refusez l&apos;accès
+          </li>
+          <li>
+            <strong className="text-foreground">Validé</strong> — peut envoyer /
+            recevoir des documents
+          </li>
+          <li>
+            <strong className="text-foreground">Rejeté</strong> — accès bloqué
+          </li>
+          <li>
+            <strong className="text-foreground">Promouvoir DG</strong> —
+            confère les droits d&apos;administration
+          </li>
+        </ul>
+      </div>
       <div className="flex items-center gap-2">
         <div className="flex size-9 items-center justify-center rounded-lg bg-brand-soft text-brand">
           <UserRound className="size-4" />
