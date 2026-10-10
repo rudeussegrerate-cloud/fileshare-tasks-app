@@ -93,8 +93,15 @@ export const openConversation = mutation({
       throw new Error("Vous ne pouvez pas discuter avec vous-même.");
     }
     const other = await ctx.db.get(args.otherUserId);
-    if (!other || other.accountStatus !== "valide") {
-      throw new Error("Utilisateur introuvable ou non validé.");
+    if (!other) {
+      throw new Error("Utilisateur introuvable.");
+    }
+    if (other.accountStatus === "rejete") {
+      throw new Error("Ce compte a été rejeté.");
+    }
+    // Autoriser valide ou sans statut explicite (comptes historiques)
+    if (other.accountStatus === "en_attente") {
+      throw new Error("Ce compte n'est pas encore validé par le DG.");
     }
     const existing = await findConversation(ctx, me._id, args.otherUserId);
     if (existing) return existing._id;

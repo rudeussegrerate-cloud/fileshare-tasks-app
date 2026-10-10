@@ -92,11 +92,13 @@ function NavList({
   onSelect,
   isAdmin,
   pendingAccounts,
+  unreadMessages,
 }: {
   view: AppView;
   onSelect: (view: AppView) => void;
   isAdmin: boolean;
   pendingAccounts: number;
+  unreadMessages?: number;
 }) {
   return (
     <nav className="space-y-5">
@@ -163,6 +165,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const me = useQuery(api.workspace.me);
+  const unreadMessages = useQuery(api.chat.unreadTotal);
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -240,6 +243,7 @@ export function AppShell({
           onSelect={onViewChange}
           isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
           pendingAccounts={me?.pendingAccounts ?? 0}
+          unreadMessages={unreadMessages ?? 0}
         />
       </div>
       <div className="mt-3 border-t border-border pt-3">
@@ -296,6 +300,7 @@ export function AppShell({
                         }}
                         isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
                         pendingAccounts={me?.pendingAccounts ?? 0}
+                        unreadMessages={unreadMessages ?? 0}
                       />
                     </div>
                     <div className="mt-4 border-t border-border pt-3">

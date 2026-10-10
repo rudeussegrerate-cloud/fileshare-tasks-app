@@ -256,3 +256,38 @@ html.scandoc-anim .sc-card-hover:hover {
     transform: none !important;
   }
 }
+
+
+/* —— Animations ScanDoc (désactivées si reduced-motion) —— */
+@keyframes scandoc-fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes scandoc-msg-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes scandoc-pulse-soft {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(30, 58, 95, 0.25); }
+  50% { box-shadow: 0 0 0 8px rgba(30, 58, 95, 0); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .animate-in-up {
+    animation: scandoc-fade-up 0.35s ease-out both;
+  }
+  .animate-msg {
+    animation: scandoc-msg-in 0.25s ease-out both;
+  }
+  .animate-soft-pulse {
+    animation: scandoc-pulse-soft 2.5s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in-up,
+  .animate-msg,
+  .animate-soft-pulse {
+    animation: none !important;
+  }
+}

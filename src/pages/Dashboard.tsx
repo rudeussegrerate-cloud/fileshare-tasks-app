@@ -10,6 +10,7 @@ import { SendDocument } from "@/components/app/SendDocument";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { MessagesView } from "@/components/app/MessagesView";
+import { SmartTips } from "@/components/app/SmartTips";
 import { FloatingAssistant } from "@/components/app/FloatingAssistant";
 import { SettingsView } from "@/components/app/SettingsView";
 import { api } from "@/convex/_generated/api";
@@ -131,6 +132,7 @@ export default function Dashboard() {
       {view === "settings" ? <SettingsView onNavigate={setView} /> : null}
 
       <FloatingAssistant />
+      <SmartTips />
 
       <DocumentDetailDialog
         documentId={openDocumentId}

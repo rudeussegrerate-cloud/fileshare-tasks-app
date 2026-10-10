@@ -131,7 +131,7 @@ export function FloatingAssistant() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 flex flex-col items-center gap-1 focus:outline-none"
+        className="fixed bottom-5 right-5 z-40 flex flex-col items-center gap-1 focus:outline-none animate-soft-pulse rounded-full"
         title={`${botName} — votre assistant`}
       >
         <BotAvatar color={botColor} mood={botMood} size="lg" bounce />
