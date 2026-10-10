@@ -178,7 +178,7 @@ export const list = query({
     const limit = Math.min(args.limit ?? 40, 80);
     const rows = await ctx.db.query("announcements").collect();
     rows.sort((a: any, b: any) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
-    const out = [];
+    const out: any[] = [];
     for (const a of rows as any[]) {
       if (a.authorId !== me._id && me.role !== "admin" && me.role !== "root") {
         const vis = a.visibility ?? "public";
