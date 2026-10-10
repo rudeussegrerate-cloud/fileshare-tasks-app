@@ -9,6 +9,7 @@ import { ProfileSetup } from "@/components/app/ProfileSetup";
 import { SendDocument } from "@/components/app/SendDocument";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
+import { ActualitesView } from "@/components/app/ActualitesView";
 import { AnnouncementsView } from "@/components/app/AnnouncementsView";
 import { MessagesView } from "@/components/app/MessagesView";
 import { SmartAutomations } from "@/components/app/SmartAutomations";
@@ -127,6 +128,7 @@ export default function Dashboard() {
 
       {view === "accounts" ? <AccountsView /> : null}
 
+      {view === "actualites" ? <ActualitesView /> : null}
       {view === "announcements" ? <AnnouncementsView /> : null}
 
       {view === "messages" ? (

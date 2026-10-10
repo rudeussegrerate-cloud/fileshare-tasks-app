@@ -246,6 +246,7 @@ const schema = defineSchema(
       mood: v.string(), // joyeux | calme | motivant | sérieux | blagueur
       personality: v.string(), // comment se comporter
       color: v.string(), // couleur du personnage
+      avatarStorageId: v.optional(v.id("_storage")),
       createdAt: v.number(),
       updatedAt: v.number(),
     }).index("by_user", ["userId"]),

@@ -15,8 +15,12 @@ export const getMyBot = query({
       .query("botProfiles")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
-    if (profile) return profile;
-    // Profil par défaut virtuel
+    if (profile) {
+      const avatarUrl = profile.avatarStorageId
+        ? await ctx.storage.getUrl(profile.avatarStorageId)
+        : null;
+      return { ...profile, avatarUrl };
+    }
     return {
       _id: null as null,
       userId,
@@ -24,6 +28,7 @@ export const getMyBot = query({
       mood: "calme",
       personality: "Patient, clair, encourageant. Explique les étapes une par une.",
       color: "navy",
+      avatarUrl: null as string | null,
       createdAt: 0,
       updatedAt: 0,
       isDefault: true as const,
@@ -157,6 +162,76 @@ export const saveExchange = internalMutation({
       role: "assistant",
       body: args.assistantBody,
       createdAt: now + 1,
+    });
+    return null;
+  },
+});
+
+
+export const generateAvatarUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const setAvatar = mutation({
+  args: { storageId: v.id("_storage") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const existing = await ctx.db
+      .query("botProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    const now = Date.now();
+    if (existing) {
+      if (existing.avatarStorageId) {
+        try {
+          await ctx.storage.delete(existing.avatarStorageId);
+        } catch {
+          /* ignore */
+        }
+      }
+      await ctx.db.patch(existing._id, {
+        avatarStorageId: args.storageId,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+    return await ctx.db.insert("botProfiles", {
+      userId,
+      name: "Aide",
+      mood: "calme",
+      personality: "Patient et clair.",
+      color: "navy",
+      avatarStorageId: args.storageId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const clearAvatar = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const existing = await ctx.db
+      .query("botProfiles")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+    if (!existing?.avatarStorageId) return null;
+    try {
+      await ctx.storage.delete(existing.avatarStorageId);
+    } catch {
+      /* ignore */
+    }
+    await ctx.db.patch(existing._id, {
+      avatarStorageId: undefined,
+      updatedAt: Date.now(),
     });
     return null;
   },

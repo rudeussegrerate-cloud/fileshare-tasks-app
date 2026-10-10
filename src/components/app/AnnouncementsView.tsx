@@ -60,7 +60,7 @@ export function AnnouncementsView() {
   const canPin = Boolean(me?.isAdmin || me?.isRoot || me?.isChef);
 
   const defaultOrigin =
-    me?.department?.name
+    me?.department && "name" in me.department && me.department.name
       ? `Département ${me.department.name}`
       : me?.isAdmin
         ? "Direction générale"
@@ -104,11 +104,11 @@ export function AnnouncementsView() {
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <Megaphone className="size-5 text-brand" />
-            Actualités
+            Annonces
           </h2>
           <p className="text-sm text-muted-foreground">
-            Fil d&apos;annonces de l&apos;organisation — faites défiler comme
-            sur un réseau social. Auteur, poste et provenance visibles.
+            Publiez une annonce (publique, privée ou personnalisée). Le fil
+            public se consulte dans <strong>Actualités</strong>.
           </p>
         </div>
         <Button
@@ -227,7 +227,7 @@ export function AnnouncementsView() {
                     </span>
                   </button>
                 </div>
-                {visibility === "private" && !me?.department?._id ? (
+                {visibility === "private" && !(me?.department && "_id" in me.department) ? (
                   <p className="text-xs text-amber-700">
                     Vous n&apos;êtes rattaché à aucun département : l&apos;annonce
                     privée ne sera visible que pour vous (et le DG).

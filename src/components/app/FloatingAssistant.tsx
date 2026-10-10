@@ -53,18 +53,81 @@ function BotAvatar({
   size = "md",
   bounce = false,
   emotion = "idle",
+  photoUrl,
 }: {
   color: string;
   mood: string;
   size?: "sm" | "md" | "lg";
   bounce?: boolean;
   emotion?: IdleEmotion;
+  photoUrl?: string | null;
 }) {
   const dim =
     size === "lg" ? "size-[72px]" : size === "sm" ? "size-10" : "size-14";
   const palette = HAIR[color] ?? HAIR.navy!;
   const skin = "#ffdbac";
   const skinShade = "#f5c99a";
+
+  // Photo utilisateur comme visage (toujours animée)
+  if (photoUrl) {
+    const happy =
+      mood === "joyeux" ||
+      mood === "blagueur" ||
+      emotion === "excited" ||
+      emotion === "wave";
+    return (
+      <div
+        className={cn(
+          "relative select-none overflow-visible transition-transform",
+          dim,
+          bounce && emotion === "idle" && "assistant-bounce",
+          emotion === "wave" && "assistant-wave-body",
+          emotion === "excited" && "assistant-excited",
+          emotion === "sleep" && "assistant-sleep",
+          emotion === "think" && "assistant-think",
+        )}
+      >
+        <div
+          className={cn(
+            "relative h-full w-full overflow-hidden rounded-full border-2 border-white shadow-lg ring-2",
+            emotion === "sleep" && "opacity-80 grayscale-[30%]",
+          )}
+          style={{ ringColor: palette.accent }}
+        >
+          <img
+            src={photoUrl}
+            alt="Avatar assistant"
+            className={cn(
+              "h-full w-full object-cover",
+              emotion === "look" && "origin-center scale-110 translate-x-0.5",
+              emotion === "sleep" && "brightness-90",
+            )}
+            draggable={false}
+          />
+          {/* Voile d'expression */}
+          {emotion === "sleep" ? (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/25 to-transparent py-0.5 text-center text-[8px] text-white">
+              zzz
+            </div>
+          ) : null}
+        </div>
+        {happy && emotion !== "sleep" ? (
+          <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[10px]">
+            😊
+          </span>
+        ) : null}
+        {emotion === "excited" ? (
+          <span className="absolute -right-1 -top-1 text-sm">✨</span>
+        ) : null}
+        {emotion === "think" ? (
+          <span className="absolute -right-0.5 -top-2 text-xs">💭</span>
+        ) : null}
+        {emotion === "wave" ? (
+          <span className="absolute -left-1 top-1/3 text-sm">👋</span>
+        ) : null}
+      </div>
+    );
+  }
 
   // Expression
   const happy =
@@ -253,7 +316,11 @@ export function FloatingAssistant() {
   const history = useQuery(api.bot.listMessages, { limit: 30 });
   const saveBot = useMutation(api.bot.saveMyBot);
   const clearHistory = useMutation(api.bot.clearHistory);
+  const genAvatarUrl = useMutation(api.bot.generateAvatarUploadUrl);
+  const setAvatar = useMutation(api.bot.setAvatar);
+  const clearAvatar = useMutation(api.bot.clearAvatar);
   const ask = useAction(api.assistantBot.ask);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [open, setOpen] = useState(false);
   const [settings, setSettings] = useState(false);
@@ -467,6 +534,7 @@ export function FloatingAssistant() {
             size="lg"
             bounce={!dragging}
             emotion={open ? "idle" : idleEmotion}
+            photoUrl={bot && "avatarUrl" in bot ? bot.avatarUrl : null}
           />
           <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold shadow">
             {botName}
@@ -490,7 +558,7 @@ export function FloatingAssistant() {
           }}
         >
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
-            <BotAvatar color={botColor} mood={botMood} size="sm" />
+            <BotAvatar color={botColor} mood={botMood} size="sm" photoUrl={bot && "avatarUrl" in bot ? bot.avatarUrl : null} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{botName}</p>
               <p className="text-[10px] text-muted-foreground">
@@ -606,7 +674,7 @@ export function FloatingAssistant() {
           </DialogHeader>
           <div className="space-y-3">
             <div className="flex justify-center py-2">
-              <BotAvatar color={color} mood={mood} size="lg" bounce />
+              <BotAvatar color={color} mood={mood} size="lg" bounce photoUrl={bot && "avatarUrl" in bot ? bot.avatarUrl : null} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="bot-name">Nom</Label>
@@ -653,6 +721,72 @@ export function FloatingAssistant() {
               </div>
             </div>
             <div className="space-y-1.5">
+              <Label>Photo de l&apos;assistant (avatar)</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Importez une photo : elle devient le visage animé du bot.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs font-medium hover:bg-muted">
+                  {uploadingAvatar ? "Envoi…" : "Choisir une photo"}
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/gif"
+                    className="hidden"
+                    disabled={uploadingAvatar}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      if (file.size > 4 * 1024 * 1024) {
+                        toast.error("Image trop lourde (max 4 Mo).");
+                        return;
+                      }
+                      setUploadingAvatar(true);
+                      try {
+                        const postUrl = await genAvatarUrl({});
+                        const result = await fetch(postUrl, {
+                          method: "POST",
+                          headers: { "Content-Type": file.type },
+                          body: file,
+                        });
+                        if (!result.ok) throw new Error("Échec de l'envoi");
+                        const json = (await result.json()) as { storageId: string };
+                        await setAvatar({
+                          storageId: json.storageId as import("@/convex/_generated/dataModel").Id<"_storage">,
+                        });
+                        toast.success("Photo appliquée à l'assistant");
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error ? err.message : "Upload impossible",
+                        );
+                      } finally {
+                        setUploadingAvatar(false);
+                      }
+                    }}
+                  />
+                </label>
+                {bot && "avatarUrl" in bot && bot.avatarUrl ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 text-xs"
+                    onClick={async () => {
+                      try {
+                        await clearAvatar({});
+                        toast.message("Photo retirée");
+                      } catch (err) {
+                        toast.error(
+                          err instanceof Error ? err.message : "Erreur",
+                        );
+                      }
+                    }}
+                  >
+                    Retirer la photo
+                  </Button>
+                ) : null}
+              </div>
+
               <Label htmlFor="bot-perso">Comportement</Label>
               <Textarea
                 id="bot-perso"
