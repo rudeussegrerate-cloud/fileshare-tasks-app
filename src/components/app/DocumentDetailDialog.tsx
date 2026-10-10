@@ -19,6 +19,7 @@ import {
   FileText,
   History,
   Loader2,
+  RefreshCw,
   Sparkles,
   CheckCircle2,
   Trash2,
@@ -55,6 +56,7 @@ export function DocumentDetailDialog({
   const archiveDoc = useMutation(api.documents.archive);
   const unarchiveDoc = useMutation(api.documents.unarchive);
   const removeDoc = useMutation(api.documents.remove);
+  const retrySummary = useMutation(api.documents.retrySummary);
   const viewedRef = useRef<Id<"documents"> | null>(null);
   const [showAudit, setShowAudit] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -273,6 +275,29 @@ export function DocumentDetailDialog({
                     {documentOrNull.summary ?? "Aucun résumé disponible."}
                   </p>
                 )}
+                {documentOrNull.summaryStatus !== "en_attente" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="mt-3 gap-1.5"
+                    onClick={async () => {
+                      try {
+                        await retrySummary({
+                          documentId: documentOrNull._id,
+                        });
+                        toast.success("Nouveau résumé demandé");
+                      } catch (e) {
+                        toast.error(
+                          e instanceof Error ? e.message : "Impossible de relancer",
+                        );
+                      }
+                    }}
+                  >
+                    <RefreshCw className="size-3.5" />
+                    Relancer le résumé IA
+                  </Button>
+                ) : null}
               </div>
             </section>
 

@@ -1,10 +1,5 @@
 /**
- * Best-effort client-side text extraction.
- *
- * The automatic summary is built from the document's text, so we pull the text
- * out in the browser (where the file already is) before uploading, instead of
- * shipping a heavy parser to the backend. Word and PDF parsers are loaded
- * lazily so they never weigh down the initial bundle.
+ * Extraction de texte côté client (PDF, DOCX, images OCR).
  */
 
 const MAX_CHARS = 40_000;
@@ -27,9 +22,20 @@ const TEXT_EXTENSIONS = new Set([
   "rtf",
 ]);
 
+const IMAGE_EXTENSIONS = new Set([
+  "png",
+  "jpg",
+  "jpeg",
+  "webp",
+  "gif",
+  "heic",
+  "heif",
+  "bmp",
+]);
+
 function extensionOf(fileName: string) {
   const parts = fileName.toLowerCase().split(".");
-  return parts.length > 1 ? parts[parts.length - 1] : "";
+  return parts.length > 1 ? parts[parts.length - 1]! : "";
 }
 
 async function extractPdf(file: File) {
@@ -62,6 +68,22 @@ async function extractDocx(file: File) {
   return result.value;
 }
 
+/** OCR navigateur via Tesseract.js (français + anglais). */
+async function extractImageOcr(file: File): Promise<string> {
+  try {
+    const Tesseract = await import("tesseract.js");
+    const result = await Tesseract.recognize(file, "fra+eng", {
+      logger: () => {
+        /* silencieux */
+      },
+    });
+    return (result.data.text ?? "").trim();
+  } catch (e) {
+    console.warn("[extractImageOcr]", e);
+    return "";
+  }
+}
+
 /** Returns the readable text of a file, or "" when nothing could be read. */
 export async function extractTextFromFile(file: File): Promise<string> {
   const extension = extensionOf(file.name);
@@ -74,6 +96,12 @@ export async function extractTextFromFile(file: File): Promise<string> {
     }
     if (extension === "pdf" || file.type === "application/pdf") {
       return (await extractPdf(file)).slice(0, MAX_CHARS);
+    }
+    if (
+      file.type.startsWith("image/") ||
+      IMAGE_EXTENSIONS.has(extension)
+    ) {
+      return (await extractImageOcr(file)).slice(0, MAX_CHARS);
     }
   } catch (error) {
     console.warn("[extractTextFromFile] Extraction impossible:", error);

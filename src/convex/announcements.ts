@@ -26,7 +26,11 @@ function roleLabel(user: Doc<"users">) {
 }
 
 function canPost(user: Doc<"users">) {
-  return user.accountStatus === "valide" || isAdmin(user.role);
+  // Compte validé, admin, ou ancien compte sans statut renseigné
+  if (isAdmin(user.role)) return true;
+  if (user.accountStatus === "valide" || !user.accountStatus) return true;
+  if (user.departmentRole === "chef") return true;
+  return false;
 }
 
 /**

@@ -108,7 +108,7 @@ Tâches demandées : ${document.task || "(non précisées)"}`;
         documentId: args.documentId,
         summaryStatus: "indisponible",
         summary:
-          "Description automatique indisponible pour cette image. Ouvrez le fichier joint pour le consulter.",
+          "Cette image n'a pas pu être analysée automatiquement (OCR/vision). Ouvrez le fichier joint pour le consulter.",
       });
       return null;
     }

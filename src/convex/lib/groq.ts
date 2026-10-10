@@ -1,11 +1,21 @@
 /**
  * Client Groq (API compatible OpenAI) — texte + vision.
  * Clé : GROQ_API_KEY dans Convex.
+ *
+ * Modèles adaptés à la clé actuelle (liste /v1/models).
  */
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-export const GROQ_MODEL = "llama-3.3-70b-versatile";
-/** Modèle vision Groq pour décrire / résumer des images */
+/** Modèle texte fiable (FR) */
+export const GROQ_MODEL = "qwen/qwen3.8-27b";
+/** Fallback si le principal échoue */
+const GROQ_MODEL_FALLBACKS = [
+  "qwen/qwen3.8-27b",
+  "openai/gpt-oss-120b",
+  "openai/gpt-oss-20b",
+];
+
+/** Vision : si aucun modèle vision n’est dispo sur la clé, retourne null */
 export const GROQ_VISION_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 
 export type ChatMessage = {
@@ -18,14 +28,16 @@ export type ChatMessage = {
       >;
 };
 
-export async function groqChat(options: {
-  messages: ChatMessage[];
-  temperature?: number;
-  maxTokens?: number;
-  model?: string;
-}): Promise<string | null> {
+async function callGroq(
+  model: string,
+  messages: ChatMessage[],
+  temperature: number,
+  maxTokens: number,
+): Promise<{ ok: boolean; content: string | null; status: number; body: string }> {
   const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    return { ok: false, content: null, status: 0, body: "GROQ_API_KEY manquante" };
+  }
 
   const res = await fetch(GROQ_URL, {
     method: "POST",
@@ -34,48 +46,100 @@ export async function groqChat(options: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: options.model ?? GROQ_MODEL,
-      temperature: options.temperature ?? 0.3,
-      max_tokens: options.maxTokens ?? 400,
-      messages: options.messages,
+      model,
+      temperature,
+      max_tokens: maxTokens,
+      messages,
     }),
   });
 
+  const body = await res.text().catch(() => "");
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error("[groq]", res.status, body.slice(0, 500));
-    return null;
+    console.error("[groq]", model, res.status, body.slice(0, 400));
+    return { ok: false, content: null, status: res.status, body };
   }
 
-  const data = (await res.json()) as {
-    choices?: Array<{ message?: { content?: string } }>;
-  };
-  return data.choices?.[0]?.message?.content?.trim() ?? null;
+  try {
+    const data = JSON.parse(body) as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    return {
+      ok: true,
+      content: data.choices?.[0]?.message?.content?.trim() ?? null,
+      status: res.status,
+      body: "",
+    };
+  } catch {
+    return { ok: false, content: null, status: res.status, body };
+  }
 }
 
-/** Analyse d'image (photo / scan) via modèle vision Groq. */
+export async function groqChat(options: {
+  messages: ChatMessage[];
+  temperature?: number;
+  maxTokens?: number;
+  model?: string;
+}): Promise<string | null> {
+  const models = options.model
+    ? [options.model, ...GROQ_MODEL_FALLBACKS.filter((m) => m !== options.model)]
+    : GROQ_MODEL_FALLBACKS;
+
+  for (const model of models) {
+    const result = await callGroq(
+      model,
+      options.messages,
+      options.temperature ?? 0.3,
+      options.maxTokens ?? 500,
+    );
+    if (result.ok && result.content) return result.content;
+    // model_not_found → essayer le suivant
+    if (result.status === 404 || /model_not_found|does not exist/i.test(result.body)) {
+      continue;
+    }
+    // autre erreur : arrêter
+    if (!result.ok) break;
+  }
+  return null;
+}
+
+/** Analyse d'image via modèle vision Groq (si disponible sur la clé). */
 export async function groqDescribeImage(options: {
   imageUrl: string;
   system: string;
   userText: string;
   maxTokens?: number;
 }): Promise<string | null> {
-  return groqChat({
-    model: GROQ_VISION_MODEL,
-    temperature: 0.25,
-    maxTokens: options.maxTokens ?? 400,
-    messages: [
-      { role: "system", content: options.system },
-      {
-        role: "user",
-        content: [
-          { type: "text", text: options.userText },
-          {
-            type: "image_url",
-            image_url: { url: options.imageUrl },
-          },
-        ],
-      },
-    ],
-  });
+  const visionCandidates = [
+    GROQ_VISION_MODEL,
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "llama-3.2-11b-vision-preview",
+    "llama-3.2-90b-vision-preview",
+  ];
+
+  for (const model of visionCandidates) {
+    const result = await callGroq(
+      model,
+      [
+        { role: "system", content: options.system },
+        {
+          role: "user",
+          content: [
+            { type: "text", text: options.userText },
+            {
+              type: "image_url",
+              image_url: { url: options.imageUrl },
+            },
+          ],
+        },
+      ],
+      0.25,
+      options.maxTokens ?? 500,
+    );
+    if (result.ok && result.content) return result.content;
+    if (result.status === 404 || /model_not_found|does not exist/i.test(result.body)) {
+      continue;
+    }
+    break;
+  }
+  return null;
 }

@@ -367,6 +367,31 @@ export const setSummary = internalMutation({
   },
 });
 
+/** Relancer le résumé IA (document bloqué en_attente / indisponible). */
+export const retrySummary = mutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) throw new Error("Document introuvable.");
+    if (doc.senderId !== userId && doc.recipientId !== userId) {
+      const user = await ctx.db.get(userId);
+      if (!user || (user.role !== "admin" && user.role !== "root")) {
+        throw new Error("Accès refusé.");
+      }
+    }
+    await ctx.db.patch(args.documentId, {
+      summaryStatus: "en_attente",
+      summary: undefined,
+    });
+    await ctx.scheduler.runAfter(0, internal.ai.summarizeDocument, {
+      documentId: args.documentId,
+    });
+    return null;
+  },
+});
+
 /** Filtre texte libre (objet, tâches, noms, fichier) */
 function matchesSearch(
   doc: Doc<"documents">,
