@@ -32,45 +32,79 @@ const COLORS: Record<string, string> = {
   violet: "from-violet-600 to-violet-500",
 };
 
+type IdleEmotion = "idle" | "wave" | "look" | "sleep" | "excited" | "think";
+
 function BotAvatar({
   color,
   mood,
   size = "md",
   bounce = false,
+  emotion = "idle",
 }: {
   color: string;
   mood: string;
   size?: "sm" | "md" | "lg";
   bounce?: boolean;
+  emotion?: IdleEmotion;
 }) {
   const dim =
     size === "lg" ? "size-16" : size === "sm" ? "size-9" : "size-12";
-  const face =
-    mood === "joyeux" || mood === "blagueur"
-      ? "◡"
-      : mood === "sérieux"
-        ? "−"
-        : "‿";
+  // Visage selon humeur de base + émotion du moment
+  let face = "‿";
+  if (emotion === "sleep") face = "zzz";
+  else if (emotion === "excited") face = "★";
+  else if (emotion === "think") face = "…";
+  else if (emotion === "look") face = "◦";
+  else if (mood === "joyeux" || mood === "blagueur") face = "◡";
+  else if (mood === "sérieux") face = "−";
+
+  const eyeOffset =
+    emotion === "look" ? "translate-x-0.5" : emotion === "sleep" ? "opacity-40" : "";
+
   return (
     <div
       className={cn(
-        "relative flex items-center justify-center rounded-full bg-gradient-to-b text-white shadow-lg",
+        "relative flex items-center justify-center rounded-full bg-gradient-to-b text-white shadow-lg transition-transform",
         COLORS[color] ?? COLORS.navy,
         dim,
-        bounce && "assistant-bounce",
+        bounce && emotion === "idle" && "assistant-bounce",
+        emotion === "wave" && "assistant-wave-body",
+        emotion === "excited" && "assistant-excited",
+        emotion === "sleep" && "assistant-sleep",
+        emotion === "think" && "assistant-think",
       )}
+      title={emotion}
     >
-      {/* tête */}
       <div className="flex flex-col items-center justify-center">
-        <div className="flex gap-1.5">
-          <span className="size-1.5 rounded-full bg-white/90" />
-          <span className="size-1.5 rounded-full bg-white/90" />
+        <div className={cn("flex gap-1.5", eyeOffset)}>
+          <span
+            className={cn(
+              "size-1.5 rounded-full bg-white/90",
+              emotion === "sleep" && "h-0.5 w-1.5 rounded-full",
+            )}
+          />
+          <span
+            className={cn(
+              "size-1.5 rounded-full bg-white/90",
+              emotion === "sleep" && "h-0.5 w-1.5 rounded-full",
+            )}
+          />
         </div>
-        <span className="mt-0.5 text-[10px] leading-none opacity-90">{face}</span>
+        <span className="mt-0.5 text-[9px] leading-none opacity-90">{face}</span>
       </div>
-      {/* bras animés */}
-      <span className="assistant-arm absolute -left-1 top-1/2 size-2 -translate-y-1/2 rounded-full bg-white/30" />
+      <span
+        className={cn(
+          "absolute -left-1 top-1/2 size-2 -translate-y-1/2 rounded-full bg-white/30",
+          emotion === "wave" ? "assistant-arm-wave" : "assistant-arm",
+        )}
+      />
       <span className="assistant-arm-r absolute -right-1 top-1/2 size-2 -translate-y-1/2 rounded-full bg-white/30" />
+      {emotion === "excited" ? (
+        <span className="absolute -top-1 right-0 text-[10px]">✨</span>
+      ) : null}
+      {emotion === "think" ? (
+        <span className="absolute -top-2 right-0 text-[9px] opacity-80">💭</span>
+      ) : null}
     </div>
   );
 }
@@ -117,6 +151,7 @@ export function FloatingAssistant() {
     pointerId: number;
   } | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [idleEmotion, setIdleEmotion] = useState<IdleEmotion>("idle");
 
   useEffect(() => {
     try {
@@ -160,6 +195,31 @@ export function FloatingAssistant() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history?.length, open]);
 
+  // Émotions / réactions quand le bot n'est pas utilisé
+  useEffect(() => {
+    if (open || dragging) {
+      setIdleEmotion("idle");
+      return;
+    }
+    const sequence: IdleEmotion[] = [
+      "idle",
+      "look",
+      "wave",
+      "idle",
+      "think",
+      "excited",
+      "idle",
+      "sleep",
+    ];
+    let i = 0;
+    const tick = () => {
+      i = (i + 1) % sequence.length;
+      setIdleEmotion(sequence[i]!);
+    };
+    const id = window.setInterval(tick, 3200);
+    return () => window.clearInterval(id);
+  }, [open, dragging]);
+
   if (!me || me.accountStatus !== "valide") return null;
 
   const botName = bot?.name ?? "Aide";
@@ -180,6 +240,37 @@ export function FloatingAssistant() {
         }
         .assistant-arm { animation: arm-wave 1.8s ease-in-out infinite; }
         .assistant-arm-r { animation: arm-wave 1.8s ease-in-out infinite 0.3s; }
+        @keyframes arm-wave-strong {
+          0%, 100% { transform: translateY(-50%) rotate(-10deg); }
+          50% { transform: translateY(-50%) rotate(40deg); }
+        }
+        .assistant-arm-wave { animation: arm-wave-strong 0.6s ease-in-out infinite; }
+        @keyframes wave-body {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-6deg); }
+          75% { transform: rotate(6deg); }
+        }
+        .assistant-wave-body { animation: wave-body 0.8s ease-in-out infinite; }
+        @keyframes excited-pop {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.12) translateY(-4px); }
+        }
+        .assistant-excited { animation: excited-pop 0.7s ease-in-out infinite; }
+        @keyframes sleep-sway {
+          0%, 100% { transform: rotate(-3deg); opacity: 0.85; }
+          50% { transform: rotate(3deg); opacity: 0.7; }
+        }
+        .assistant-sleep { animation: sleep-sway 2.5s ease-in-out infinite; }
+        @keyframes think-bob {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        .assistant-think { animation: think-bob 1.4s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .assistant-bounce, .assistant-arm, .assistant-arm-r,
+          .assistant-arm-wave, .assistant-wave-body, .assistant-excited,
+          .assistant-sleep, .assistant-think { animation: none !important; }
+        }
       `}</style>
 
       {/* Bouton flottant personnage — déplaçable */}
@@ -249,6 +340,7 @@ export function FloatingAssistant() {
             mood={botMood}
             size="lg"
             bounce={!dragging}
+            emotion={open ? "idle" : idleEmotion}
           />
           <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold shadow">
             {botName}

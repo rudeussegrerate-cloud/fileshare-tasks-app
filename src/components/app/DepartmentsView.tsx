@@ -405,6 +405,9 @@ function CreateDepartmentDialog({
 
 export function DepartmentsView() {
   const me = useQuery(api.workspace.me);
+  const inviteAllToSub = useMutation(
+    api.departmentMembership.inviteParentMembersToSubgroup,
+  );
   const departments = useQuery(api.workspace.listDepartments);
   const removeMember = useMutation(api.workspace.removeMember);
   const deleteDepartment = useMutation(api.workspace.deleteDepartment);
@@ -718,6 +721,32 @@ export function DepartmentsView() {
                           <CardContent className="space-y-2">
                             {canManageSub ? (
                               <div className="flex flex-wrap gap-2">
+                                <Button
+                                  size="sm"
+                                  variant="default"
+                                  className="h-8 gap-1 text-xs"
+                                  onClick={async () => {
+                                    try {
+                                      const r = await inviteAllToSub({
+                                        subgroupId: sub._id,
+                                      });
+                                      toast.success(
+                                        `${r.invited} invitation(s) envoyée(s)` +
+                                          (r.skipped
+                                            ? ` · ${r.skipped} déjà en cours`
+                                            : ""),
+                                      );
+                                    } catch (e) {
+                                      toast.error(
+                                        e instanceof Error
+                                          ? e.message
+                                          : "Invitation impossible",
+                                      );
+                                    }
+                                  }}
+                                >
+                                  Inviter tout le département
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"

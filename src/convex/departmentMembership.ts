@@ -4,6 +4,24 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx } from "./_generated/server";
 import { pushNotification } from "./inAppNotifications";
 
+
+/** Même arbre : parent↔enfant ou frères (même parent). */
+async function isRelatedDepartment(
+  ctx: { db: any },
+  fromId: Id<"departments"> | undefined,
+  toId: Id<"departments">,
+) {
+  if (!fromId) return false;
+  if (fromId === toId) return true;
+  const from = await ctx.db.get(fromId);
+  const to = await ctx.db.get(toId);
+  if (!from || !to) return false;
+  if (to.parentId === fromId) return true; // parent → sous-groupe
+  if (from.parentId === toId) return true; // sous-groupe → parent
+  if (from.parentId && to.parentId && from.parentId === to.parentId) return true;
+  return false;
+}
+
 function isAdminRole(role: Doc<"users">["role"]) {
   return role === "admin" || role === "root";
 }
@@ -154,13 +172,24 @@ export const requestJoin = mutation({
     if (user.departmentId === args.departmentId) {
       throw new Error("Vous êtes déjà dans ce département.");
     }
-    if (user.departmentId) {
-      throw new Error(
-        "Vous appartenez déjà à un département. Contactez le DG pour un changement.",
-      );
-    }
     const dept = await ctx.db.get(args.departmentId);
     if (!dept) throw new Error("Département introuvable.");
+
+    // Autoriser le passage parent → sous-groupe (même arbre)
+    if (user.departmentId) {
+      const current = await ctx.db.get(user.departmentId);
+      const isChildOfMine = dept.parentId === user.departmentId;
+      const sameParent =
+        current?.parentId &&
+        dept.parentId &&
+        current.parentId === dept.parentId;
+      const fromChildToParent = current?.parentId === args.departmentId;
+      if (!isChildOfMine && !sameParent && !fromChildToParent && !isAdminRole(user.role)) {
+        throw new Error(
+          "Vous appartenez déjà à un autre département. Contactez le DG pour un changement.",
+        );
+      }
+    }
 
     const existing = await ctx.db
       .query("departmentJoinRequests")
@@ -295,7 +324,11 @@ export const reviewRequest = mutation({
     }
 
     if (person.accountStatus === "valide") {
-      if (person.departmentId && person.departmentId !== request.departmentId) {
+      if (
+        person.departmentId &&
+        person.departmentId !== request.departmentId &&
+        !(await isRelatedDepartment(ctx, person.departmentId, request.departmentId))
+      ) {
         throw new Error("Cette personne est déjà dans un autre département.");
       }
       await ctx.db.patch(person._id, {
@@ -487,7 +520,11 @@ export const respondInvitation = mutation({
 
     if (!args.accept) return null;
 
-    if (user.departmentId && user.departmentId !== inv.departmentId) {
+    if (
+      user.departmentId &&
+      user.departmentId !== inv.departmentId &&
+      !(await isRelatedDepartment(ctx, user.departmentId, inv.departmentId))
+    ) {
       throw new Error(
         "Vous êtes déjà dans un autre département. Contactez le DG.",
       );
@@ -630,5 +667,81 @@ export const departmentActivity = query({
     }
 
     return events;
+  },
+});
+
+
+/**
+ * Chef du département parent (ou DG) : invite tous les membres du parent
+ * vers un sous-groupe.
+ */
+export const inviteParentMembersToSubgroup = mutation({
+  args: { subgroupId: v.id("departments") },
+  handler: async (ctx, args) => {
+    const inviter = await requireUser(ctx);
+    const sub = await ctx.db.get(args.subgroupId);
+    if (!sub) throw new Error("Groupe introuvable.");
+    if (!sub.parentId) {
+      throw new Error("Ceci n'est pas un sous-groupe.");
+    }
+    const parent = await ctx.db.get(sub.parentId);
+    if (!parent) throw new Error("Département parent introuvable.");
+
+    const allowed =
+      isAdminRole(inviter.role) ||
+      (inviter.departmentRole === "chef" &&
+        (inviter.departmentId === parent._id ||
+          inviter.departmentId === sub._id));
+    if (!allowed) {
+      throw new Error("Seul le chef du département ou le DG peut inviter le groupe.");
+    }
+
+    const members = await ctx.db
+      .query("users")
+      .withIndex("by_department", (q) => q.eq("departmentId", parent._id))
+      .collect();
+
+    let invited = 0;
+    let skipped = 0;
+    for (const m of members) {
+      if (m._id === inviter._id) continue;
+      if (m.departmentId === args.subgroupId) {
+        skipped++;
+        continue;
+      }
+      const email = (m.email ?? "").toLowerCase();
+      if (!email.includes("@")) {
+        skipped++;
+        continue;
+      }
+      const pendingSame = await ctx.db
+        .query("departmentInvitations")
+        .withIndex("by_email", (q) => q.eq("inviteeEmail", email))
+        .collect();
+      if (
+        pendingSame.some(
+          (i) => i.status === "pending" && i.departmentId === args.subgroupId,
+        )
+      ) {
+        skipped++;
+        continue;
+      }
+      await ctx.db.insert("departmentInvitations", {
+        departmentId: args.subgroupId,
+        inviteeEmail: email,
+        inviteeUserId: m._id,
+        invitedBy: inviter._id,
+        status: "pending",
+        createdAt: Date.now(),
+      });
+      await pushNotification(ctx, {
+        userId: m._id,
+        type: "department.invitation",
+        title: "Invitation à un groupe",
+        body: `Vous êtes invité(e) à rejoindre le groupe « ${sub.name} » (département ${parent.name}).`,
+      });
+      invited++;
+    }
+    return { invited, skipped };
   },
 });
