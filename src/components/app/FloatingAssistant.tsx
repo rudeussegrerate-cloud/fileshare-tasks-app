@@ -24,6 +24,15 @@ const MOODS = [
   { id: "blagueur", label: "Blagueur" },
 ];
 
+/** Couleurs de cheveux / accessoires du personnage chibi */
+const HAIR: Record<string, { hair: string; hairDark: string; accent: string }> = {
+  navy: { hair: "#1e3a5f", hairDark: "#0f2744", accent: "#3b82f6" },
+  teal: { hair: "#0d9488", hairDark: "#0f766e", accent: "#2dd4bf" },
+  amber: { hair: "#f59e0b", hairDark: "#d97706", accent: "#fbbf24" },
+  rose: { hair: "#f43f5e", hairDark: "#e11d48", accent: "#fb7185" },
+  violet: { hair: "#7c3aed", hairDark: "#5b21b6", accent: "#a78bfa" },
+};
+
 const COLORS: Record<string, string> = {
   navy: "from-[#1e3a5f] to-[#2d4a6f]",
   teal: "from-teal-600 to-teal-500",
@@ -34,6 +43,10 @@ const COLORS: Record<string, string> = {
 
 type IdleEmotion = "idle" | "wave" | "look" | "sleep" | "excited" | "think";
 
+/**
+ * Avatar chibi expressif (style sticker cartoon).
+ * Design original — pas une copie de personnages protégés.
+ */
 function BotAvatar({
   color,
   mood,
@@ -48,24 +61,26 @@ function BotAvatar({
   emotion?: IdleEmotion;
 }) {
   const dim =
-    size === "lg" ? "size-16" : size === "sm" ? "size-9" : "size-12";
-  // Visage selon humeur de base + émotion du moment
-  let face = "‿";
-  if (emotion === "sleep") face = "zzz";
-  else if (emotion === "excited") face = "★";
-  else if (emotion === "think") face = "…";
-  else if (emotion === "look") face = "◦";
-  else if (mood === "joyeux" || mood === "blagueur") face = "◡";
-  else if (mood === "sérieux") face = "−";
+    size === "lg" ? "size-[72px]" : size === "sm" ? "size-10" : "size-14";
+  const palette = HAIR[color] ?? HAIR.navy!;
+  const skin = "#ffdbac";
+  const skinShade = "#f5c99a";
 
-  const eyeOffset =
-    emotion === "look" ? "translate-x-0.5" : emotion === "sleep" ? "opacity-40" : "";
+  // Expression
+  const happy =
+    mood === "joyeux" ||
+    mood === "blagueur" ||
+    emotion === "excited" ||
+    emotion === "wave";
+  const serious = mood === "sérieux" && emotion === "idle";
+  const sleepy = emotion === "sleep";
+  const thinking = emotion === "think";
+  const looking = emotion === "look";
 
   return (
     <div
       className={cn(
-        "relative flex items-center justify-center rounded-full bg-gradient-to-b text-white shadow-lg transition-transform",
-        COLORS[color] ?? COLORS.navy,
+        "relative select-none transition-transform",
         dim,
         bounce && emotion === "idle" && "assistant-bounce",
         emotion === "wave" && "assistant-wave-body",
@@ -75,35 +90,146 @@ function BotAvatar({
       )}
       title={emotion}
     >
-      <div className="flex flex-col items-center justify-center">
-        <div className={cn("flex gap-1.5", eyeOffset)}>
-          <span
-            className={cn(
-              "size-1.5 rounded-full bg-white/90",
-              emotion === "sleep" && "h-0.5 w-1.5 rounded-full",
-            )}
-          />
-          <span
-            className={cn(
-              "size-1.5 rounded-full bg-white/90",
-              emotion === "sleep" && "h-0.5 w-1.5 rounded-full",
-            )}
-          />
-        </div>
-        <span className="mt-0.5 text-[9px] leading-none opacity-90">{face}</span>
-      </div>
-      <span
-        className={cn(
-          "absolute -left-1 top-1/2 size-2 -translate-y-1/2 rounded-full bg-white/30",
-          emotion === "wave" ? "assistant-arm-wave" : "assistant-arm",
+      <svg viewBox="0 0 120 120" className="h-full w-full drop-shadow-md" aria-hidden>
+        {/* Ombre */}
+        <ellipse cx="60" cy="112" rx="28" ry="5" fill="rgba(0,0,0,0.12)" />
+
+        {/* Cheveux arrière */}
+        <path
+          d="M28 58 C22 30 40 12 60 10 C80 12 98 30 92 58 L88 52 C82 28 68 18 60 18 C52 18 38 28 32 52 Z"
+          fill={palette.hair}
+        />
+
+        {/* Tête */}
+        <ellipse cx="60" cy="58" rx="34" ry="36" fill={skin} />
+        <ellipse cx="48" cy="68" rx="8" ry="5" fill={skinShade} opacity="0.45" />
+        <ellipse cx="72" cy="68" rx="8" ry="5" fill={skinShade} opacity="0.45" />
+
+        {/* Cheveux avant (frange) */}
+        <path
+          d="M30 48 C36 28 50 22 60 22 C70 22 84 28 90 48 C82 38 72 34 60 34 C48 34 38 38 30 48 Z"
+          fill={palette.hairDark}
+        />
+        <path
+          d="M42 28 C48 20 56 18 60 18 C55 24 50 28 42 32 Z"
+          fill={palette.hair}
+        />
+        <path
+          d="M78 28 C72 20 64 18 60 18 C65 24 70 28 78 32 Z"
+          fill={palette.hair}
+        />
+
+        {/* Yeux */}
+        {sleepy ? (
+          <>
+            <path d="M42 56 Q48 60 54 56" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+            <path d="M66 56 Q72 60 78 56" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          </>
+        ) : serious ? (
+          <>
+            <path d="M40 52 L54 54" stroke="#333" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M66 54 L80 52" stroke="#333" strokeWidth="2.2" strokeLinecap="round" />
+            <ellipse cx="48" cy="58" rx="4.5" ry="5.5" fill="#2a2a2a" />
+            <ellipse cx="72" cy="58" rx="4.5" ry="5.5" fill="#2a2a2a" />
+            <circle cx="49.5" cy="56.5" r="1.3" fill="#fff" />
+            <circle cx="73.5" cy="56.5" r="1.3" fill="#fff" />
+          </>
+        ) : (
+          <>
+            <ellipse
+              cx={looking ? 50 : 48}
+              cy="57"
+              rx="6"
+              ry="7.5"
+              fill="#2a2a2a"
+            />
+            <ellipse
+              cx={looking ? 74 : 72}
+              cy="57"
+              rx="6"
+              ry="7.5"
+              fill="#2a2a2a"
+            />
+            <circle cx={looking ? 52 : 50} cy="54.5" r="2.2" fill="#fff" />
+            <circle cx={looking ? 76 : 74} cy="54.5" r="2.2" fill="#fff" />
+            <circle cx={looking ? 48.5 : 46.5} cy="58" r="1" fill="#fff" opacity="0.7" />
+            <circle cx={looking ? 72.5 : 70.5} cy="58" r="1" fill="#fff" opacity="0.7" />
+          </>
         )}
-      />
-      <span className="assistant-arm-r absolute -right-1 top-1/2 size-2 -translate-y-1/2 rounded-full bg-white/30" />
+
+        {/* Sourcils */}
+        {!sleepy && (
+          <>
+            <path
+              d={
+                serious
+                  ? "M40 48 L54 50"
+                  : happy
+                    ? "M40 48 Q48 44 54 48"
+                    : "M40 49 Q48 46 54 49"
+              }
+              stroke={palette.hairDark}
+              strokeWidth="2"
+              fill="none"
+              strokeLinecap="round"
+            />
+            <path
+              d={
+                serious
+                  ? "M66 50 L80 48"
+                  : happy
+                    ? "M66 48 Q72 44 80 48"
+                    : "M66 49 Q72 46 80 49"
+              }
+              stroke={palette.hairDark}
+              strokeWidth="2"
+              fill="none"
+              strokeLinecap="round"
+            />
+          </>
+        )}
+
+        {/* Bouche */}
+        {sleepy ? (
+          <ellipse cx="60" cy="74" rx="4" ry="2.5" fill="#e8a0a0" />
+        ) : happy ? (
+          <path
+            d="M48 70 Q60 84 72 70"
+            fill="#e85d75"
+            stroke="#c44d62"
+            strokeWidth="1"
+          />
+        ) : serious ? (
+          <path d="M52 74 L68 74" stroke="#c44d62" strokeWidth="2.2" strokeLinecap="round" />
+        ) : thinking ? (
+          <path d="M56 74 Q62 78 68 72" stroke="#c44d62" strokeWidth="2" fill="none" strokeLinecap="round" />
+        ) : (
+          <path d="M50 72 Q60 80 70 72" stroke="#c44d62" strokeWidth="2.2" fill="none" strokeLinecap="round" />
+        )}
+
+        {/* Joues */}
+        {(happy || mood === "calme") && !serious && (
+          <>
+            <ellipse cx="38" cy="68" rx="5" ry="3.5" fill="#ffb4b4" opacity="0.65" />
+            <ellipse cx="82" cy="68" rx="5" ry="3.5" fill="#ffb4b4" opacity="0.65" />
+          </>
+        )}
+
+        {/* Corps miniature */}
+        <ellipse cx="60" cy="102" rx="16" ry="10" fill={palette.accent} />
+        <rect x="48" y="92" width="24" height="12" rx="6" fill={palette.accent} />
+      </svg>
+
       {emotion === "excited" ? (
-        <span className="absolute -top-1 right-0 text-[10px]">✨</span>
+        <span className="absolute -right-1 -top-1 text-sm">✨</span>
       ) : null}
       {emotion === "think" ? (
-        <span className="absolute -top-2 right-0 text-[9px] opacity-80">💭</span>
+        <span className="absolute -right-0.5 -top-2 text-xs">💭</span>
+      ) : null}
+      {emotion === "sleep" ? (
+        <span className="absolute -right-1 top-0 text-[10px] text-muted-foreground">
+          zzz
+        </span>
       ) : null}
     </div>
   );
@@ -112,8 +238,8 @@ function BotAvatar({
 function clampPos(x: number, y: number) {
   if (typeof window === "undefined") return { x, y };
   const margin = 8;
-  const w = 72;
-  const h = 88;
+  const w = 84;
+  const h = 100;
   return {
     x: Math.min(Math.max(margin, x), window.innerWidth - w - margin),
     y: Math.min(Math.max(margin, y), window.innerHeight - h - margin),
