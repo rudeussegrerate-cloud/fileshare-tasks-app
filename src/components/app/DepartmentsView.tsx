@@ -935,26 +935,38 @@ export function DepartmentsView() {
                   className="rounded-lg border border-border bg-card p-4 text-left transition-colors hover:border-brand/40 hover:bg-secondary/40"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="flex items-center gap-2 text-base font-semibold">
-                        <Building2 className="size-4 shrink-0 text-brand" />
-                        <span className="truncate">{department.name}</span>
-                      </p>
-                      {department.description ? (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                          {department.description}
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      {"logoUrl" in department && department.logoUrl ? (
+                        <img
+                          src={department.logoUrl as string}
+                          alt=""
+                          className="size-12 shrink-0 rounded-xl border object-cover"
+                        />
+                      ) : (
+                        <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-brand text-primary-foreground">
+                          <Building2 className="size-5" />
+                        </div>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-base font-semibold">
+                          <span className="truncate">{department.name}</span>
                         </p>
-                      ) : null}
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        {department.members.length} membre
-                        {department.members.length > 1 ? "s" : ""}
-                        {department.chief
-                          ? ` · Chef : ${department.chief.name}`
-                          : " · Pas de chef"}
-                        {childCount > 0
-                          ? ` · ${childCount} groupe${childCount > 1 ? "s" : ""}`
-                          : ""}
-                      </p>
+                        {department.description ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                            {department.description}
+                          </p>
+                        ) : null}
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          {department.members.length} membre
+                          {department.members.length > 1 ? "s" : ""}
+                          {department.chief
+                            ? ` · Chef : ${department.chief.name}`
+                            : " · Pas de chef"}
+                          {childCount > 0
+                            ? ` · ${childCount} groupe${childCount > 1 ? "s" : ""}`
+                            : ""}
+                        </p>
+                      </div>
                     </div>
                     <Badge variant="outline" className="shrink-0 text-[10px]">
                       Ouvrir

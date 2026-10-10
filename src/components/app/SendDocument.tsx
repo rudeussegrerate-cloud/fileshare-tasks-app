@@ -435,9 +435,17 @@ export function SendDocument({
                         )}
                       >
                         <div className="flex items-center justify-between">
-                          <div className="flex size-9 items-center justify-center rounded-sm bg-brand text-primary-foreground">
-                            <Building2 className="size-4" />
-                          </div>
+                          {"logoUrl" in department && department.logoUrl ? (
+                            <img
+                              src={department.logoUrl as string}
+                              alt=""
+                              className="size-10 rounded-lg border object-cover"
+                            />
+                          ) : (
+                            <div className="flex size-10 items-center justify-center rounded-lg bg-brand text-primary-foreground">
+                              <Building2 className="size-4" />
+                            </div>
+                          )}
                           {active ? (
                             <CheckCircle2 className="size-4 text-brand" />
                           ) : null}
