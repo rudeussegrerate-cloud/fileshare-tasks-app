@@ -8,7 +8,13 @@ import { PresenceDot } from "./PresenceDot";
 import { initialsOf } from "./shared";
 
 /** Annuaire de présence type Facebook, avec recherche. */
-export function OnlinePeople({ compact = false }: { compact?: boolean }) {
+export function OnlinePeople({
+  compact = false,
+  onMessage,
+}: {
+  compact?: boolean;
+  onMessage?: (userId: string) => void;
+}) {
   const directory = useQuery(api.presence.onlineDirectory);
   const [q, setQ] = useState("");
 
@@ -66,11 +72,17 @@ export function OnlinePeople({ compact = false }: { compact?: boolean }) {
           </li>
         ) : (
           filtered.map((person) => (
-            <li
-              key={person._id}
+            <li key={person._id}>
+              <button
+              type="button"
+              disabled={person.isSelf || !onMessage}
+              onClick={() => {
+                if (!person.isSelf && onMessage) onMessage(person._id);
+              }}
               className={cn(
-                "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm",
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-left",
                 person.isSelf && "bg-muted/60",
+                !person.isSelf && onMessage && "hover:bg-muted/70 cursor-pointer",
               )}
             >
               <div className="relative shrink-0">
@@ -94,6 +106,7 @@ export function OnlinePeople({ compact = false }: { compact?: boolean }) {
                       : person.fonction || "Hors ligne"}
                 </p>
               </div>
+            </button>
             </li>
           ))
         )}

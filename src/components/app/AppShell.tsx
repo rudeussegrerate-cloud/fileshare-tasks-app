@@ -24,6 +24,7 @@ import {
   LayoutDashboard,
   LogOut,
   Menu,
+  MessageCircle,
   Send,
   Settings,
   Upload,
@@ -43,6 +44,7 @@ export type AppView =
   | "send"
   | "inbox"
   | "sent"
+  | "messages"
   | "departments"
   | "accounts"
   | "settings";
@@ -63,6 +65,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       { key: "send", label: "Envoyer", icon: Upload },
       { key: "inbox", label: "Reçus", icon: Inbox },
       { key: "sent", label: "Envoyés", icon: Send },
+      { key: "messages", label: "Messages", icon: MessageCircle },
     ],
   },
   {
@@ -150,11 +153,13 @@ export function AppShell({
   view,
   onViewChange,
   onOpenDocument,
+  onStartChat,
   children,
 }: {
   view: AppView;
   onViewChange: (view: AppView) => void;
   onOpenDocument?: (id: import("@/convex/_generated/dataModel").Id<"documents">) => void;
+  onStartChat?: (userId: import("@/convex/_generated/dataModel").Id<"users">) => void;
   children: ReactNode;
 }) {
   const me = useQuery(api.workspace.me);
@@ -248,7 +253,13 @@ export function AppShell({
             {peopleOpen ? "Masquer" : "Afficher"}
           </span>
         </button>
-        {peopleOpen ? <OnlinePeople /> : null}
+        {peopleOpen ? (
+          <OnlinePeople
+            onMessage={(uid) => {
+              onStartChat?.(uid as import("@/convex/_generated/dataModel").Id<"users">);
+            }}
+          />
+        ) : null}
       </div>
     </>
   );
@@ -288,7 +299,12 @@ export function AppShell({
                       />
                     </div>
                     <div className="mt-4 border-t border-border pt-3">
-                      <OnlinePeople />
+                      <OnlinePeople
+                        onMessage={(uid) => {
+                          onStartChat?.(uid as import("@/convex/_generated/dataModel").Id<"users">);
+                          setMobileNavOpen(false);
+                        }}
+                      />
                     </div>
                   </div>
                 </SheetContent>

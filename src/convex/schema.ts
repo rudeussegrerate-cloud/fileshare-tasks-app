@@ -215,6 +215,47 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_user_created", ["userId", "createdAt"])
       .index("by_user_unread", ["userId", "readAt"]),
+
+    // Chat 1-1 entre utilisateurs (style Messenger)
+    conversations: defineTable({
+      // Toujours participantA < participantB (string id) pour unicité
+      participantA: v.id("users"),
+      participantB: v.id("users"),
+      lastMessageAt: v.number(),
+      lastMessagePreview: v.optional(v.string()),
+      lastSenderId: v.optional(v.id("users")),
+    })
+      .index("by_pair", ["participantA", "participantB"])
+      .index("by_a", ["participantA", "lastMessageAt"])
+      .index("by_b", ["participantB", "lastMessageAt"]),
+
+    chatMessages: defineTable({
+      conversationId: v.id("conversations"),
+      senderId: v.id("users"),
+      body: v.string(),
+      createdAt: v.number(),
+      readAt: v.optional(v.number()),
+    })
+      .index("by_conversation", ["conversationId", "createdAt"])
+      .index("by_conversation_unread", ["conversationId", "readAt"]),
+
+    // Assistant personnel (mini-bot) — un profil par utilisateur
+    botProfiles: defineTable({
+      userId: v.id("users"),
+      name: v.string(),
+      mood: v.string(), // joyeux | calme | motivant | sérieux | blagueur
+      personality: v.string(), // comment se comporter
+      color: v.string(), // couleur du personnage
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    }).index("by_user", ["userId"]),
+
+    botMessages: defineTable({
+      userId: v.id("users"),
+      role: v.union(v.literal("user"), v.literal("assistant")),
+      body: v.string(),
+      createdAt: v.number(),
+    }).index("by_user", ["userId", "createdAt"]),
   },
   {
     schemaValidation: false,

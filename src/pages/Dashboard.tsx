@@ -9,6 +9,8 @@ import { ProfileSetup } from "@/components/app/ProfileSetup";
 import { SendDocument } from "@/components/app/SendDocument";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
+import { MessagesView } from "@/components/app/MessagesView";
+import { FloatingAssistant } from "@/components/app/FloatingAssistant";
 import { SettingsView } from "@/components/app/SettingsView";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -21,6 +23,7 @@ export default function Dashboard() {
   const syncProfile = useMutation(api.workspace.syncProfile);
   const me = useQuery(api.workspace.me);
   const [view, setView] = useState<AppView>("home");
+  const [chatUserId, setChatUserId] = useState<Id<"users"> | null>(null);
   const [openDocumentId, setOpenDocumentId] = useState<Id<"documents"> | null>(
     null,
   );
@@ -72,8 +75,15 @@ export default function Dashboard() {
       <InactivityLogout />
       <AppShell
         view={view}
-        onViewChange={setView}
+        onViewChange={(v) => {
+          setView(v);
+          if (v !== "messages") setChatUserId(null);
+        }}
         onOpenDocument={(id) => setOpenDocumentId(id)}
+        onStartChat={(userId) => {
+          setChatUserId(userId);
+          setView("messages");
+        }}
       >
       {view === "home" ? (
         <DashboardHome
@@ -114,7 +124,13 @@ export default function Dashboard() {
 
       {view === "accounts" ? <AccountsView /> : null}
 
+      {view === "messages" ? (
+        <MessagesView initialUserId={chatUserId} />
+      ) : null}
+
       {view === "settings" ? <SettingsView onNavigate={setView} /> : null}
+
+      <FloatingAssistant />
 
       <DocumentDetailDialog
         documentId={openDocumentId}

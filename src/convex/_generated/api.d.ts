@@ -9,10 +9,13 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as assistantBot from "../assistantBot.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as auth_emailOtp from "../auth/emailOtp.js";
 import type * as auth_passwordReset from "../auth/passwordReset.js";
+import type * as bot from "../bot.js";
+import type * as chat from "../chat.js";
 import type * as departmentMembership from "../departmentMembership.js";
 import type * as documents from "../documents.js";
 import type * as http from "../http.js";
@@ -30,10 +33,13 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  assistantBot: typeof assistantBot;
   audit: typeof audit;
   auth: typeof auth;
   "auth/emailOtp": typeof auth_emailOtp;
   "auth/passwordReset": typeof auth_passwordReset;
+  bot: typeof bot;
+  chat: typeof chat;
   departmentMembership: typeof departmentMembership;
   documents: typeof documents;
   http: typeof http;
