@@ -243,3 +243,182 @@ export const clearAvatar = mutation({
     return null;
   },
 });
+
+/* ——— Mode apprentissage / automatisations ——— */
+
+export const listMySkills = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const rows = await ctx.db
+      .query("botSkills")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    return rows.sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
+export const saveSkill = mutation({
+  args: {
+    skillId: v.optional(v.id("botSkills")),
+    name: v.string(),
+    trigger: v.string(),
+    instruction: v.string(),
+    action: v.optional(
+      v.union(
+        v.literal("reply"),
+        v.literal("open_inbox"),
+        v.literal("open_send"),
+        v.literal("open_messages"),
+        v.literal("open_actualites"),
+        v.literal("open_departments"),
+        v.literal("remind_tasks"),
+      ),
+    ),
+    enabled: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const name = args.name.trim().slice(0, 60);
+    const trigger = args.trigger.trim().toLowerCase().slice(0, 120);
+    const instruction = args.instruction.trim().slice(0, 800);
+    if (name.length < 2) throw new Error("Nom trop court.");
+    if (trigger.length < 2) throw new Error("Déclencheur trop court.");
+    if (instruction.length < 2) throw new Error("Instruction trop courte.");
+    const now = Date.now();
+    if (args.skillId) {
+      const existing = await ctx.db.get(args.skillId);
+      if (!existing || existing.userId !== userId) {
+        throw new Error("Tâche introuvable.");
+      }
+      await ctx.db.patch(args.skillId, {
+        name,
+        trigger,
+        instruction,
+        action: args.action ?? existing.action ?? "reply",
+        enabled: args.enabled ?? existing.enabled,
+        updatedAt: now,
+      });
+      return args.skillId;
+    }
+    return await ctx.db.insert("botSkills", {
+      userId,
+      name,
+      trigger,
+      instruction,
+      action: args.action ?? "reply",
+      enabled: args.enabled ?? true,
+      useCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const deleteSkill = mutation({
+  args: { skillId: v.id("botSkills") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const existing = await ctx.db.get(args.skillId);
+    if (!existing || existing.userId !== userId) {
+      throw new Error("Tâche introuvable.");
+    }
+    await ctx.db.delete(args.skillId);
+    return null;
+  },
+});
+
+export const matchSkill = internalQuery({
+  args: { userId: v.id("users"), message: v.string() },
+  handler: async (ctx, args) => {
+    const msg = args.message.trim().toLowerCase();
+    if (msg.length < 2) return null;
+    const skills = await ctx.db
+      .query("botSkills")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const enabled = skills.filter((s) => s.enabled);
+    // Match si le déclencheur est contenu dans le message (ou inversement)
+    let best: (typeof enabled)[0] | null = null;
+    let bestScore = 0;
+    for (const s of enabled) {
+      const t = s.trigger.toLowerCase();
+      if (!t) continue;
+      if (msg.includes(t) || t.includes(msg)) {
+        const score = t.length;
+        if (score > bestScore) {
+          best = s;
+          bestScore = score;
+        }
+      }
+    }
+    return best;
+  },
+});
+
+export const bumpSkillUse = internalMutation({
+  args: { skillId: v.id("botSkills") },
+  handler: async (ctx, args) => {
+    const s = await ctx.db.get(args.skillId);
+    if (!s) return null;
+    await ctx.db.patch(args.skillId, {
+      useCount: (s.useCount ?? 0) + 1,
+      updatedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+
+export const saveSkillInternal = internalMutation({
+  args: {
+    userId: v.id("users"),
+    name: v.string(),
+    trigger: v.string(),
+    instruction: v.string(),
+    action: v.optional(
+      v.union(
+        v.literal("reply"),
+        v.literal("open_inbox"),
+        v.literal("open_send"),
+        v.literal("open_messages"),
+        v.literal("open_actualites"),
+        v.literal("open_departments"),
+        v.literal("remind_tasks"),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const trigger = args.trigger.trim().toLowerCase().slice(0, 120);
+    const existing = await ctx.db
+      .query("botSkills")
+      .withIndex("by_user", (q) => q.eq("userId", args.userId))
+      .collect();
+    const same = existing.find((s) => s.trigger === trigger);
+    if (same) {
+      await ctx.db.patch(same._id, {
+        name: args.name.slice(0, 60),
+        instruction: args.instruction.slice(0, 800),
+        action: args.action ?? "reply",
+        enabled: true,
+        updatedAt: now,
+      });
+      return same._id;
+    }
+    return await ctx.db.insert("botSkills", {
+      userId: args.userId,
+      name: args.name.slice(0, 60),
+      trigger,
+      instruction: args.instruction.slice(0, 800),
+      action: args.action ?? "reply",
+      enabled: true,
+      useCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});

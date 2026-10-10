@@ -16,6 +16,7 @@ import {
   Archive,
   ArchiveRestore,
   Download,
+  Printer,
   FileText,
   History,
   Loader2,
@@ -57,6 +58,40 @@ export function DocumentDetailDialog({
   const unarchiveDoc = useMutation(api.documents.unarchive);
   const removeDoc = useMutation(api.documents.remove);
   const retrySummary = useMutation(api.documents.retrySummary);
+
+  const printDocument = () => {
+    if (!documentOrNull) return;
+    const w = window.open("", "_blank", "noopener,noreferrer,width=800,height=900");
+    if (!w) {
+      toast.error("Autorisez les pop-ups pour imprimer.");
+      return;
+    }
+    const esc = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const tasks = Array.isArray(documentOrNull.tasks)
+      ? documentOrNull.tasks.join(", ")
+      : documentOrNull.task ?? "—";
+    w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/><title>${esc(documentOrNull.objet || documentOrNull.fileName)}</title>
+<style>
+  body{font-family:Georgia,serif;max-width:720px;margin:24px auto;padding:0 16px;color:#222;line-height:1.45}
+  h1{font-size:1.35rem;margin:0 0 8px}
+  .meta{font-size:0.85rem;color:#555;margin-bottom:16px}
+  .box{border:1px solid #ccc;border-radius:8px;padding:12px 14px;margin:12px 0;background:#faf8f4}
+  .label{font-size:0.7rem;text-transform:uppercase;letter-spacing:0.04em;color:#666;margin-bottom:4px}
+  pre{white-space:pre-wrap;font-family:inherit;margin:0}
+  @media print{body{margin:0}}
+</style></head><body>
+<h1>${esc(documentOrNull.objet || documentOrNull.fileName)}</h1>
+<div class="meta">ScanDoc · Fiche document</div>
+<div class="box"><div class="label">Fichier</div>${esc(documentOrNull.fileName)}</div>
+<div class="box"><div class="label">De</div>${esc(documentOrNull.senderName ?? "—")} → ${esc(documentOrNull.recipientName ?? "—")}</div>
+<div class="box"><div class="label">Tâches</div>${esc(String(tasks))}</div>
+<div class="box"><div class="label">Statut</div>${esc(documentOrNull.status ?? "—")}</div>
+<div class="box"><div class="label">Résumé / explication</div><pre>${esc(documentOrNull.summary ?? "Aucun résumé.")}</pre></div>
+<script>window.onload=()=>{window.print();}</script>
+</body></html>`);
+    w.document.close();
+  };
   const viewedRef = useRef<Id<"documents"> | null>(null);
   const [showAudit, setShowAudit] = useState(false);
   const [busy, setBusy] = useState(false);

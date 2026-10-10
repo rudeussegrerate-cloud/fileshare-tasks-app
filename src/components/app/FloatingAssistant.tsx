@@ -327,6 +327,9 @@ export function FloatingAssistant() {
   const setAvatar = useMutation(api.bot.setAvatar);
   const clearAvatar = useMutation(api.bot.clearAvatar);
   const ask = useAction(api.assistantBot.ask);
+  const skills = useQuery(api.bot.listMySkills);
+  const saveSkill = useMutation(api.bot.saveSkill);
+  const deleteSkill = useMutation(api.bot.deleteSkill);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [open, setOpen] = useState(false);
@@ -607,7 +610,7 @@ export function FloatingAssistant() {
                 </p>
                 <ul className="mt-1 list-inside list-disc">
                   <li>Comment envoyer un document ?</li>
-                  <li>Comment rejoindre un département ?</li>
+                  <li>Apprends : quand je dis mes reçus, ouvre les documents reçus</li>
                   <li>Où sont mes messages ?</li>
                 </ul>
               </div>
@@ -645,7 +648,34 @@ export function FloatingAssistant() {
               const msg = text.trim();
               setText("");
               try {
-                await ask({ message: msg });
+                const res = await ask({ message: msg }) as {
+                  reply?: string;
+                  action?: string | null;
+                  learned?: boolean;
+                };
+                if (res?.learned) {
+                  toast.success("Tâche apprise par le bot");
+                }
+                const action = res?.action;
+                if (action && action !== "reply") {
+                  const map: Record<string, string> = {
+                    open_inbox: "inbox",
+                    open_send: "send",
+                    open_messages: "messages",
+                    open_actualites: "actualites",
+                    open_departments: "departments",
+                    remind_tasks: "inbox",
+                  };
+                  const view = map[action];
+                  if (view) {
+                    window.dispatchEvent(
+                      new CustomEvent("scandoc:navigate", {
+                        detail: { view },
+                      }),
+                    );
+                    setOpen(false);
+                  }
+                }
               } catch (err) {
                 toast.error(
                   err instanceof Error ? err.message : "Assistant indisponible",
@@ -658,7 +688,7 @@ export function FloatingAssistant() {
             <Input
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Votre question…"
+              placeholder="Question ou : Apprends : quand je dis X, fais Y"
               className="h-9 text-sm"
               disabled={busy}
             />
@@ -843,6 +873,48 @@ export function FloatingAssistant() {
                 ) : null}
               </div>
 
+              <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+                <Label>Mode apprentissage — tâches automatisées</Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Dites au bot : « Apprends : quand je dis <em>mes reçus</em>, ouvre les documents reçus ».
+                  Il mémorise la phrase et l&apos;action.
+                </p>
+                {(skills?.length ?? 0) === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">Aucune tâche apprise pour l&apos;instant.</p>
+                ) : (
+                  <ul className="max-h-28 space-y-1 overflow-y-auto text-xs">
+                    {skills!.map((s) => (
+                      <li
+                        key={s._id}
+                        className="flex items-start justify-between gap-2 rounded-md bg-muted/50 px-2 py-1.5"
+                      >
+                        <span className="min-w-0">
+                          <span className="font-medium">{s.name}</span>
+                          <span className="block text-[10px] text-muted-foreground">
+                            « {s.trigger} » → {s.action ?? "reply"} ({s.useCount}×)
+                          </span>
+                        </span>
+                        <button
+                          type="button"
+                          className="shrink-0 text-[10px] text-destructive"
+                          onClick={async () => {
+                            try {
+                              await deleteSkill({ skillId: s._id });
+                              toast.message("Tâche supprimée");
+                            } catch (e) {
+                              toast.error(
+                                e instanceof Error ? e.message : "Erreur",
+                              );
+                            }
+                          }}
+                        >
+                          Suppr.
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <Label htmlFor="bot-perso">Comportement</Label>
               <Textarea
                 id="bot-perso"

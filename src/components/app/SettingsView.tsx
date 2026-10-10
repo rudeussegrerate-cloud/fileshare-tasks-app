@@ -95,7 +95,41 @@ export function SettingsView({
     api.audit.list,
     me?.isAdmin || me?.isRoot ? { limit: 40 } : "skip",
   );
-  const stats = useQuery(api.documents.stats);
+  
+  const exportAuditCsv = () => {
+    if (!auditLogs || auditLogs.length === 0) {
+      toast.error("Aucune entrée d'audit à exporter.");
+      return;
+    }
+    try {
+      const headers = ["Action", "Acteur", "Détails", "Date"];
+      const rows = auditLogs.map((row) => [
+        row.action ?? "",
+        row.actorName ?? "",
+        row.details ?? "",
+        new Date(row.createdAt).toLocaleString("fr-FR"),
+      ]);
+      const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+      const csv = [headers, ...rows].map((r) => r.map(esc).join(";")).join("\r\n");
+      const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `scandoc-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 400);
+      toast.success("Journal d'audit exporté");
+    } catch {
+      toast.error("Export audit impossible");
+    }
+  };
+
+const stats = useQuery(api.documents.stats);
   const { signOut, signIn } = useAuth();
   const navigate = useNavigate();
 
@@ -673,10 +707,23 @@ export function SettingsView({
       {(me.isAdmin || me.isRoot) && (
         <Card className="border-border">
           <CardHeader>
-            <CardTitle className="text-base">Journal d&apos;audit</CardTitle>
-            <CardDescription>
-              Dernières actions importantes (envois, changements de statut…).
-            </CardDescription>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <CardTitle className="text-base">Journal d&apos;audit</CardTitle>
+                <CardDescription>
+                  Dernières actions importantes (envois, changements de statut…).
+                </CardDescription>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={exportAuditCsv}
+                disabled={!auditLogs || auditLogs.length === 0}
+              >
+                Export CSV
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {!auditLogs ? (

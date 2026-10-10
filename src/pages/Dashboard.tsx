@@ -76,6 +76,15 @@ export default function Dashboard() {
     });
   }, [syncProfile]);
 
+  useEffect(() => {
+    const onNav = (e: Event) => {
+      const detail = (e as CustomEvent<{ view?: AppView }>).detail;
+      if (detail?.view) setView(detail.view);
+    };
+    window.addEventListener("scandoc:navigate", onNav);
+    return () => window.removeEventListener("scandoc:navigate", onNav);
+  }, []);
+
   // Attendre le statut de compte (syncProfile).
   if (!me || !me.accountStatus) {
     return (

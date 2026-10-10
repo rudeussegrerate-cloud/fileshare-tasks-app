@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,39 +71,67 @@ export function DocumentsList({
   }, [documents]);
 
   const exportCsv = () => {
-    if (!documents || documents.length === 0) return;
-    const headers = [
-      "Fichier",
-      "Objet",
-      "Statut",
-      "Expéditeur",
-      "Destinataire",
-      "Tâches",
-      "Date",
-      "Taille",
-    ];
-    const rows = documents.map((d) => [
-      d.fileName ?? "",
-      d.objet ?? "",
-      d.status ?? "",
-      d.senderName ?? "",
-      d.recipientName ?? "",
-      Array.isArray(d.tasks) ? d.tasks.join(" | ") : (d.task ?? ""),
-      d.createdAt ? new Date(d.createdAt).toISOString() : "",
-      d.size != null ? String(d.size) : "",
-    ]);
-    const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-    const csv = [headers, ...rows].map((r) => r.map(esc).join(";")).join("\n");
-    const blob = new Blob(["\ufeff" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `scandoc-${mode}-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (!documents || documents.length === 0) {
+      toast.error("Aucun document à exporter.");
+      return;
+    }
+    try {
+      const headers = [
+        "Fichier",
+        "Objet",
+        "Statut",
+        "Expéditeur",
+        "Destinataire",
+        "Tâches",
+        "Date",
+        "Taille (octets)",
+      ];
+      const rows = documents.map((d) => {
+        const anyD = d as Record<string, unknown>;
+        const created =
+          typeof anyD.createdAt === "number"
+            ? (anyD.createdAt as number)
+            : typeof anyD._creationTime === "number"
+              ? (anyD._creationTime as number)
+              : Date.now();
+        return [
+          String(anyD.fileName ?? ""),
+          String(anyD.objet ?? ""),
+          String(anyD.status ?? ""),
+          String(anyD.senderName ?? ""),
+          String(anyD.recipientName ?? ""),
+          Array.isArray(anyD.tasks)
+            ? (anyD.tasks as string[]).join(" | ")
+            : String(anyD.task ?? ""),
+          new Date(created).toLocaleString("fr-FR"),
+          anyD.size != null ? String(anyD.size) : "",
+        ];
+      });
+      const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+      const csv = [headers, ...rows]
+        .map((r) => r.map(esc).join(";"))
+        .join("\r\n");
+      const blob = new Blob(["\ufeff" + csv], {
+        type: "text/csv;charset=utf-8;",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `scandoc-${mode}-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 400);
+      toast.success(`Export CSV : ${documents.length} ligne(s)`);
+    } catch (e) {
+      console.error(e);
+      toast.error("Export impossible sur cet appareil.");
+    }
   };
+
 
   return (
     <div className="space-y-5">

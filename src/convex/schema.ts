@@ -261,6 +261,29 @@ const schema = defineSchema(
       createdAt: v.number(),
     }).index("by_user", ["userId", "createdAt"]),
 
+    // Tâches apprises / automatisations du bot personnel
+    botSkills: defineTable({
+      userId: v.id("users"),
+      name: v.string(),
+      trigger: v.string(), // phrase ou mots-clés
+      instruction: v.string(), // ce que le bot doit faire / répondre
+      action: v.optional(
+        v.union(
+          v.literal("reply"),
+          v.literal("open_inbox"),
+          v.literal("open_send"),
+          v.literal("open_messages"),
+          v.literal("open_actualites"),
+          v.literal("open_departments"),
+          v.literal("remind_tasks"),
+        ),
+      ),
+      enabled: v.boolean(),
+      useCount: v.number(),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    }).index("by_user", ["userId"]),
+
     // Annonces internes (mur d'information)
     announcements: defineTable({
       authorId: v.id("users"),

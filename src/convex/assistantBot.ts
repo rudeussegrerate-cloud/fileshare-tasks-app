@@ -6,67 +6,100 @@ import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 
 const SITE_HELP = `
-Tu es un assistant personnel chaleureux sur ScanDoc, mais tu peux AUSSI discuter librement pour tenir compagnie.
+Tu es un assistant personnel sur ScanDoc. Tu guides l'utilisateur et tu peux discuter librement.
 
 Priorités :
-1. Si la question concerne ScanDoc (documents, départements, messages, actualités, compte) → guide clairement (menus exacts).
-2. Si la question est générale, personnelle, ou pour discuter → réponds naturellement, avec empathie et un peu d'humour selon l'humeur configurée. Tu peux parler de motivation, organisation, culture générale, etc.
-3. Reste respectueux. Pas de conseils médicaux/juridiques dangereux. Pas de secrets techniques (tokens, erreurs serveur).
-4. Français simple, 2 à 8 lignes max. Montre de l'émotion légère (encouragement, curiosité).
-5. Tu as un nom, une humeur et un comportement fournis par l'utilisateur — respecte-les.
+1. ScanDoc (documents, départements, messages, actualités) → menus exacts.
+2. Discussion libre → empathie, français simple.
+3. Pas de secrets techniques (tokens, erreurs serveur).
+4. 2 à 8 lignes max.
+5. Respecte le nom, l'humeur et le comportement fournis.
+6. Si une automatisation apprise correspond, applique-la clairement.
 `;
 
-function ruleBasedReply(question: string, botName: string, mood: string): string {
+function ruleBasedReply(
+  question: string,
+  botName: string,
+  mood: string,
+): string {
   const q = question.toLowerCase();
-  const greeting =
+  const prefix =
     mood === "joyeux"
-      ? `😊 ${botName} est là !`
+      ? `😊 ${botName} :`
       : mood === "motivant"
-        ? `💪 Allez, on avance !`
+        ? `💪 ${botName} :`
         : mood === "blagueur"
-          ? `😄 ${botName} au rapport.`
-          : mood === "sérieux"
-            ? `${botName} :`
-            : `${botName} :`;
+          ? `😄 ${botName} :`
+          : `${botName} :`;
 
   if (/bonjour|salut|hello|bonsoir/.test(q)) {
-    return `' + name + ' Comment puis-je vous aider sur ScanDoc ?`;
+    return `${prefix} Bonjour ! Comment puis-je vous aider sur ScanDoc ?`;
   }
   if (/envoyer|envoi|nouveau document|partager/.test(q)) {
-    return `' + name + '\nPour envoyer un document : menu **Envoyer** → choisissez le fichier, le destinataire, l'objet, « de la part de », les tâches → Envoyer.`;
+    return `${prefix}\nPour envoyer un document : menu **Envoyer un document** → fichier, destinataire, objet, « de la part de », tâches → Envoyer.`;
   }
   if (/reçu|inbox|reception|reçus/.test(q)) {
-    return `' + name + '\nVos documents reçus sont dans **Reçus**. Ouvrez un document pour le lire, changer le statut ou télécharger le fichier.`;
+    return `${prefix}\nVos documents reçus sont dans **Documents reçus**. Ouvrez un document pour le lire, changer le statut ou l'imprimer.`;
   }
   if (/département|rejoindre|adhésion|groupe/.test(q)) {
-    return `' + name + '\nAllez dans **Départements**. Si vous n'êtes pas encore membre, cliquez **Rejoindre** sur un département. Le chef validera votre demande.`;
+    return `${prefix}\nAllez dans **Départements & groupes**. Demandez à rejoindre : le chef validera.`;
   }
   if (/mot de passe|oublié|connexion|login|compte/.test(q)) {
-    return `' + name + '\nSur la page de connexion : « Mot de passe oublié ? ». Sinon, contactez le DG pour la validation de votre compte.`;
+    return `${prefix}\nPage de connexion → « Mot de passe oublié ? ». Pour un compte bloqué, contactez le DG.`;
   }
   if (/message|chat|discuter|écrire/.test(q)) {
-    return `' + name + '\nOuvrez **Messages** dans le menu, ou cliquez un collègue dans la liste « Collègues » pour démarrer une conversation.`;
+    return `${prefix}\nOuvrez **Messagerie**, ou un collègue en ligne, pour démarrer une conversation.`;
   }
-  if (/statut|traité|en cours|suivi/.test(q)) {
-    return `' + name + '\nStatuts d'un document : Envoyé → Consulté → En cours → Traité. Le destinataire met à jour le statut depuis le détail du document.`;
+  if (/apprendre|automatis|mode apprentissage|enseigne/.test(q)) {
+    return `${prefix}\nMode apprentissage : dites par exemple\n« Apprends : quand je dis *mes reçus*, ouvre les documents reçus »\nou créez une tâche dans les paramètres du bot.`;
   }
-  if (/paramètre|profil|déconnecter/.test(q)) {
-    return `' + name + '\nTout se trouve dans **Paramètres** : profil, mot de passe, thème, et déconnexion.`;
+  if (/aide|perdu|comment|problème/.test(q)) {
+    return `${prefix}\nJe peux vous guider (envoyer, reçus, départements, messages) ou exécuter une tâche que vous m'avez apprise.`;
   }
-  if (/actualité|annonce|fil|news/.test(q)) {
-    return `' + name + '\nLes annonces sont dans **Actualités** (menu). Vous pouvez publier (publique, privée ou personnalisée) et réagir avec des emoji.`;
-  }
-  if (/photo|image|scan|résumé|expliquer/.test(q)) {
-    return `' + name + '\nQuand vous envoyez une photo ou un scan, ScanDoc tente de **décrire ou résumer** le contenu automatiquement pour le destinataire.`;
-  }
-  if (/aide|perdu|où|comment|problème|bug|erreur/.test(q)) {
-    return `' + name + '\nJe suis là 👋 Indiquez ce que vous voulez faire : envoyer un document, lire les actualités, écrire à un collègue, rejoindre un groupe…\nExemple : « Comment envoyer un document ? »`;
-  }
-  // Conversation libre : répondre de façon ouverte (l'IA Groq prendra le relais si dispo)
   return "";
 }
 
-/** Réponse de l'assistant (IA si dispo, sinon règles site). */
+/** Parse « Apprends : quand je dis X, fais Y » */
+function parseLearnCommand(message: string): {
+  trigger: string;
+  instruction: string;
+  action:
+    | "reply"
+    | "open_inbox"
+    | "open_send"
+    | "open_messages"
+    | "open_actualites"
+    | "open_departments"
+    | "remind_tasks";
+} | null {
+  const m = message.trim();
+  const re =
+    /^(?:apprends?|enseigne|automatise)\s*[:：]?\s*(?:quand\s+je\s+dis\s+)?[«"']?(.+?)[»"']?\s*(?:,|\s+→\s+|\s+->\s+|\s+alors\s+|\s+fais\s+|\s+:\s+)(.+)$/i;
+  const hit = m.match(re);
+  if (!hit) return null;
+  const trigger = hit[1]!.trim().slice(0, 120);
+  const instruction = hit[2]!.trim().slice(0, 800);
+  if (trigger.length < 2 || instruction.length < 2) return null;
+
+  const low = instruction.toLowerCase();
+  let action:
+    | "reply"
+    | "open_inbox"
+    | "open_send"
+    | "open_messages"
+    | "open_actualites"
+    | "open_departments"
+    | "remind_tasks" = "reply";
+  if (/reçus|inbox|documents reçus/.test(low)) action = "open_inbox";
+  else if (/envoyer|nouvel envoi/.test(low)) action = "open_send";
+  else if (/message|messagerie/.test(low)) action = "open_messages";
+  else if (/actualité|annonce/.test(low)) action = "open_actualites";
+  else if (/département/.test(low)) action = "open_departments";
+  else if (/tâche|rappel|à traiter/.test(low)) action = "remind_tasks";
+
+  return { trigger, instruction, action };
+}
+
 export const ask = action({
   args: {
     message: v.string(),
@@ -75,21 +108,69 @@ export const ask = action({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Non authentifié.");
     const message = args.message.trim().slice(0, 1000);
-    if (!message) return { reply: "Écrivez votre question." };
+    if (!message) return { reply: "Écrivez votre question.", action: null };
 
-    const profile = await ctx.runQuery(internal.bot.getProfileInternal, {
+    const profile = (await ctx.runQuery(internal.bot.getProfileInternal, {
       userId,
-    });
-    const name = profile?.name ?? "Aide";
-    const mood = profile?.mood ?? "calme";
-    const personality =
+    })) as {
+      name?: string;
+      mood?: string;
+      personality?: string;
+    } | null;
+    const name: string = profile?.name ?? "Aide";
+    const mood: string = profile?.mood ?? "calme";
+    const personality: string =
       profile?.personality ?? "Aide de façon simple et patiente.";
 
-    let reply = ruleBasedReply(message, name, mood);
+    // 1) Apprentissage explicite
+    const learn = parseLearnCommand(message);
+    if (learn) {
+      await ctx.runMutation(internal.bot.saveSkillInternal, {
+        userId,
+        name: learn.trigger.slice(0, 40),
+        trigger: learn.trigger,
+        instruction: learn.instruction,
+        action: learn.action,
+      });
+      const reply: string = `${name} : J'ai appris la tâche « ${learn.trigger} ». Quand vous la mentionnerez, j'exécuterai : ${learn.instruction}`;
+      await ctx.runMutation(internal.bot.saveExchange, {
+        userId,
+        userBody: message,
+        assistantBody: reply,
+      });
+      return { reply, action: null as string | null, learned: true };
+    }
+
+    // 2) Automatisation déjà apprise
+    const skill = (await ctx.runQuery(internal.bot.matchSkill, {
+      userId,
+      message,
+    })) as {
+      _id: string;
+      instruction: string;
+      action?: string;
+    } | null;
+    if (skill) {
+      await ctx.runMutation(internal.bot.bumpSkillUse, {
+        skillId: skill._id as any,
+      });
+      const reply: string = `${name} : ${skill.instruction}`;
+      await ctx.runMutation(internal.bot.saveExchange, {
+        userId,
+        userBody: message,
+        assistantBody: reply,
+      });
+      return {
+        reply,
+        action: (skill.action as string | undefined) ?? "reply",
+        learned: false,
+      };
+    }
+
+    // 3) Règles site + IA
+    let reply: string = ruleBasedReply(message, name, mood);
     if (!reply) {
-      reply =
-        name +
-        " ici 😊 Je suis content de discuter avec vous. Dites-m'en plus — même si ce n'est pas lié à ScanDoc, je reste là.";
+      reply = `${name} ici 😊 Dites-m'en plus — même hors ScanDoc, je reste disponible. Pour m'apprendre une tâche : « Apprends : quand je dis X, fais Y ».`;
     }
 
     try {
@@ -98,17 +179,14 @@ export const ask = action({
         userId,
         limit: 6,
       });
-      const historyMsgs: Array<{
-        role: "user" | "assistant" | "system";
-        content: string;
-      }> = history.map((h: { role: string; body: string }) => ({
+      const historyMsgs = history.map((h: { role: string; body: string }) => ({
         role: (h.role === "user" ? "user" : "assistant") as
           | "user"
           | "assistant",
         content: h.body,
       }));
       const ai = await groqChat({
-        temperature: 0.55,
+        temperature: 0.5,
         maxTokens: 320,
         messages: [
           {
@@ -134,6 +212,6 @@ Comportement : ${personality}.`,
       assistantBody: reply,
     });
 
-    return { reply };
+    return { reply, action: null as string | null, learned: false };
   },
 });
