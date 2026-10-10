@@ -88,40 +88,38 @@ export const ask = action({
 
     let reply = ruleBasedReply(message, name, mood);
 
-    if (process.env.VLY_INTEGRATION_KEY) {
-      try {
-        const { vly } = await import("../lib/vly-integrations");
-        const history = await ctx.runQuery(internal.bot.listRecentInternal, {
-          userId,
-          limit: 6,
-        });
-        const historyMsgs: Array<{
-          role: "user" | "assistant" | "system";
-          content: string;
-        }> = history.map((h: { role: string; body: string }) => ({
-          role: (h.role === "user" ? "user" : "assistant") as "user" | "assistant",
-          content: h.body,
-        }));
-        const response = await vly.ai.completion({
-          model: "gpt-4o-mini",
-          temperature: 0.4,
-          maxTokens: 280,
-          messages: [
-            {
-              role: "system",
-              content: `${SITE_HELP}\n\nTon nom : ${name}.\nHumeur : ${mood}.\nComportement : ${personality}.`,
-            },
-            ...historyMsgs,
-            { role: "user", content: message },
-          ],
-        });
-        const ai = response.success
-          ? response.data?.choices?.[0]?.message?.content?.trim()
-          : undefined;
-        if (ai) reply = ai;
-      } catch (e) {
-        console.error("[assistantBot.ask]", e);
-      }
+        try {
+      const { groqChat } = await import("./lib/groq");
+      const history = await ctx.runQuery(internal.bot.listRecentInternal, {
+        userId,
+        limit: 6,
+      });
+      const historyMsgs: Array<{
+        role: "user" | "assistant" | "system";
+        content: string;
+      }> = history.map((h: { role: string; body: string }) => ({
+        role: (h.role === "user" ? "user" : "assistant") as "user" | "assistant",
+        content: h.body,
+      }));
+      const ai = await groqChat({
+        temperature: 0.4,
+        maxTokens: 280,
+        messages: [
+          {
+            role: "system",
+            content: `${SITE_HELP}
+
+Ton nom : ${name}.
+Humeur : ${mood}.
+Comportement : ${personality}.`,
+          },
+          ...historyMsgs,
+          { role: "user", content: message },
+        ],
+      });
+      if (ai) reply = ai;
+    } catch (e) {
+      console.error("[assistantBot.ask] Groq:", e);
     }
 
     await ctx.runMutation(internal.bot.saveExchange, {

@@ -79,6 +79,39 @@ export const summarizeDocument = internalAction({
 
     const excerpt = text.slice(0, 12000);
 
+    // 1) Groq (prioritaire) — clé GROQ_API_KEY
+    try {
+      const { groqChat } = await import("./lib/groq");
+      const summary = await groqChat({
+        temperature: 0.2,
+        maxTokens: 350,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: `Fichier : ${document.fileName}
+Objet de l'envoi : ${document.objet || "(non précisé)"}
+Tâches demandées au destinataire : ${document.task || "(non précisées)"}
+
+Contenu du document à analyser :
+${excerpt}`,
+          },
+        ],
+      });
+      if (summary) {
+        await ctx.runMutation(internal.documents.setSummary, {
+          documentId: args.documentId,
+          summary,
+          summaryStatus: "pret",
+          summarySource: "ia",
+        });
+        return null;
+      }
+    } catch (error) {
+      console.error("[summarizeDocument] Groq indisponible:", error);
+    }
+
+    // 2) Fallback Vly si configuré
     if (process.env.VLY_INTEGRATION_KEY) {
       try {
         const { vly } = await import("../lib/vly-integrations");
