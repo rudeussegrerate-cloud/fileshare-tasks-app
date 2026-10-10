@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -5,11 +6,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, Newspaper, Pin } from "lucide-react";
+import { Loader2, MessageCircle, Newspaper, Pin } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { formatDateTime, initialsOf } from "./shared";
 
@@ -21,13 +24,13 @@ const PRIORITY_LABEL: Record<string, string> = {
   urgent: "Urgente",
 };
 
-/**
- * Fil d'actualités (lecture + réactions) — style Facebook.
- * La publication se fait dans le menu Annonces.
- */
 export function ActualitesView() {
   const list = useQuery(api.announcements.list, { limit: 50 });
   const react = useMutation(api.announcements.react);
+  const addComment = useMutation(api.announcements.addComment);
+  const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col space-y-4 animate-in-up">
@@ -37,7 +40,7 @@ export function ActualitesView() {
           Actualités
         </h2>
         <p className="text-sm text-muted-foreground">
-          Faites défiler les annonces publiées. Pour en créer une, allez dans{" "}
+          Fil des annonces — réagissez et commentez. Pour publier : menu{" "}
           <strong>Annonces</strong>.
         </p>
       </div>
@@ -53,7 +56,7 @@ export function ActualitesView() {
       ) : (
         <ul className="max-h-[calc(100vh-11rem)] space-y-4 overflow-y-auto pb-8 pr-1">
           {list.map((a) => (
-            <li key={a._id}>
+            <li key={String(a._id)}>
               <Card
                 className={cn(
                   "border-border shadow-none",
@@ -96,23 +99,14 @@ export function ActualitesView() {
                           <strong className="text-foreground">De :</strong>{" "}
                           {a.authorName}
                           {a.authorFonction ? ` · ${a.authorFonction}` : ""}
-                          {a.authorRoleLabel ? ` · ${a.authorRoleLabel}` : ""}
                         </span>
                         <span className="block">
                           <strong className="text-foreground">Provenance :</strong>{" "}
                           {a.origin}
-                          {a.authorDepartmentName
-                            ? ` · ${a.authorDepartmentName}`
-                            : ""}
                         </span>
-                        {a.visibilityLabel ? (
-                          <span className="block">
-                            <strong className="text-foreground">Visibilité :</strong>{" "}
-                            {a.visibilityLabel}
-                          </span>
-                        ) : null}
                         <span className="block text-muted-foreground">
                           {formatDateTime(a.createdAt)}
+                          {a.visibilityLabel ? ` · ${a.visibilityLabel}` : ""}
                         </span>
                       </CardDescription>
                     </div>
@@ -122,6 +116,21 @@ export function ActualitesView() {
                   <p className="whitespace-pre-wrap text-sm leading-relaxed">
                     {a.body}
                   </p>
+                  {a.mediaUrl && a.mediaType === "image" ? (
+                    <img
+                      src={a.mediaUrl}
+                      alt=""
+                      className="max-h-80 w-full rounded-md border border-border object-contain bg-muted/30"
+                    />
+                  ) : null}
+                  {a.mediaUrl && a.mediaType === "video" ? (
+                    <video
+                      src={a.mediaUrl}
+                      controls
+                      className="max-h-80 w-full rounded-md border border-border bg-black"
+                    />
+                  ) : null}
+
                   <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
                     {REACTIONS.map((emoji) => {
                       const count = a.reactionCounts?.[emoji] ?? 0;
@@ -131,7 +140,7 @@ export function ActualitesView() {
                           key={emoji}
                           type="button"
                           className={cn(
-                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm transition-colors",
+                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm",
                             active
                               ? "border-brand bg-brand-soft"
                               : "border-border hover:bg-muted/70",
@@ -151,14 +160,87 @@ export function ActualitesView() {
                         >
                           <span>{emoji}</span>
                           {count > 0 ? (
-                            <span className="text-xs font-medium tabular-nums text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                               {count}
                             </span>
                           ) : null}
                         </button>
                       );
                     })}
+                    <button
+                      type="button"
+                      className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted/70"
+                      onClick={() =>
+                        setOpenComments((s) => ({
+                          ...s,
+                          [String(a._id)]: !s[String(a._id)],
+                        }))
+                      }
+                    >
+                      <MessageCircle className="size-3.5" />
+                      {a.commentCount ?? 0} commentaire
+                      {(a.commentCount ?? 0) > 1 ? "s" : ""}
+                    </button>
                   </div>
+
+                  {openComments[String(a._id)] ? (
+                    <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
+                      {(a.comments ?? []).map((c) => (
+                        <div key={String(c._id)} className="text-sm">
+                          <span className="font-medium">{c.authorName}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {" "}
+                            · {formatDateTime(c.createdAt)}
+                          </span>
+                          <p className="text-muted-foreground">{c.body}</p>
+                        </div>
+                      ))}
+                      <form
+                        className="flex gap-2"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          const body = (commentDraft[String(a._id)] ?? "").trim();
+                          if (!body) return;
+                          setBusyId(String(a._id));
+                          try {
+                            await addComment({
+                              announcementId: a._id as Id<"announcements">,
+                              body,
+                            });
+                            setCommentDraft((d) => ({
+                              ...d,
+                              [String(a._id)]: "",
+                            }));
+                          } catch (err) {
+                            toast.error(
+                              err instanceof Error ? err.message : "Erreur",
+                            );
+                          } finally {
+                            setBusyId(null);
+                          }
+                        }}
+                      >
+                        <Input
+                          className="h-9 text-sm"
+                          placeholder="Écrire un commentaire…"
+                          value={commentDraft[String(a._id)] ?? ""}
+                          onChange={(e) =>
+                            setCommentDraft((d) => ({
+                              ...d,
+                              [String(a._id)]: e.target.value,
+                            }))
+                          }
+                        />
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={busyId === String(a._id)}
+                        >
+                          Publier
+                        </Button>
+                      </form>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             </li>

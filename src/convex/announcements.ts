@@ -33,21 +33,23 @@ function canViewAnnouncement(
   a: Doc<"announcements">,
   me: Doc<"users">,
 ): boolean {
-  // Auteur et DG voient toujours
   if (a.authorId === me._id || isAdmin(me.role)) return true;
-
   const visibility = a.visibility ?? "public";
   if (visibility === "public") return true;
-
   if (visibility === "private") {
     if (!a.departmentId || !me.departmentId) return false;
     return a.departmentId === me.departmentId;
   }
-
-  // custom
-  const viewers = a.viewerIds ?? [];
-  return viewers.includes(me._id);
+  return (a.viewerIds ?? []).includes(me._id);
 }
+
+export const generateMediaUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireUser(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
 
 export const list = query({
   args: { limit: v.optional(v.number()) },
@@ -81,7 +83,18 @@ export const list = query({
         if (r.userId === userId) myReaction = r.emoji;
       }
 
+      const comments = await ctx.db
+        .query("announcementComments")
+        .withIndex("by_announcement", (q) => q.eq("announcementId", a._id))
+        .collect();
+      comments.sort((x, y) => x.createdAt - y.createdAt);
+
       const visibility = a.visibility ?? "public";
+      let mediaUrl: string | null = null;
+      if (a.mediaStorageId) {
+        mediaUrl = await ctx.storage.getUrl(a.mediaStorageId);
+      }
+
       out.push({
         _id: a._id,
         title: a.title,
@@ -103,10 +116,20 @@ export const list = query({
               : "Personnalisée — personnes choisies",
         viewerCount:
           visibility === "custom" ? (a.viewerIds?.length ?? 0) : null,
+        mediaType: a.mediaType ?? null,
+        mediaUrl,
         createdAt: a.createdAt,
         reactionCounts: counts,
         reactionTotal: reactions.length,
         myReaction,
+        comments: comments.map((c) => ({
+          _id: c._id,
+          authorName: c.authorName,
+          body: c.body,
+          createdAt: c.createdAt,
+          isMine: c.authorId === userId,
+        })),
+        commentCount: comments.length,
         canDelete: a.authorId === userId || isAdmin(me.role),
       });
       if (out.length >= limit) break;
@@ -115,7 +138,6 @@ export const list = query({
   },
 });
 
-/** Collègues sélectionnables pour une annonce personnalisée */
 export const listPotentialViewers = query({
   args: {},
   handler: async (ctx) => {
@@ -157,6 +179,8 @@ export const create = mutation({
       v.literal("custom"),
     ),
     viewerIds: v.optional(v.array(v.id("users"))),
+    mediaStorageId: v.optional(v.id("_storage")),
+    mediaType: v.optional(v.union(v.literal("image"), v.literal("video"))),
   },
   handler: async (ctx, args) => {
     const me = await requireUser(ctx);
@@ -168,7 +192,9 @@ export const create = mutation({
     const body = args.body.trim().slice(0, 4000);
     const origin = args.origin.trim().slice(0, 80);
     if (title.length < 3) throw new Error("Titre trop court.");
-    if (body.length < 5) throw new Error("Message trop court.");
+    if (body.length < 2 && !args.mediaStorageId) {
+      throw new Error("Ajoutez un message ou un média.");
+    }
     if (origin.length < 2) throw new Error("Indiquez la provenance de l'annonce.");
 
     if (args.visibility === "private" && !me.departmentId && !isAdmin(me.role)) {
@@ -179,11 +205,11 @@ export const create = mutation({
 
     let viewerIds: Id<"users">[] | undefined;
     if (args.visibility === "custom") {
-      const raw = args.viewerIds ?? [];
-      // Dédupliquer, exclure soi (ajouté à la logique de vue via auteur)
-      const set = new Set(raw.filter((id) => id !== me._id));
+      const set = new Set((args.viewerIds ?? []).filter((id) => id !== me._id));
       if (set.size === 0) {
-        throw new Error("Choisissez au moins une personne pour une annonce personnalisée.");
+        throw new Error(
+          "Choisissez au moins une personne pour une annonce personnalisée.",
+        );
       }
       viewerIds = [...set];
     }
@@ -197,10 +223,14 @@ export const create = mutation({
     const canPin = isAdmin(me.role) || me.departmentRole === "chef";
     const pinned = canPin && Boolean(args.pinned);
 
+    if (args.mediaStorageId && !args.mediaType) {
+      throw new Error("Type de média manquant.");
+    }
+
     const id = await ctx.db.insert("announcements", {
       authorId: me._id,
       title,
-      body,
+      body: body || "(Média joint)",
       origin,
       authorName: me.name ?? me.email ?? "Utilisateur",
       authorFonction: me.fonction,
@@ -212,31 +242,33 @@ export const create = mutation({
       departmentId:
         args.visibility === "private" ? me.departmentId : undefined,
       viewerIds,
+      mediaStorageId: args.mediaStorageId,
+      mediaType: args.mediaType,
       createdAt: Date.now(),
     });
 
-    // Notifications ciblées selon la visibilité
     const authorLabel = me.name ?? "Un collègue";
     const users = await ctx.db.query("users").collect();
-    const notifyTargets: Doc<"users">[] = [];
-
     for (const u of users) {
       if (u._id === me._id) continue;
       if (u.accountStatus && u.accountStatus !== "valide" && !isAdmin(u.role)) {
         continue;
       }
-      if (args.visibility === "public") {
-        notifyTargets.push(u);
-      } else if (args.visibility === "private") {
-        if (me.departmentId && u.departmentId === me.departmentId) {
-          notifyTargets.push(u);
-        }
-      } else if (args.visibility === "custom" && viewerIds?.includes(u._id)) {
-        notifyTargets.push(u);
+      let ok = false;
+      if (args.visibility === "public") ok = true;
+      else if (
+        args.visibility === "private" &&
+        me.departmentId &&
+        u.departmentId === me.departmentId
+      ) {
+        ok = true;
+      } else if (
+        args.visibility === "custom" &&
+        viewerIds?.includes(u._id)
+      ) {
+        ok = true;
       }
-    }
-
-    for (const u of notifyTargets) {
+      if (!ok) continue;
       await pushNotification(ctx, {
         userId: u._id,
         type: "announcement.new",
@@ -265,6 +297,20 @@ export const remove = mutation({
       )
       .collect();
     for (const r of reactions) await ctx.db.delete(r._id);
+    const comments = await ctx.db
+      .query("announcementComments")
+      .withIndex("by_announcement", (q) =>
+        q.eq("announcementId", args.announcementId),
+      )
+      .collect();
+    for (const c of comments) await ctx.db.delete(c._id);
+    if (a.mediaStorageId) {
+      try {
+        await ctx.storage.delete(a.mediaStorageId);
+      } catch {
+        /* ignore */
+      }
+    }
     await ctx.db.delete(args.announcementId);
     return null;
   },
@@ -277,9 +323,6 @@ export const react = mutation({
   },
   handler: async (ctx, args) => {
     const me = await requireUser(ctx);
-    if (!canPost(me) && me.accountStatus !== "valide") {
-      throw new Error("Compte non autorisé.");
-    }
     if (!(REACTIONS as readonly string[]).includes(args.emoji)) {
       throw new Error("Réaction non autorisée.");
     }
@@ -314,5 +357,43 @@ export const react = mutation({
       emoji: args.emoji,
       createdAt: Date.now(),
     });
+  },
+});
+
+export const addComment = mutation({
+  args: {
+    announcementId: v.id("announcements"),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const me = await requireUser(ctx);
+    const a = await ctx.db.get(args.announcementId);
+    if (!a) throw new Error("Annonce introuvable.");
+    if (!canViewAnnouncement(a, me)) {
+      throw new Error("Vous n'avez pas accès à cette annonce.");
+    }
+    const body = args.body.trim().slice(0, 1000);
+    if (body.length < 1) throw new Error("Commentaire vide.");
+    return await ctx.db.insert("announcementComments", {
+      announcementId: args.announcementId,
+      authorId: me._id,
+      authorName: me.name ?? me.email ?? "Utilisateur",
+      body,
+      createdAt: Date.now(),
+    });
+  },
+});
+
+export const deleteComment = mutation({
+  args: { commentId: v.id("announcementComments") },
+  handler: async (ctx, args) => {
+    const me = await requireUser(ctx);
+    const c = await ctx.db.get(args.commentId);
+    if (!c) throw new Error("Commentaire introuvable.");
+    if (c.authorId !== me._id && !isAdmin(me.role)) {
+      throw new Error("Suppression non autorisée.");
+    }
+    await ctx.db.delete(args.commentId);
+    return null;
   },
 });

@@ -283,6 +283,8 @@ const schema = defineSchema(
       ),
       departmentId: v.optional(v.id("departments")), // pour private
       viewerIds: v.optional(v.array(v.id("users"))), // pour custom (+ auteur toujours inclus côté logique)
+      mediaStorageId: v.optional(v.id("_storage")),
+      mediaType: v.optional(v.union(v.literal("image"), v.literal("video"))),
       createdAt: v.number(),
       updatedAt: v.optional(v.number()),
     })
@@ -298,6 +300,14 @@ const schema = defineSchema(
     })
       .index("by_announcement", ["announcementId"])
       .index("by_user_announcement", ["userId", "announcementId"]),
+
+    announcementComments: defineTable({
+      announcementId: v.id("announcements"),
+      authorId: v.id("users"),
+      authorName: v.string(),
+      body: v.string(),
+      createdAt: v.number(),
+    }).index("by_announcement", ["announcementId", "createdAt"]),
   },
   {
     schemaValidation: false,

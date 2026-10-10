@@ -23,6 +23,34 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+class ViewErrorBoundary extends React.Component<
+  { children: React.ReactNode; label: string },
+  { error: string | null }
+> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(err: Error) {
+    return { error: err.message || "Erreur d'affichage" };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="mx-auto max-w-lg rounded-lg border border-border bg-card p-6 text-center">
+          <p className="font-semibold">Impossible d&apos;afficher {this.props.label}</p>
+          <p className="mt-2 text-sm text-muted-foreground">{this.state.error}</p>
+          <button
+            type="button"
+            className="mt-4 rounded-md bg-brand px-4 py-2 text-sm text-primary-foreground"
+            onClick={() => this.setState({ error: null })}
+          >
+            Réessayer
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function Dashboard() {
   const syncProfile = useMutation(api.workspace.syncProfile);
   const me = useQuery(api.workspace.me);
@@ -128,8 +156,16 @@ export default function Dashboard() {
 
       {view === "accounts" ? <AccountsView /> : null}
 
-      {view === "actualites" ? <ActualitesView /> : null}
-      {view === "announcements" ? <AnnouncementsView /> : null}
+      {view === "actualites" ? (
+        <ViewErrorBoundary label="Actualités">
+          <ActualitesView />
+        </ViewErrorBoundary>
+      ) : null}
+      {view === "announcements" ? (
+        <ViewErrorBoundary label="Annonces">
+          <AnnouncementsView />
+        </ViewErrorBoundary>
+      ) : null}
 
       {view === "messages" ? (
         <MessagesView initialUserId={chatUserId} />

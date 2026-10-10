@@ -55,7 +55,9 @@ export function AnnouncementsView() {
   const [selectedViewers, setSelectedViewers] = useState<string[]>([]);
   const [viewerSearch, setViewerSearch] = useState("");
   const [busy, setBusy] = useState(false);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(true);
+  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const genMediaUrl = useMutation(api.announcements.generateMediaUploadUrl);
 
   const canPin = Boolean(me?.isAdmin || me?.isRoot || me?.isChef);
 
@@ -70,6 +72,20 @@ export function AnnouncementsView() {
     e.preventDefault();
     setBusy(true);
     try {
+      let mediaStorageId: Id<"_storage"> | undefined;
+      let mediaType: "image" | "video" | undefined;
+      if (mediaFile) {
+        const postUrl = await genMediaUrl({});
+        const res = await fetch(postUrl, {
+          method: "POST",
+          headers: { "Content-Type": mediaFile.type || "application/octet-stream" },
+          body: mediaFile,
+        });
+        if (!res.ok) throw new Error("Échec de l'envoi du média");
+        const json = (await res.json()) as { storageId: string };
+        mediaStorageId = json.storageId as Id<"_storage">;
+        mediaType = mediaFile.type.startsWith("video/") ? "video" : "image";
+      }
       await create({
         title: title.trim(),
         body: body.trim(),
@@ -81,6 +97,8 @@ export function AnnouncementsView() {
           visibility === "custom"
             ? (selectedViewers as Id<"users">[])
             : undefined,
+        mediaStorageId,
+        mediaType,
       });
       toast.success("Annonce publiée");
       setTitle("");
@@ -90,6 +108,7 @@ export function AnnouncementsView() {
       setPinned(false);
       setVisibility("public");
       setSelectedViewers([]);
+      setMediaFile(null);
       setShowForm(false);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Publication impossible");
@@ -326,6 +345,19 @@ export function AnnouncementsView() {
                     />
                     Épingler en haut
                   </label>
+                ) : null}
+              </div>
+              <div className="space-y-1.5">
+                <Label>Photo ou vidéo (optionnel)</Label>
+                <Input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={(e) => setMediaFile(e.target.files?.[0] ?? null)}
+                />
+                {mediaFile ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Fichier : {mediaFile.name}
+                  </p>
                 ) : null}
               </div>
               <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">

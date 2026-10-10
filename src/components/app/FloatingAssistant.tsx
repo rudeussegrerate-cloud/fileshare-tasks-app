@@ -15,6 +15,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2, Settings2, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { stylizeToGhibli } from "@/lib/ghibliStyle";
 
 const MOODS = [
   { id: "joyeux", label: "Joyeux" },
@@ -723,7 +724,7 @@ export function FloatingAssistant() {
             <div className="space-y-1.5">
               <Label>Photo de l&apos;assistant (avatar)</Label>
               <p className="text-[11px] text-muted-foreground">
-                Importez une photo : elle devient le visage animé du bot.
+                Importez une photo : elle est transformée en style Ghibli et devient le visage animé du bot.
               </p>
               <div className="flex flex-wrap gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs font-medium hover:bg-muted">
@@ -743,18 +744,20 @@ export function FloatingAssistant() {
                       }
                       setUploadingAvatar(true);
                       try {
+                        toast.message("Style Ghibli en cours…");
+                        const styled = await stylizeToGhibli(file);
                         const postUrl = await genAvatarUrl({});
                         const result = await fetch(postUrl, {
                           method: "POST",
-                          headers: { "Content-Type": file.type },
-                          body: file,
+                          headers: { "Content-Type": "image/png" },
+                          body: styled,
                         });
                         if (!result.ok) throw new Error("Échec de l'envoi");
                         const json = (await result.json()) as { storageId: string };
                         await setAvatar({
                           storageId: json.storageId as import("@/convex/_generated/dataModel").Id<"_storage">,
                         });
-                        toast.success("Photo appliquée à l'assistant");
+                        toast.success("Avatar style Ghibli appliqué");
                       } catch (err) {
                         toast.error(
                           err instanceof Error ? err.message : "Upload impossible",
