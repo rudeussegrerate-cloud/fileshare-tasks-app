@@ -51,8 +51,10 @@ export function ActualitesView() {
   return (
     <div className="mx-auto max-w-[680px] space-y-4">
       <div className="px-1">
-        <h1 className="text-xl font-bold tracking-tight">Actualités</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          Actualités
+        </h1>
+        <p className="mt-0.5 text-sm text-muted-foreground">
           Fil des annonces de l&apos;entreprise
         </p>
       </div>

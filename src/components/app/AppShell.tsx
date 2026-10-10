@@ -150,10 +150,10 @@ function NavList({
                     type="button"
                     onClick={() => onSelect(item.key)}
                     className={cn(
-                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[15px] font-medium transition-colors",
+                      "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] font-medium transition-colors",
                       active
-                        ? "bg-brand-soft text-brand"
-                        : "text-foreground hover:bg-secondary",
+                        ? "bg-brand text-primary-foreground shadow-sm"
+                        : "text-foreground/80 hover:bg-secondary hover:text-foreground",
                     )}
                   >
                     <Icon className="size-4 shrink-0 opacity-90" />
@@ -303,12 +303,12 @@ export function AppShell({
     <div className="min-h-screen bg-muted/30">
       <div className="mx-auto flex w-full max-w-[1280px]">
         {/* Sidebar desktop */}
-        <aside className="sticky top-0 hidden h-screen w-56 shrink-0 flex-col border-r border-border bg-card px-3 py-4 lg:flex">
+        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border/70 bg-card/90 px-3 py-5 lg:flex">
           {sidebarInner}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border/50 bg-card px-4 py-2 shadow-sm lg:px-6">
+          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border/40 bg-card/95 px-4 py-3 backdrop-blur-sm lg:px-6">
             <div className="flex items-center gap-3">
               <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
                 <SheetTrigger asChild>
