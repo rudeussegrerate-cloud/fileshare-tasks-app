@@ -75,7 +75,19 @@ function BotAvatar({
   );
 }
 
+function clampPos(x: number, y: number) {
+  if (typeof window === "undefined") return { x, y };
+  const margin = 8;
+  const w = 72;
+  const h = 88;
+  return {
+    x: Math.min(Math.max(margin, x), window.innerWidth - w - margin),
+    y: Math.min(Math.max(margin, y), window.innerHeight - h - margin),
+  };
+}
+
 export function FloatingAssistant() {
+
   const me = useQuery(api.workspace.me);
   const bot = useQuery(api.bot.getMyBot);
   const history = useQuery(api.bot.listMessages, { limit: 30 });
@@ -92,6 +104,49 @@ export function FloatingAssistant() {
   const [personality, setPersonality] = useState("");
   const [color, setColor] = useState("navy");
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Position du bot (glisser-déposer), mémorisée
+  const POS_KEY = "scandoc-bot-pos";
+  const [pos, setPos] = useState<{ x: number; y: number } | null>(null);
+  const dragRef = useRef<{
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    moved: boolean;
+    pointerId: number;
+  } | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(POS_KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as { x: number; y: number };
+        if (typeof p.x === "number" && typeof p.y === "number") {
+          setPos(clampPos(p.x, p.y));
+          return;
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+    // Position par défaut : bas droite
+    setPos(
+      clampPos(
+        typeof window !== "undefined" ? window.innerWidth - 88 : 300,
+        typeof window !== "undefined" ? window.innerHeight - 100 : 400,
+      ),
+    );
+  }, []);
+
+  useEffect(() => {
+    const onResize = () => {
+      setPos((p) => (p ? clampPos(p.x, p.y) : p));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     if (!bot) return;
@@ -127,22 +182,95 @@ export function FloatingAssistant() {
         .assistant-arm-r { animation: arm-wave 1.8s ease-in-out infinite 0.3s; }
       `}</style>
 
-      {/* Bouton flottant personnage */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-5 right-5 z-40 flex flex-col items-center gap-1 focus:outline-none animate-soft-pulse rounded-full"
-        title={`${botName} — votre assistant`}
-      >
-        <BotAvatar color={botColor} mood={botMood} size="lg" bounce />
-        <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-semibold shadow border border-border">
-          {botName}
-        </span>
-      </button>
+      {/* Bouton flottant personnage — déplaçable */}
+      {pos ? (
+        <button
+          type="button"
+          className={`fixed z-40 flex touch-none flex-col items-center gap-1 rounded-full focus:outline-none ${
+            dragging ? "cursor-grabbing" : "cursor-grab animate-soft-pulse"
+          }`}
+          style={{ left: pos.x, top: pos.y }}
+          title={`${botName} — glisser pour déplacer, cliquer pour parler`}
+          onPointerDown={(e) => {
+            if (e.button !== 0) return;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            dragRef.current = {
+              startX: e.clientX,
+              startY: e.clientY,
+              origX: pos.x,
+              origY: pos.y,
+              moved: false,
+              pointerId: e.pointerId,
+            };
+            setDragging(true);
+          }}
+          onPointerMove={(e) => {
+            const d = dragRef.current;
+            if (!d || e.pointerId !== d.pointerId) return;
+            const dx = e.clientX - d.startX;
+            const dy = e.clientY - d.startY;
+            if (Math.abs(dx) > 4 || Math.abs(dy) > 4) d.moved = true;
+            if (d.moved) {
+              setPos(clampPos(d.origX + dx, d.origY + dy));
+            }
+          }}
+          onPointerUp={(e) => {
+            const d = dragRef.current;
+            if (!d || e.pointerId !== d.pointerId) return;
+            try {
+              e.currentTarget.releasePointerCapture(e.pointerId);
+            } catch {
+              /* ignore */
+            }
+            setDragging(false);
+            if (d.moved) {
+              const next = clampPos(
+                d.origX + (e.clientX - d.startX),
+                d.origY + (e.clientY - d.startY),
+              );
+              setPos(next);
+              try {
+                localStorage.setItem(POS_KEY, JSON.stringify(next));
+              } catch {
+                /* ignore */
+              }
+            } else {
+              setOpen(true);
+            }
+            dragRef.current = null;
+          }}
+          onPointerCancel={() => {
+            setDragging(false);
+            dragRef.current = null;
+          }}
+        >
+          <BotAvatar
+            color={botColor}
+            mood={botMood}
+            size="lg"
+            bounce={!dragging}
+          />
+          <span className="rounded-full border border-border bg-card px-2 py-0.5 text-[10px] font-semibold shadow">
+            {botName}
+          </span>
+        </button>
+      ) : null}
 
-      {/* Panneau chat bot */}
-      {open ? (
-        <div className="fixed bottom-24 right-4 z-50 flex h-[min(480px,70vh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl">
+      {/* Panneau chat bot — près du personnage */}
+      {open && pos ? (
+        <div
+          className="fixed z-50 flex h-[min(480px,70vh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
+          style={{
+            left: Math.min(
+              Math.max(8, pos.x - 140),
+              typeof window !== "undefined" ? window.innerWidth - 368 : pos.x,
+            ),
+            top: Math.min(
+              Math.max(8, pos.y - 420),
+              typeof window !== "undefined" ? window.innerHeight - 500 : 8,
+            ),
+          }}
+        >
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
             <BotAvatar color={botColor} mood={botMood} size="sm" />
             <div className="min-w-0 flex-1">
