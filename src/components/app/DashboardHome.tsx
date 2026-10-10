@@ -15,6 +15,7 @@ import {
   Users,
 } from "lucide-react";
 import type { AppView } from "@/components/app/AppShell";
+import { SmartInsights } from "./SmartInsights";
 import {
   StatusBadge,
   fileIconFor,
@@ -81,6 +82,8 @@ export function DashboardHome({
         <Send className="size-5" />
         Envoyer un document
       </Button>
+
+      <SmartInsights onNavigate={onNavigate} />
 
       {/* Alertes prioritaires */}
       <div className="space-y-2">

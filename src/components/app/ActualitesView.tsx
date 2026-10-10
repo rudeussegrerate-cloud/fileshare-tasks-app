@@ -70,7 +70,10 @@ type FeedItem = {
 };
 
 export function ActualitesView() {
-  const list = useQuery(api.announcements.list, { limit: 50 }) as FeedItem[] | undefined;
+  const listRaw = useQuery(api.announcements.list, { limit: 50 });
+  const list = (Array.isArray(listRaw) ? listRaw : undefined) as
+    | FeedItem[]
+    | undefined;
   const react = useMutation(api.announcements.react);
   const addComment = useMutation(api.announcements.addComment);
   const remove = useMutation(api.announcements.remove);

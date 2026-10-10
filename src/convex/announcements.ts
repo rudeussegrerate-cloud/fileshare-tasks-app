@@ -31,8 +31,30 @@ function canPost(user: Doc<"users">) {
   return false;
 }
 
+function canView(
+  a: Doc<"announcements">,
+  me: Doc<"users">,
+): boolean {
+  if (String(a.authorId) === String(me._id)) return true;
+  if (isAdmin(me.role)) return true;
+  const vis = a.visibility ?? "public";
+  if (vis === "public" || !vis) return true;
+  if (vis === "private") {
+    return Boolean(
+      a.departmentId &&
+        me.departmentId &&
+        String(a.departmentId) === String(me.departmentId),
+    );
+  }
+  if (vis === "custom") {
+    const ids = a.viewerIds ?? [];
+    return ids.some((id) => String(id) === String(me._id));
+  }
+  return true;
+}
+
 /**
- * Fil Actualités — version minimale qui ne doit JAMAIS lever d'erreur.
+ * Fil Actualités — ultra simple, jamais d'exception.
  */
 export const list = query({
   args: { limit: v.optional(v.number()) },
@@ -43,142 +65,129 @@ export const list = query({
       const me = await ctx.db.get(userId);
       if (!me) return [];
 
-      const limit = Math.min(Math.max(args.limit ?? 40, 1), 60);
+      const limit = Math.min(Math.max(args.limit ?? 40, 1), 50);
 
-      // Lecture simple (table vide = [])
+      // Index by_created si dispo, sinon order système
       let rows: Doc<"announcements">[] = [];
       try {
-        rows = await ctx.db.query("announcements").order("desc").take(limit * 2);
-      } catch (e) {
-        console.error("[announcements.list] query", e);
-        return [];
+        rows = await ctx.db
+          .query("announcements")
+          .withIndex("by_created")
+          .order("desc")
+          .take(limit * 3);
+      } catch {
+        try {
+          rows = await ctx.db
+            .query("announcements")
+            .order("desc")
+            .take(limit * 3);
+        } catch {
+          return [];
+        }
       }
 
-      const out: Array<Record<string, unknown>> = [];
-
+      const out = [];
       for (const a of rows) {
         try {
-          const vis = (a as any).visibility ?? "public";
-          const isAuthor = String(a.authorId) === String(me._id);
-          const admin = isAdmin(me.role);
-
-          if (!isAuthor && !admin) {
-            if (vis === "private") {
-              if (
-                !(a as any).departmentId ||
-                String((a as any).departmentId) !== String(me.departmentId ?? "")
-              ) {
-                continue;
-              }
-            } else if (vis === "custom") {
-              const ids = Array.isArray((a as any).viewerIds)
-                ? (a as any).viewerIds
-                : [];
-              if (!ids.some((id: Id<"users">) => String(id) === String(me._id))) {
-                continue;
-              }
-            }
-          }
+          if (!canView(a, me)) continue;
 
           let mediaUrl: string | null = null;
-          if ((a as any).mediaStorageId) {
+          if (a.mediaStorageId) {
             try {
-              mediaUrl = await ctx.storage.getUrl((a as any).mediaStorageId);
+              mediaUrl = await ctx.storage.getUrl(a.mediaStorageId);
             } catch {
               mediaUrl = null;
             }
           }
 
-          // Réactions / commentaires optionnels (ne bloquent jamais)
-          let reactionCounts: Record<string, number> = {};
-          let reactionTotal = 0;
-          let myReaction: string | null = null;
-          let comments: Array<{
-            _id: string;
-            authorName: string;
-            body: string;
-            createdAt: number;
-            isMine: boolean;
-          }> = [];
-
-          try {
-            const rs = await ctx.db
-              .query("announcementReactions")
-              .withIndex("by_announcement", (q) =>
-                q.eq("announcementId", a._id),
-              )
-              .collect();
-            for (const r of rs) {
-              reactionCounts[r.emoji] = (reactionCounts[r.emoji] ?? 0) + 1;
-              reactionTotal += 1;
-              if (String(r.userId) === String(userId)) myReaction = r.emoji;
-            }
-          } catch {
-            /* ignore */
-          }
-
-          try {
-            const cs = await ctx.db
-              .query("announcementComments")
-              .withIndex("by_announcement", (q) =>
-                q.eq("announcementId", a._id),
-              )
-              .collect();
-            comments = cs
-              .sort((x, y) => x.createdAt - y.createdAt)
-              .map((c) => ({
-                _id: String(c._id),
-                authorName: c.authorName ?? "Utilisateur",
-                body: c.body ?? "",
-                createdAt: c.createdAt ?? 0,
-                isMine: String(c.authorId) === String(userId),
-              }));
-          } catch {
-            /* ignore */
-          }
-
           out.push({
             _id: a._id,
-            title: String((a as any).title ?? ""),
-            body: String((a as any).body ?? ""),
-            origin: String((a as any).origin ?? ""),
+            title: a.title ?? "",
+            body: a.body ?? "",
+            origin: a.origin ?? "",
             authorId: a.authorId,
-            authorName: String((a as any).authorName ?? "Utilisateur"),
-            authorFonction: (a as any).authorFonction ?? null,
-            authorDepartmentName: (a as any).authorDepartmentName ?? null,
-            authorRoleLabel: (a as any).authorRoleLabel ?? null,
-            priority: (a as any).priority ?? "normal",
-            pinned: Boolean((a as any).pinned),
-            visibility: vis,
+            authorName: a.authorName ?? "Utilisateur",
+            authorFonction: a.authorFonction ?? null,
+            authorDepartmentName: a.authorDepartmentName ?? null,
+            authorRoleLabel: a.authorRoleLabel ?? null,
+            priority: a.priority ?? "normal",
+            pinned: Boolean(a.pinned),
+            visibility: a.visibility ?? "public",
             visibilityLabel:
-              vis === "public"
+              (a.visibility ?? "public") === "public"
                 ? "Publique"
-                : vis === "private"
+                : a.visibility === "private"
                   ? "Privée"
                   : "Personnalisée",
-            viewerCount: Array.isArray((a as any).viewerIds)
-              ? (a as any).viewerIds.length
-              : null,
-            mediaType: (a as any).mediaType ?? null,
+            mediaType: a.mediaType ?? null,
             mediaUrl,
-            createdAt: Number((a as any).createdAt ?? a._creationTime ?? 0),
-            reactionCounts,
-            reactionTotal,
-            myReaction,
-            comments,
-            commentCount: comments.length,
-            canDelete: isAuthor || admin,
+            createdAt: a.createdAt ?? a._creationTime,
+            reactionCounts: {} as Record<string, number>,
+            reactionTotal: 0,
+            myReaction: null as string | null,
+            comments: [] as Array<{
+              _id: string;
+              authorName: string;
+              body: string;
+              createdAt: number;
+              isMine: boolean;
+            }>,
+            commentCount: 0,
+            canDelete:
+              String(a.authorId) === String(me._id) || isAdmin(me.role),
           });
-
           if (out.length >= limit) break;
-        } catch (rowErr) {
-          console.error("[announcements.list] row", rowErr);
+        } catch {
+          /* skip row */
+        }
+      }
+
+      // Enrichir réactions/commentaires en best-effort (après les posts)
+      for (const item of out) {
+        try {
+          const rs = await ctx.db
+            .query("announcementReactions")
+            .withIndex("by_announcement", (q) =>
+              q.eq("announcementId", item._id as Id<"announcements">),
+            )
+            .collect();
+          const counts: Record<string, number> = {};
+          let total = 0;
+          let mine: string | null = null;
+          for (const r of rs) {
+            counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+            total += 1;
+            if (String(r.userId) === String(userId)) mine = r.emoji;
+          }
+          item.reactionCounts = counts;
+          item.reactionTotal = total;
+          item.myReaction = mine;
+        } catch {
+          /* keep zeros */
+        }
+        try {
+          const cs = await ctx.db
+            .query("announcementComments")
+            .withIndex("by_announcement", (q) =>
+              q.eq("announcementId", item._id as Id<"announcements">),
+            )
+            .take(30);
+          item.comments = cs.map((c) => ({
+            _id: c._id,
+            authorName: c.authorName,
+            body: c.body,
+            createdAt: c.createdAt,
+            isMine: String(c.authorId) === String(userId),
+          }));
+          item.commentCount = cs.length;
+        } catch {
+          /* keep empty */
         }
       }
 
       return out;
     } catch (e) {
-      console.error("[announcements.list] fatal", e);
+      console.error("[announcements.list]", e);
       return [];
     }
   },
@@ -190,7 +199,7 @@ export const listPotentialViewers = query({
     try {
       const userId = await getAuthUserId(ctx);
       if (!userId) return [];
-      const users = await ctx.db.query("users").collect();
+      const users = await ctx.db.query("users").take(200);
       return users
         .filter(
           (u) =>
@@ -245,33 +254,41 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const me = await requireUser(ctx);
     if (!canPost(me)) {
-      throw new Error("Votre compte doit être validé pour publier une annonce.");
+      throw new Error(
+        "Votre compte doit être validé pour publier une annonce.",
+      );
     }
 
     const title = args.title.trim().slice(0, 120);
     const body = args.body.trim().slice(0, 4000);
     const origin = args.origin.trim().slice(0, 80);
-    if (title.length < 3) throw new Error("Titre trop court (3 caractères min.).");
-    if (body.length < 2 && !args.mediaStorageId) {
-      throw new Error("Ajoutez un message ou un média.");
+    if (title.length < 3) {
+      throw new Error("Titre trop court (3 caractères minimum).");
     }
-    if (origin.length < 2) {
-      throw new Error("Indiquez la provenance de l'annonce.");
+    if (body.length < 1 && !args.mediaStorageId) {
+      throw new Error("Ajoutez un texte ou un média.");
+    }
+    if (origin.length < 1) {
+      throw new Error("Indiquez la provenance (ex. votre département).");
     }
 
-    if (args.visibility === "private" && !me.departmentId && !isAdmin(me.role)) {
+    if (
+      args.visibility === "private" &&
+      !me.departmentId &&
+      !isAdmin(me.role)
+    ) {
       throw new Error(
-        "Vous devez appartenir à un département pour une annonce privée.",
+        "Rejoignez un département pour publier une annonce privée.",
       );
     }
 
     let viewerIds: Id<"users">[] | undefined;
     if (args.visibility === "custom") {
-      const set = new Set((args.viewerIds ?? []).filter((id) => id !== me._id));
+      const set = new Set(
+        (args.viewerIds ?? []).filter((id) => id !== me._id),
+      );
       if (set.size === 0) {
-        throw new Error(
-          "Choisissez au moins une personne pour une annonce personnalisée.",
-        );
+        throw new Error("Choisissez au moins un destinataire.");
       }
       viewerIds = [...set];
     }
@@ -283,23 +300,18 @@ export const create = mutation({
     }
 
     const canPin = isAdmin(me.role) || me.departmentRole === "chef";
-    const pinned = canPin && Boolean(args.pinned);
-
-    if (args.mediaStorageId && !args.mediaType) {
-      throw new Error("Type de média manquant.");
-    }
 
     const id = await ctx.db.insert("announcements", {
       authorId: me._id,
       title,
-      body: body || "(Média joint)",
+      body: body || "(Média)",
       origin,
       authorName: me.name ?? me.email ?? "Utilisateur",
       authorFonction: me.fonction,
       authorDepartmentName: departmentName,
       authorRoleLabel: roleLabel(me),
       priority: args.priority ?? "normal",
-      pinned,
+      pinned: canPin && Boolean(args.pinned),
       visibility: args.visibility,
       departmentId:
         args.visibility === "private" ? me.departmentId : undefined,
@@ -309,12 +321,14 @@ export const create = mutation({
       createdAt: Date.now(),
     });
 
-    // Notifications best-effort (ne fait pas échouer la publication)
+    // Notifications limitées (max 40) — ne fait jamais échouer la publication
     try {
       const { pushNotification } = await import("./inAppNotifications");
       const authorLabel = me.name ?? "Un collègue";
-      const users = await ctx.db.query("users").collect();
+      const users = await ctx.db.query("users").take(80);
+      let n = 0;
       for (const u of users) {
+        if (n >= 40) break;
         if (u._id === me._id) continue;
         if (
           u.accountStatus &&
@@ -331,7 +345,10 @@ export const create = mutation({
           u.departmentId === me.departmentId
         ) {
           ok = true;
-        } else if (args.visibility === "custom" && viewerIds?.includes(u._id)) {
+        } else if (
+          args.visibility === "custom" &&
+          viewerIds?.includes(u._id)
+        ) {
           ok = true;
         }
         if (!ok) continue;
@@ -341,6 +358,7 @@ export const create = mutation({
           title: "Nouvelle annonce",
           body: `${authorLabel} · ${title}`,
         });
+        n += 1;
       }
     } catch (e) {
       console.error("[announcements.create] notify", e);
@@ -357,7 +375,7 @@ export const remove = mutation({
     const a = await ctx.db.get(args.announcementId);
     if (!a) throw new Error("Annonce introuvable.");
     if (a.authorId !== me._id && !isAdmin(me.role)) {
-      throw new Error("Vous ne pouvez pas supprimer cette annonce.");
+      throw new Error("Suppression non autorisée.");
     }
     try {
       const rs = await ctx.db
@@ -374,15 +392,8 @@ export const remove = mutation({
         )
         .collect();
       for (const c of cs) await ctx.db.delete(c._id);
-      if ((a as any).mediaStorageId) {
-        try {
-          await ctx.storage.delete((a as any).mediaStorageId);
-        } catch {
-          /* ignore */
-        }
-      }
-    } catch (e) {
-      console.error("[announcements.remove] cleanup", e);
+    } catch {
+      /* ignore */
     }
     await ctx.db.delete(args.announcementId);
     return null;
@@ -440,7 +451,7 @@ export const addComment = mutation({
     const a = await ctx.db.get(args.announcementId);
     if (!a) throw new Error("Annonce introuvable.");
     const body = args.body.trim().slice(0, 1000);
-    if (body.length < 1) throw new Error("Commentaire vide.");
+    if (!body) throw new Error("Commentaire vide.");
     return await ctx.db.insert("announcementComments", {
       announcementId: args.announcementId,
       authorId: me._id,

@@ -25,6 +25,7 @@ import type * as lib_groq from "../lib/groq.js";
 import type * as lib_security from "../lib/security.js";
 import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
+import type * as smart from "../smart.js";
 import type * as users from "../users.js";
 import type * as workspace from "../workspace.js";
 
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "lib/security": typeof lib_security;
   notifications: typeof notifications;
   presence: typeof presence;
+  smart: typeof smart;
   users: typeof users;
   workspace: typeof workspace;
 }>;

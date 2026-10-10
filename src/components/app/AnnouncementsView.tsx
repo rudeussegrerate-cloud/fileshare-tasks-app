@@ -97,7 +97,10 @@ export function AnnouncementsView() {
         mediaStorageId,
         mediaType,
       });
-      toast.success("Annonce publiée");
+      toast.success("Annonce publiée — visible dans Actualités");
+      window.dispatchEvent(
+        new CustomEvent("scandoc:navigate", { detail: { view: "actualites" } }),
+      );
       setTitle("");
       setBody("");
       setOrigin("");
