@@ -295,51 +295,62 @@ export const listDepartments = query({
     const departments = await ctx.db.query("departments").collect();
     const users = await ctx.db.query("users").collect();
 
-    return departments
-      .map((department) => {
-        const members = users
-          .filter(
-            (u) =>
-              u.departmentId === department._id &&
-              (u.accountStatus === "valide" || !u.accountStatus),
-          )
-          .map((u) => ({
-            _id: u._id,
-            name: displayName(u),
-            email: u.email ?? null,
-            fonction: u.fonction ?? null,
-            departmentRole: u.departmentRole ?? "membre",
-            accountStatus: (u.accountStatus as string) ?? "en_attente",
-            lastSeenAt: u.lastSeenAt ?? null,
-          }))
-          .sort((a, b) => {
-            if (a.departmentRole !== b.departmentRole) {
-              return a.departmentRole === "chef" ? -1 : 1;
-            }
-            return a.name.localeCompare(b.name);
-          });
+    const result = [];
+    for (const department of departments) {
+      const members = users
+        .filter(
+          (u) =>
+            u.departmentId === department._id &&
+            (u.accountStatus === "valide" || !u.accountStatus),
+        )
+        .map((u) => ({
+          _id: u._id,
+          name: displayName(u),
+          email: u.email ?? null,
+          fonction: u.fonction ?? null,
+          departmentRole: u.departmentRole ?? "membre",
+          accountStatus: (u.accountStatus as string) ?? "en_attente",
+          lastSeenAt: u.lastSeenAt ?? null,
+        }))
+        .sort((a, b) => {
+          if (a.departmentRole !== b.departmentRole) {
+            return a.departmentRole === "chef" ? -1 : 1;
+          }
+          return a.name.localeCompare(b.name);
+        });
 
-        const children = departments.filter(
-          (d) => d.parentId === department._id,
-        );
+      const children = departments.filter(
+        (d) => d.parentId === department._id,
+      );
 
-        const parent = department.parentId
-          ? departments.find((d) => d._id === department.parentId)
-          : null;
-        return {
-          _id: department._id,
-          name: department.name,
-          description: department.description ?? null,
-          createdAt: department.createdAt,
-          parentId: department.parentId ?? null,
-          parentName: parent?.name ?? null,
-          isSubDepartment: Boolean(department.parentId),
-          childCount: children.length,
-          chief: members.find((m) => m.departmentRole === "chef") ?? null,
-          members,
-        };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      const parent = department.parentId
+        ? departments.find((d) => d._id === department.parentId)
+        : null;
+
+      let logoUrl: string | null = null;
+      if (department.logoStorageId) {
+        try {
+          logoUrl = await ctx.storage.getUrl(department.logoStorageId);
+        } catch {
+          logoUrl = null;
+        }
+      }
+
+      result.push({
+        _id: department._id,
+        name: department.name,
+        description: department.description ?? null,
+        createdAt: department.createdAt,
+        parentId: department.parentId ?? null,
+        parentName: parent?.name ?? null,
+        isSubDepartment: Boolean(department.parentId),
+        childCount: children.length,
+        chief: members.find((m) => m.departmentRole === "chef") ?? null,
+        members,
+        logoUrl,
+      });
+    }
+    return result.sort((a, b) => a.name.localeCompare(b.name));
   },
 });
 
@@ -693,6 +704,87 @@ export const revokeDirector = mutation({
       reviewedBy: root._id,
       reviewedAt: Date.now(),
     });
+    return null;
+  },
+});
+
+
+/** URL d'upload pour le logo d'un département (chef ou admin). */
+export const generateDepartmentLogoUploadUrl = mutation({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const user = await ctx.db.get(userId);
+    if (!user) throw new Error("Utilisateur introuvable.");
+    const dept = await ctx.db.get(args.departmentId);
+    if (!dept) throw new Error("Département introuvable.");
+    const isChef =
+      user.departmentId === args.departmentId &&
+      user.departmentRole === "chef";
+    const isAdmin = user.role === "admin" || user.role === "root";
+    if (!isChef && !isAdmin) {
+      throw new Error("Seul le chef de département peut changer le logo.");
+    }
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const setDepartmentLogo = mutation({
+  args: {
+    departmentId: v.id("departments"),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const user = await ctx.db.get(userId);
+    if (!user) throw new Error("Utilisateur introuvable.");
+    const dept = await ctx.db.get(args.departmentId);
+    if (!dept) throw new Error("Département introuvable.");
+    const isChef =
+      user.departmentId === args.departmentId &&
+      user.departmentRole === "chef";
+    const isAdmin = user.role === "admin" || user.role === "root";
+    if (!isChef && !isAdmin) {
+      throw new Error("Seul le chef de département peut changer le logo.");
+    }
+    if (dept.logoStorageId) {
+      try {
+        await ctx.storage.delete(dept.logoStorageId);
+      } catch {
+        /* ignore */
+      }
+    }
+    await ctx.db.patch(args.departmentId, { logoStorageId: args.storageId });
+    return null;
+  },
+});
+
+export const clearDepartmentLogo = mutation({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const user = await ctx.db.get(userId);
+    if (!user) throw new Error("Utilisateur introuvable.");
+    const dept = await ctx.db.get(args.departmentId);
+    if (!dept) throw new Error("Département introuvable.");
+    const isChef =
+      user.departmentId === args.departmentId &&
+      user.departmentRole === "chef";
+    const isAdmin = user.role === "admin" || user.role === "root";
+    if (!isChef && !isAdmin) {
+      throw new Error("Seul le chef de département peut changer le logo.");
+    }
+    if (dept.logoStorageId) {
+      try {
+        await ctx.storage.delete(dept.logoStorageId);
+      } catch {
+        /* ignore */
+      }
+    }
+    await ctx.db.patch(args.departmentId, { logoStorageId: undefined });
     return null;
   },
 });

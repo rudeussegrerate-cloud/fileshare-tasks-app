@@ -102,6 +102,7 @@ const schema = defineSchema(
       createdBy: v.id("users"),
       createdAt: v.number(),
       parentId: v.optional(v.id("departments")),
+      logoStorageId: v.optional(v.id("_storage")),
     }).index("by_parent", ["parentId"]),
 
     // A document (file) sent from one person to another, with the task the

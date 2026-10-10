@@ -1,250 +1,379 @@
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { formatDateTime } from "./shared";
 import { useMutation, useQuery } from "convex/react";
-import { Loader2, MessageCircle, Newspaper, Pin } from "lucide-react";
+import {
+  MessageCircle,
+  Share2,
+  ThumbsUp,
+  Trash2,
+  MoreHorizontal,
+  Globe2,
+  Lock,
+  Users,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { formatDateTime, initialsOf } from "./shared";
 
 const REACTIONS = ["👍", "❤️", "👏", "🎉", "😮"] as const;
 
-const PRIORITY_LABEL: Record<string, string> = {
-  normal: "Normale",
-  important: "Importante",
-  urgent: "Urgente",
-};
+function initials(name: string) {
+  const p = name.trim().split(/\s+/).filter(Boolean);
+  if (p.length === 0) return "?";
+  if (p.length === 1) return p[0]!.slice(0, 2).toUpperCase();
+  return (p[0]![0]! + p[p.length - 1]![0]!).toUpperCase();
+}
+
+function relativeTime(ts: number) {
+  const d = Date.now() - ts;
+  const m = Math.floor(d / 60000);
+  if (m < 1) return "À l'instant";
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} h`;
+  const days = Math.floor(h / 24);
+  if (days < 7) return `${days} j`;
+  return formatDateTime(ts);
+}
 
 export function ActualitesView() {
   const list = useQuery(api.announcements.list, { limit: 50 });
   const react = useMutation(api.announcements.react);
   const addComment = useMutation(api.announcements.addComment);
-  const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
-  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const remove = useMutation(api.announcements.remove);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [openComments, setOpenComments] = useState<Record<string, boolean>>({});
+  const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
+  const [showReacts, setShowReacts] = useState<string | null>(null);
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col space-y-4 animate-in-up">
-      <div>
-        <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <Newspaper className="size-5 text-brand" />
-          Actualités
-        </h2>
+    <div className="mx-auto max-w-xl space-y-4">
+      <div className="px-1">
+        <h1 className="text-xl font-bold tracking-tight">Actualités</h1>
         <p className="text-sm text-muted-foreground">
-          Fil des annonces — réagissez et commentez. Pour publier : menu{" "}
-          <strong>Annonces</strong>.
+          Fil des annonces de l&apos;entreprise
         </p>
       </div>
 
       {list === undefined ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div
+              key={i}
+              className="h-48 animate-pulse rounded-xl border bg-card"
+            />
+          ))}
         </div>
       ) : list.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-          Aucune annonce visible pour le moment.
-        </p>
+        <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
+          Aucune annonce pour le moment. Publiez-en une depuis{" "}
+          <strong>Annonces</strong>.
+        </div>
       ) : (
-        <ul className="max-h-[calc(100vh-11rem)] space-y-4 overflow-y-auto pb-8 pr-1">
-          {list.map((a) => (
-            <li key={String(a._id)}>
-              <Card
-                className={cn(
-                  "border-border shadow-none",
-                  a.priority === "urgent" && "border-red-300 bg-red-50/30",
-                  a.priority === "important" && "border-amber-300 bg-amber-50/20",
-                  a.pinned && "ring-1 ring-brand/30",
-                )}
+        <ul className="space-y-3">
+          {list.map((a) => {
+            const id = String(a._id);
+            const commentsOpen = openComments[id];
+            const totalReactions = a.reactionTotal ?? 0;
+            const commentCount = a.commentCount ?? 0;
+            const VisIcon =
+              a.visibility === "private"
+                ? Lock
+                : a.visibility === "custom"
+                  ? Users
+                  : Globe2;
+
+            return (
+              <li
+                key={id}
+                className="overflow-hidden rounded-xl border border-border/80 bg-card shadow-sm"
               >
-                <CardHeader className="pb-2">
-                  <div className="flex items-start gap-3">
-                    <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-sm font-semibold text-brand">
-                      {initialsOf(a.authorName)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <CardTitle className="text-base leading-snug">
-                          {a.title}
-                        </CardTitle>
-                        {a.pinned ? (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-semibold text-brand">
-                            <Pin className="size-3" />
-                            Épinglée
-                          </span>
-                        ) : null}
-                        {a.priority !== "normal" ? (
-                          <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                              a.priority === "urgent"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-amber-100 text-amber-900",
-                            )}
-                          >
-                            {PRIORITY_LABEL[a.priority] ?? a.priority}
-                          </span>
-                        ) : null}
-                      </div>
-                      <CardDescription className="mt-1 space-y-0.5 text-xs">
-                        <span className="block">
-                          <strong className="text-foreground">De :</strong>{" "}
-                          {a.authorName}
-                          {a.authorFonction ? ` · ${a.authorFonction}` : ""}
-                        </span>
-                        <span className="block">
-                          <strong className="text-foreground">Provenance :</strong>{" "}
-                          {a.origin}
-                        </span>
-                        <span className="block text-muted-foreground">
-                          {formatDateTime(a.createdAt)}
-                          {a.visibilityLabel ? ` · ${a.visibilityLabel}` : ""}
-                        </span>
-                      </CardDescription>
-                    </div>
+                {/* En-tête type Facebook */}
+                <div className="flex items-start gap-3 px-4 pt-3">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-primary-foreground">
+                    {initials(a.authorName)}
                   </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[15px] font-semibold leading-tight">
+                      {a.authorName}
+                    </p>
+                    <p className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+                      <span>
+                        {[a.authorFonction, a.authorDepartmentName]
+                          .filter(Boolean)
+                          .join(" · ") || a.authorRoleLabel}
+                      </span>
+                      <span>·</span>
+                      <span>{relativeTime(a.createdAt)}</span>
+                      <span>·</span>
+                      <VisIcon className="size-3" />
+                    </p>
+                  </div>
+                  {a.canDelete ? (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 shrink-0 text-muted-foreground"
+                      disabled={busyId === id}
+                      onClick={async () => {
+                        if (!confirm("Supprimer cette annonce ?")) return;
+                        setBusyId(id);
+                        try {
+                          await remove({
+                            announcementId: a._id as Id<"announcements">,
+                          });
+                          toast.success("Annonce supprimée");
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error ? err.message : "Erreur",
+                          );
+                        } finally {
+                          setBusyId(null);
+                        }
+                      }}
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="size-8 shrink-0 text-muted-foreground"
+                    >
+                      <MoreHorizontal className="size-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Corps */}
+                <div className="space-y-2 px-4 py-2">
+                  {a.priority === "urgent" ? (
+                    <span className="inline-block rounded bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                      Urgent
+                    </span>
+                  ) : a.priority === "important" ? (
+                    <span className="inline-block rounded bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                      Important
+                    </span>
+                  ) : null}
+                  <h2 className="text-[17px] font-semibold leading-snug">
+                    {a.title}
+                  </h2>
+                  <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground/90">
                     {a.body}
                   </p>
-                  {a.mediaUrl && a.mediaType === "image" ? (
+                  {a.origin ? (
+                    <p className="text-xs text-muted-foreground">
+                      Provenance : {a.origin}
+                    </p>
+                  ) : null}
+                </div>
+
+                {/* Média plein largeur */}
+                {a.mediaUrl && a.mediaType === "image" ? (
+                  <div className="bg-muted">
                     <img
                       src={a.mediaUrl}
                       alt=""
-                      className="max-h-80 w-full rounded-md border border-border object-contain bg-muted/30"
+                      className="max-h-[480px] w-full object-contain"
                     />
-                  ) : null}
-                  {a.mediaUrl && a.mediaType === "video" ? (
+                  </div>
+                ) : null}
+                {a.mediaUrl && a.mediaType === "video" ? (
+                  <div className="bg-black">
                     <video
                       src={a.mediaUrl}
                       controls
-                      className="max-h-80 w-full rounded-md border border-border bg-black"
+                      className="max-h-[480px] w-full"
                     />
-                  ) : null}
+                  </div>
+                ) : null}
 
-                  <div className="flex flex-wrap items-center gap-1.5 border-t border-border pt-3">
-                    {REACTIONS.map((emoji) => {
-                      const count = a.reactionCounts?.[emoji] ?? 0;
-                      const active = a.myReaction === emoji;
-                      return (
-                        <button
-                          key={emoji}
-                          type="button"
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-sm",
-                            active
-                              ? "border-brand bg-brand-soft"
-                              : "border-border hover:bg-muted/70",
-                          )}
-                          onClick={async () => {
-                            try {
-                              await react({
-                                announcementId: a._id as Id<"announcements">,
-                                emoji,
-                              });
-                            } catch (err) {
-                              toast.error(
-                                err instanceof Error ? err.message : "Erreur",
-                              );
-                            }
-                          }}
-                        >
-                          <span>{emoji}</span>
-                          {count > 0 ? (
-                            <span className="text-xs text-muted-foreground">
-                              {count}
-                            </span>
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                    <button
+                {/* Compteurs */}
+                {(totalReactions > 0 || commentCount > 0) && (
+                  <div className="flex items-center justify-between px-4 py-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      {totalReactions > 0 ? (
+                        <>
+                          <span className="flex -space-x-1">
+                            {Object.entries(a.reactionCounts ?? {})
+                              .filter(([, n]) => n > 0)
+                              .slice(0, 3)
+                              .map(([emoji]) => (
+                                <span
+                                  key={emoji}
+                                  className="flex size-5 items-center justify-center rounded-full bg-muted text-[11px] ring-2 ring-card"
+                                >
+                                  {emoji}
+                                </span>
+                              ))}
+                          </span>
+                          <span>{totalReactions}</span>
+                        </>
+                      ) : (
+                        <span />
+                      )}
+                    </div>
+                    {commentCount > 0 ? (
+                      <button
+                        type="button"
+                        className="hover:underline"
+                        onClick={() =>
+                          setOpenComments((o) => ({ ...o, [id]: !o[id] }))
+                        }
+                      >
+                        {commentCount} commentaire
+                        {commentCount > 1 ? "s" : ""}
+                      </button>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Actions J'aime / Commenter / Partager */}
+                <div className="relative mx-3 flex border-t border-border/70 py-1">
+                  <div className="relative flex-1">
+                    <Button
                       type="button"
-                      className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted/70"
+                      variant="ghost"
+                      className="h-9 w-full gap-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                      disabled={busyId === id}
                       onClick={() =>
-                        setOpenComments((s) => ({
-                          ...s,
-                          [String(a._id)]: !s[String(a._id)],
-                        }))
+                        setShowReacts((s) => (s === id ? null : id))
                       }
                     >
-                      <MessageCircle className="size-3.5" />
-                      {a.commentCount ?? 0} commentaire
-                      {(a.commentCount ?? 0) > 1 ? "s" : ""}
-                    </button>
+                      <ThumbsUp
+                        className={`size-4 ${a.myReaction ? "fill-brand text-brand" : ""}`}
+                      />
+                      {a.myReaction ? a.myReaction : "J'aime"}
+                    </Button>
+                    {showReacts === id ? (
+                      <div className="absolute bottom-full left-0 z-20 mb-1 flex gap-1 rounded-full border bg-card px-2 py-1.5 shadow-lg">
+                        {REACTIONS.map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            className="rounded-full p-1 text-xl transition hover:scale-125"
+                            onClick={async () => {
+                              setShowReacts(null);
+                              setBusyId(id);
+                              try {
+                                await react({
+                                  announcementId:
+                                    a._id as Id<"announcements">,
+                                  emoji,
+                                });
+                              } catch (err) {
+                                toast.error(
+                                  err instanceof Error
+                                    ? err.message
+                                    : "Erreur",
+                                );
+                              } finally {
+                                setBusyId(null);
+                              }
+                            }}
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 flex-1 gap-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                    onClick={() =>
+                      setOpenComments((o) => ({ ...o, [id]: !o[id] }))
+                    }
+                  >
+                    <MessageCircle className="size-4" />
+                    Commenter
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 flex-1 gap-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                    onClick={() => {
+                      void navigator.clipboard?.writeText(
+                        `${a.title}\n${a.body}`,
+                      );
+                      toast.success("Texte copié");
+                    }}
+                  >
+                    <Share2 className="size-4" />
+                    Partager
+                  </Button>
+                </div>
 
-                  {openComments[String(a._id)] ? (
-                    <div className="space-y-2 rounded-md border border-border bg-muted/20 p-3">
-                      {(a.comments ?? []).map((c) => (
-                        <div key={String(c._id)} className="text-sm">
-                          <span className="font-medium">{c.authorName}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {" "}
-                            · {formatDateTime(c.createdAt)}
-                          </span>
-                          <p className="text-muted-foreground">{c.body}</p>
+                {/* Commentaires */}
+                {commentsOpen ? (
+                  <div className="space-y-3 border-t bg-muted/30 px-4 py-3">
+                    {(a.comments ?? []).map((c) => (
+                      <div key={String(c._id)} className="flex gap-2">
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary text-[10px] font-bold">
+                          {initials(c.authorName)}
                         </div>
-                      ))}
-                      <form
-                        className="flex gap-2"
-                        onSubmit={async (e) => {
-                          e.preventDefault();
-                          const body = (commentDraft[String(a._id)] ?? "").trim();
-                          if (!body) return;
-                          setBusyId(String(a._id));
-                          try {
-                            await addComment({
-                              announcementId: a._id as Id<"announcements">,
-                              body,
-                            });
-                            setCommentDraft((d) => ({
-                              ...d,
-                              [String(a._id)]: "",
-                            }));
-                          } catch (err) {
-                            toast.error(
-                              err instanceof Error ? err.message : "Erreur",
-                            );
-                          } finally {
-                            setBusyId(null);
-                          }
-                        }}
+                        <div className="min-w-0 flex-1 rounded-2xl bg-card px-3 py-2 text-sm shadow-sm">
+                          <span className="font-semibold">{c.authorName}</span>
+                          <span className="ml-1 text-[10px] text-muted-foreground">
+                            {relativeTime(c.createdAt)}
+                          </span>
+                          <p className="mt-0.5 text-foreground/90">{c.body}</p>
+                        </div>
+                      </div>
+                    ))}
+                    <form
+                      className="flex gap-2"
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const body = (commentDraft[id] ?? "").trim();
+                        if (!body) return;
+                        setBusyId(id);
+                        try {
+                          await addComment({
+                            announcementId: a._id as Id<"announcements">,
+                            body,
+                          });
+                          setCommentDraft((d) => ({ ...d, [id]: "" }));
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error ? err.message : "Erreur",
+                          );
+                        } finally {
+                          setBusyId(null);
+                        }
+                      }}
+                    >
+                      <Input
+                        className="h-9 rounded-full border-0 bg-card text-sm shadow-sm"
+                        placeholder="Écrire un commentaire…"
+                        value={commentDraft[id] ?? ""}
+                        onChange={(e) =>
+                          setCommentDraft((d) => ({
+                            ...d,
+                            [id]: e.target.value,
+                          }))
+                        }
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        className="rounded-full"
+                        disabled={busyId === id}
                       >
-                        <Input
-                          className="h-9 text-sm"
-                          placeholder="Écrire un commentaire…"
-                          value={commentDraft[String(a._id)] ?? ""}
-                          onChange={(e) =>
-                            setCommentDraft((d) => ({
-                              ...d,
-                              [String(a._id)]: e.target.value,
-                            }))
-                          }
-                        />
-                        <Button
-                          type="submit"
-                          size="sm"
-                          disabled={busyId === String(a._id)}
-                        >
-                          Publier
-                        </Button>
-                      </form>
-                    </div>
-                  ) : null}
-                </CardContent>
-              </Card>
-            </li>
-          ))}
+                        Publier
+                      </Button>
+                    </form>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

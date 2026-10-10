@@ -34,6 +34,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
+import { useRef } from "react";
 import {
   ArrowLeft,
   Building2,
@@ -404,6 +405,12 @@ function CreateDepartmentDialog({
 }
 
 export function DepartmentsView() {
+  const genLogoUrl = useMutation(api.workspace.generateDepartmentLogoUploadUrl);
+  const setLogo = useMutation(api.workspace.setDepartmentLogo);
+  const clearLogo = useMutation(api.workspace.clearDepartmentLogo);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [logoBusy, setLogoBusy] = useState(false);
+
   const me = useQuery(api.workspace.me);
   const inviteAllToSub = useMutation(
     api.departmentMembership.inviteParentMembersToSubgroup,
@@ -530,15 +537,29 @@ export function DepartmentsView() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        <Building2 className="size-4 text-brand" />
-                        <span className="truncate">{department.name}</span>
-                      </CardTitle>
-                      {department.description ? (
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {department.description}
-                        </p>
-                      ) : null}
+                      <div className="flex items-center gap-3">
+                        {"logoUrl" in department && department.logoUrl ? (
+                          <img
+                            src={department.logoUrl as string}
+                            alt=""
+                            className="size-12 rounded-lg border object-cover"
+                          />
+                        ) : (
+                          <div className="flex size-12 items-center justify-center rounded-lg border bg-secondary">
+                            <Building2 className="size-5 text-muted-foreground" />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <span className="truncate">{department.name}</span>
+                          </CardTitle>
+                          {department.description ? (
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {department.description}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
                     <Badge variant="outline" className="shrink-0 text-[10px]">
                       {department.members.length} membre
@@ -554,6 +575,89 @@ export function DepartmentsView() {
                     <p className="mt-2 text-xs text-muted-foreground">
                       Chef : {department.chief.name}
                     </p>
+                  )}
+
+                  {(me.isAdmin ||
+                    (me.isChef && me.department?._id === department._id)) && (
+                    <div className="mt-3 rounded-lg border border-dashed bg-muted/40 p-3">
+                      <p className="mb-2 text-xs font-medium">Logo du département</p>
+                      <div className="flex flex-wrap gap-2">
+                        <input
+                          ref={logoInputRef}
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,image/gif"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (!file) return;
+                            if (file.size > 2 * 1024 * 1024) {
+                              toast.error("Logo max 2 Mo");
+                              return;
+                            }
+                            setLogoBusy(true);
+                            try {
+                              const uploadUrl = await genLogoUrl({
+                                departmentId: department._id,
+                              });
+                              const res = await fetch(uploadUrl, {
+                                method: "POST",
+                                headers: { "Content-Type": file.type },
+                                body: file,
+                              });
+                              if (!res.ok) throw new Error("Upload échoué");
+                              const { storageId } = await res.json();
+                              await setLogo({
+                                departmentId: department._id,
+                                storageId,
+                              });
+                              toast.success("Logo mis à jour");
+                            } catch (err) {
+                              toast.error(
+                                err instanceof Error ? err.message : "Erreur logo",
+                              );
+                            } finally {
+                              setLogoBusy(false);
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={logoBusy}
+                          onClick={() => logoInputRef.current?.click()}
+                        >
+                          {logoBusy ? "Envoi…" : "Choisir un logo"}
+                        </Button>
+                        {"logoUrl" in department && department.logoUrl ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            disabled={logoBusy}
+                            onClick={async () => {
+                              setLogoBusy(true);
+                              try {
+                                await clearLogo({ departmentId: department._id });
+                                toast.success("Logo retiré");
+                              } catch (err) {
+                                toast.error(
+                                  err instanceof Error ? err.message : "Erreur",
+                                );
+                              } finally {
+                                setLogoBusy(false);
+                              }
+                            }}
+                          >
+                            Retirer
+                          </Button>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Visible sur la fiche du département (PNG/JPG, max 2 Mo).
+                      </p>
+                    </div>
                   )}
 
                   {canManage ? (

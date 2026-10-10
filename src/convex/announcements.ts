@@ -188,6 +188,14 @@ export const list = query({
           if (!ids.includes(me._id)) continue;
         }
       }
+      let mediaUrl: string | null = null;
+      if (a.mediaStorageId) {
+        try {
+          mediaUrl = await ctx.storage.getUrl(a.mediaStorageId);
+        } catch {
+          mediaUrl = null;
+        }
+      }
       out.push({
         _id: a._id,
         title: String(a.title ?? ""),
@@ -204,7 +212,7 @@ export const list = query({
         visibilityLabel: "Publique",
         viewerCount: null,
         mediaType: a.mediaType ?? null,
-        mediaUrl: null,
+        mediaUrl,
         createdAt: a.createdAt ?? 0,
         reactionCounts: {},
         reactionTotal: 0,
@@ -214,6 +222,36 @@ export const list = query({
         canDelete: a.authorId === userId || me.role === "admin" || me.role === "root",
       });
       if (out.length >= limit) break;
+    }
+    // Enrichir réactions + commentaires
+    try {
+      const reactions = await ctx.db.query("announcementReactions").collect();
+      const comments = await ctx.db.query("announcementComments").collect();
+      for (const item of out) {
+        const rs = reactions.filter((r: any) => r.announcementId === item._id);
+        const counts: Record<string, number> = {};
+        let my: string | null = null;
+        for (const r of rs as any[]) {
+          counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+          if (r.userId === userId) my = r.emoji;
+        }
+        item.reactionCounts = counts;
+        item.reactionTotal = rs.length;
+        item.myReaction = my;
+        const cs = comments
+          .filter((c: any) => c.announcementId === item._id)
+          .sort((x: any, y: any) => x.createdAt - y.createdAt);
+        item.comments = cs.map((c: any) => ({
+          _id: c._id,
+          authorName: c.authorName,
+          body: c.body,
+          createdAt: c.createdAt,
+          isMine: c.authorId === userId,
+        }));
+        item.commentCount = cs.length;
+      }
+    } catch (e) {
+      console.error("[list enrich]", e);
     }
     return out;
   },
