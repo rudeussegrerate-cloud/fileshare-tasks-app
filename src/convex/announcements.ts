@@ -31,31 +31,7 @@ function canPost(user: Doc<"users">) {
   return false;
 }
 
-function canView(
-  a: Doc<"announcements">,
-  me: Doc<"users">,
-): boolean {
-  if (String(a.authorId) === String(me._id)) return true;
-  if (isAdmin(me.role)) return true;
-  const vis = a.visibility ?? "public";
-  if (vis === "public" || !vis) return true;
-  if (vis === "private") {
-    return Boolean(
-      a.departmentId &&
-        me.departmentId &&
-        String(a.departmentId) === String(me.departmentId),
-    );
-  }
-  if (vis === "custom") {
-    const ids = a.viewerIds ?? [];
-    return ids.some((id) => String(id) === String(me._id));
-  }
-  return true;
-}
-
-/**
- * Fil Actualités — ultra simple, jamais d'exception.
- */
+/** Fil Actualités — collect simple, jamais d'erreur client. */
 export const list = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
@@ -65,31 +41,36 @@ export const list = query({
       const me = await ctx.db.get(userId);
       if (!me) return [];
 
-      const limit = Math.min(Math.max(args.limit ?? 40, 1), 50);
-
-      // Index by_created si dispo, sinon order système
-      let rows: Doc<"announcements">[] = [];
-      try {
-        rows = await ctx.db
-          .query("announcements")
-          .withIndex("by_created")
-          .order("desc")
-          .take(limit * 3);
-      } catch {
-        try {
-          rows = await ctx.db
-            .query("announcements")
-            .order("desc")
-            .take(limit * 3);
-        } catch {
-          return [];
-        }
-      }
+      const limit = Math.min(Math.max(args.limit ?? 40, 1), 80);
+      const all = await ctx.db.query("announcements").collect();
+      all.sort((a, b) => {
+        const ta = Number(a.createdAt ?? a._creationTime ?? 0);
+        const tb = Number(b.createdAt ?? b._creationTime ?? 0);
+        return tb - ta;
+      });
 
       const out = [];
-      for (const a of rows) {
+      for (const a of all) {
+        if (out.length >= limit) break;
         try {
-          if (!canView(a, me)) continue;
+          const isAuthor = String(a.authorId) === String(me._id);
+          const admin = isAdmin(me.role);
+          const vis = a.visibility ?? "public";
+
+          let visible = isAuthor || admin || vis === "public" || !a.visibility;
+          if (!visible && vis === "private") {
+            visible = Boolean(
+              a.departmentId &&
+                me.departmentId &&
+                String(a.departmentId) === String(me.departmentId),
+            );
+          }
+          if (!visible && vis === "custom") {
+            visible = (a.viewerIds ?? []).some(
+              (id) => String(id) === String(me._id),
+            );
+          }
+          if (!visible) continue;
 
           let mediaUrl: string | null = null;
           if (a.mediaStorageId) {
@@ -102,26 +83,26 @@ export const list = query({
 
           out.push({
             _id: a._id,
-            title: a.title ?? "",
-            body: a.body ?? "",
-            origin: a.origin ?? "",
+            title: String(a.title ?? ""),
+            body: String(a.body ?? ""),
+            origin: String(a.origin ?? ""),
             authorId: a.authorId,
-            authorName: a.authorName ?? "Utilisateur",
+            authorName: String(a.authorName ?? "Utilisateur"),
             authorFonction: a.authorFonction ?? null,
             authorDepartmentName: a.authorDepartmentName ?? null,
             authorRoleLabel: a.authorRoleLabel ?? null,
             priority: a.priority ?? "normal",
             pinned: Boolean(a.pinned),
-            visibility: a.visibility ?? "public",
+            visibility: vis,
             visibilityLabel:
-              (a.visibility ?? "public") === "public"
+              vis === "public"
                 ? "Publique"
-                : a.visibility === "private"
+                : vis === "private"
                   ? "Privée"
                   : "Personnalisée",
             mediaType: a.mediaType ?? null,
             mediaUrl,
-            createdAt: a.createdAt ?? a._creationTime,
+            createdAt: Number(a.createdAt ?? a._creationTime ?? 0),
             reactionCounts: {} as Record<string, number>,
             reactionTotal: 0,
             myReaction: null as string | null,
@@ -133,58 +114,12 @@ export const list = query({
               isMine: boolean;
             }>,
             commentCount: 0,
-            canDelete:
-              String(a.authorId) === String(me._id) || isAdmin(me.role),
+            canDelete: isAuthor || admin,
           });
-          if (out.length >= limit) break;
         } catch {
-          /* skip row */
+          /* ignore row */
         }
       }
-
-      // Enrichir réactions/commentaires en best-effort (après les posts)
-      for (const item of out) {
-        try {
-          const rs = await ctx.db
-            .query("announcementReactions")
-            .withIndex("by_announcement", (q) =>
-              q.eq("announcementId", item._id as Id<"announcements">),
-            )
-            .collect();
-          const counts: Record<string, number> = {};
-          let total = 0;
-          let mine: string | null = null;
-          for (const r of rs) {
-            counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
-            total += 1;
-            if (String(r.userId) === String(userId)) mine = r.emoji;
-          }
-          item.reactionCounts = counts;
-          item.reactionTotal = total;
-          item.myReaction = mine;
-        } catch {
-          /* keep zeros */
-        }
-        try {
-          const cs = await ctx.db
-            .query("announcementComments")
-            .withIndex("by_announcement", (q) =>
-              q.eq("announcementId", item._id as Id<"announcements">),
-            )
-            .take(30);
-          item.comments = cs.map((c) => ({
-            _id: c._id,
-            authorName: c.authorName,
-            body: c.body,
-            createdAt: c.createdAt,
-            isMine: String(c.authorId) === String(userId),
-          }));
-          item.commentCount = cs.length;
-        } catch {
-          /* keep empty */
-        }
-      }
-
       return out;
     } catch (e) {
       console.error("[announcements.list]", e);
@@ -321,14 +256,13 @@ export const create = mutation({
       createdAt: Date.now(),
     });
 
-    // Notifications limitées (max 40) — ne fait jamais échouer la publication
     try {
       const { pushNotification } = await import("./inAppNotifications");
       const authorLabel = me.name ?? "Un collègue";
-      const users = await ctx.db.query("users").take(80);
+      const users = await ctx.db.query("users").take(60);
       let n = 0;
       for (const u of users) {
-        if (n >= 40) break;
+        if (n >= 30) break;
         if (u._id === me._id) continue;
         if (
           u.accountStatus &&
@@ -376,24 +310,6 @@ export const remove = mutation({
     if (!a) throw new Error("Annonce introuvable.");
     if (a.authorId !== me._id && !isAdmin(me.role)) {
       throw new Error("Suppression non autorisée.");
-    }
-    try {
-      const rs = await ctx.db
-        .query("announcementReactions")
-        .withIndex("by_announcement", (q) =>
-          q.eq("announcementId", args.announcementId),
-        )
-        .collect();
-      for (const r of rs) await ctx.db.delete(r._id);
-      const cs = await ctx.db
-        .query("announcementComments")
-        .withIndex("by_announcement", (q) =>
-          q.eq("announcementId", args.announcementId),
-        )
-        .collect();
-      for (const c of cs) await ctx.db.delete(c._id);
-    } catch {
-      /* ignore */
     }
     await ctx.db.delete(args.announcementId);
     return null;

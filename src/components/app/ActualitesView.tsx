@@ -104,8 +104,15 @@ export function ActualitesView() {
         </div>
       ) : list.length === 0 ? (
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          Aucune annonce pour le moment. Publiez-en une depuis{" "}
-          <strong>Annonces</strong>.
+          <p className="font-medium text-foreground">Aucune annonce visible</p>
+          <p className="mt-2">
+            Publiez depuis le menu <strong>Publier une annonce</strong>
+            (visibilité <strong>Publique</strong> pour que tout le monde voie).
+          </p>
+          <p className="mt-2 text-xs">
+            Si vous venez de publier, attendez 2 secondes ou changez d&apos;onglet
+            puis revenez ici — le fil se met à jour tout seul.
+          </p>
         </div>
       ) : (
         <ul className="space-y-3">
