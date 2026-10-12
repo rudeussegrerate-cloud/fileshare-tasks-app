@@ -165,6 +165,7 @@ const schema = defineSchema(
       stepIndex: v.number(), // 0, 1, 2…
       assigneeId: v.id("users"),
       assigneeName: v.string(),
+      assigneeDepartmentName: v.optional(v.string()),
       taskLabel: v.optional(v.string()), // ex. « Pour visa »
       status: v.union(
         v.literal("waiting"),

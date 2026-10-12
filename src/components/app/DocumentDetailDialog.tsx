@@ -555,7 +555,7 @@ export function DocumentDetailDialog({
                   {documentOrNull.hasCircuit
                     ? documentOrNull.isLastInCircuit
                       ? "Vous êtes la dernière étape : « Traité » clôture le dossier pour l'émetteur."
-                      : "Vous pouvez marquer Consulté ou En cours. « Traité » termine votre étape et passe au suivant — le dossier n'est entièrement traité que pour la dernière personne."
+                      : "Marquez Consulté, En cours, ou Traité quand vous avez fait votre part. « Traité » valide votre étape et envoie le dossier au suivant. L'émetteur voit chaque étape ; le dossier n'est clos que quand tout le circuit a terminé."
                     : "L'émetteur voit ce statut en temps réel."}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -592,37 +592,103 @@ export function DocumentDetailDialog({
             ) : (
               <section className="space-y-3">
                 {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 0 ? (
-                  <div className="rounded-lg border border-border bg-muted/20 p-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Circuit ({(documentOrNull.currentStepIndex ?? 0) + 1}/
-                      {documentOrNull.circuitTotalSteps ?? documentOrNull.steps.length})
-                    </h4>
-                    <ol className="mt-2 space-y-1 text-xs">
-                      {documentOrNull.steps.map((s: {
-                        stepIndex: number;
-                        assigneeName: string;
-                        status: string;
-                        note?: string | null;
-                      }) => (
-                        <li key={s.stepIndex} className="flex gap-2">
-                          <span className="font-medium">{s.stepIndex + 1}. {s.assigneeName}</span>
-                          <span className="text-muted-foreground">
-                            {s.status === "waiting"
-                              ? "en attente"
-                              : s.status === "active"
-                                ? "en cours"
-                                : s.status === "done"
-                                  ? "validé"
-                                  : "refusé"}
-                            {s.note ? ` — ${s.note}` : ""}
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
+                  <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Où est le dossier ?
+                      </h4>
+                      {documentOrNull.status === "traite" || documentOrNull.isFullyTreated ? (
+                        <p className="mt-1 text-sm font-medium text-emerald-800">
+                          Circuit terminé — document entièrement traité
+                        </p>
+                      ) : documentOrNull.currentLocation ? (
+                        <p className="mt-1 text-sm">
+                          <span className="text-muted-foreground">Actuellement chez · </span>
+                          <span className="font-semibold">{documentOrNull.currentLocation.name}</span>
+                          {documentOrNull.currentLocation.department ? (
+                            <span className="text-muted-foreground">
+                              {" "}({documentOrNull.currentLocation.department})
+                            </span>
+                          ) : null}
+                          {documentOrNull.currentLocation.stepIndex >= 0 ? (
+                            <span className="text-muted-foreground">
+                              {" "}· étape {documentOrNull.currentLocation.stepIndex + 1}/
+                              {documentOrNull.circuitTotalSteps}
+                            </span>
+                          ) : null}
+                        </p>
+                      ) : null}
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Étapes par personne / département
+                      </h4>
+                      <ol className="mt-2 space-y-2">
+                        {documentOrNull.steps.map((s: {
+                          stepIndex: number;
+                          assigneeName: string;
+                          assigneeDepartmentName?: string | null;
+                          status: string;
+                          statusLabel?: string;
+                          note?: string | null;
+                          isCurrent?: boolean;
+                        }) => (
+                          <li
+                            key={s.stepIndex}
+                            className={cn(
+                              "rounded-md border px-3 py-2 text-sm",
+                              s.status === "active" && "border-amber-300 bg-amber-50",
+                              s.status === "done" && "border-emerald-200 bg-emerald-50/60",
+                              s.status === "waiting" && "border-border bg-card",
+                              s.status === "rejected" && "border-red-200 bg-red-50",
+                            )}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="font-medium">
+                                  Étape {s.stepIndex + 1} · {s.assigneeName}
+                                </p>
+                                {s.assigneeDepartmentName ? (
+                                  <p className="text-[11px] text-muted-foreground">
+                                    Département · {s.assigneeDepartmentName}
+                                  </p>
+                                ) : null}
+                              </div>
+                              <span
+                                className={cn(
+                                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                                  s.status === "done" && "bg-emerald-100 text-emerald-900",
+                                  s.status === "active" && "bg-amber-100 text-amber-900",
+                                  s.status === "waiting" && "bg-muted text-muted-foreground",
+                                  s.status === "rejected" && "bg-red-100 text-red-900",
+                                )}
+                              >
+                                {s.statusLabel ??
+                                  (s.status === "done"
+                                    ? "Traité"
+                                    : s.status === "active"
+                                      ? "Ici"
+                                      : s.status === "rejected"
+                                        ? "Refusé"
+                                        : "En attente")}
+                              </span>
+                            </div>
+                            {s.note ? (
+                              <p className="mt-1 text-[11px] text-muted-foreground">{s.note}</p>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ol>
+                      <p className="mt-2 text-[11px] text-muted-foreground">
+                        Chaque intervenant peut marquer « Traité » pour sa part.
+                        Le dossier n&apos;est entièrement traité que lorsque
+                        toutes les étapes sont terminées.
+                      </p>
+                    </div>
                   </div>
                 ) : null}
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Suivi du destinataire
+                  Statut global (vu par vous)
                 </h4>
                 <ol className="mt-3 space-y-2">
                   {STATUS_ORDER.map((status, index) => {

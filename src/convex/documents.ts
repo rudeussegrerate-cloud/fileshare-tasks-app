@@ -335,14 +335,20 @@ export const send = mutation({
       updatedAt: now,
     });
 
-    // Créer les étapes du circuit
+    // Créer les étapes du circuit (personne + département)
     for (let i = 0; i < circuitUsers.length; i++) {
       const u = circuitUsers[i]!;
+      let depName: string | undefined;
+      if (u.departmentId) {
+        const dep = await ctx.db.get(u.departmentId);
+        depName = dep?.name;
+      }
       await ctx.db.insert("documentSteps", {
         documentId,
         stepIndex: i,
         assigneeId: u._id,
         assigneeName: displayName(u),
+        assigneeDepartmentName: depName,
         taskLabel: tasks[0],
         status: i === 0 ? "active" : "waiting",
         createdAt: now,
@@ -651,13 +657,38 @@ export const get = query({
           stepIndex: s.stepIndex,
           assigneeId: s.assigneeId,
           assigneeName: s.assigneeName,
+          assigneeDepartmentName: s.assigneeDepartmentName ?? null,
           taskLabel: s.taskLabel ?? null,
           status: s.status,
+          statusLabel:
+            s.status === "done"
+              ? "Traité (étape terminée)"
+              : s.status === "active"
+                ? "En cours ici"
+                : s.status === "rejected"
+                  ? "Refusé"
+                  : "En attente",
           note: s.note ?? null,
           actedAt: s.actedAt ?? null,
           isMine: s.assigneeId === userId,
+          isCurrent: s.status === "active",
         }))
       : [];
+
+    const currentLocation =
+      activeStep != null
+        ? {
+            name: activeStep.assigneeName,
+            department: activeStep.assigneeDepartmentName ?? null,
+            stepIndex: activeStep.stepIndex,
+          }
+        : document.status === "traite"
+          ? { name: "Circuit terminé", department: null, stepIndex: -1 }
+          : {
+              name: document.recipientName,
+              department: null,
+              stepIndex: document.currentStepIndex ?? 0,
+            };
 
     // Suivi relatif pour un intervenant du circuit
     const relativeTracking =
@@ -692,6 +723,7 @@ export const get = query({
       steps: stepsGlobal,
       // Intervenant : vue relative uniquement
       relativeTracking,
+      currentLocation,
       activeStep: activeStep
         ? {
             stepIndex: activeStep.stepIndex,
