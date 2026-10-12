@@ -284,9 +284,42 @@ export function ActualitesView() {
                       variant="ghost"
                       className="h-9 w-full gap-2 text-sm font-medium text-muted-foreground hover:bg-muted"
                       disabled={busyId === id}
-                      onClick={() =>
-                        setShowReacts((s) => (s === id ? null : id))
-                      }
+                      onClick={async () => {
+                        // Clic court = like 👍 ; long / second clic ouvre le sélecteur
+                        if (a.myReaction) {
+                          setBusyId(id);
+                          try {
+                            await react({
+                              announcementId: a._id as Id<"announcements">,
+                              emoji: a.myReaction,
+                            });
+                          } catch (err) {
+                            toast.error(
+                              err instanceof Error ? err.message : "Erreur",
+                            );
+                          } finally {
+                            setBusyId(null);
+                          }
+                          return;
+                        }
+                        setBusyId(id);
+                        try {
+                          await react({
+                            announcementId: a._id as Id<"announcements">,
+                            emoji: "👍",
+                          });
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error ? err.message : "Erreur",
+                          );
+                        } finally {
+                          setBusyId(null);
+                        }
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setShowReacts((s) => (s === id ? null : id));
+                      }}
                     >
                       <ThumbsUp
                         className={`size-4 ${a.myReaction ? "fill-brand text-brand" : ""}`}
@@ -326,6 +359,17 @@ export function ActualitesView() {
                       </div>
                     ) : null}
                   </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 gap-1 px-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                    title="Choisir une réaction"
+                    onClick={() =>
+                      setShowReacts((s) => (s === id ? null : id))
+                    }
+                  >
+                    🙂
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"

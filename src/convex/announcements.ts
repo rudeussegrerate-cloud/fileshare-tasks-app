@@ -120,6 +120,53 @@ export const list = query({
           /* ignore row */
         }
       }
+
+      // Charger likes + commentaires (après les posts, isolé)
+      for (const item of out) {
+        try {
+          const rs = await ctx.db
+            .query("announcementReactions")
+            .withIndex("by_announcement", (q) =>
+              q.eq("announcementId", item._id),
+            )
+            .collect();
+          const counts: Record<string, number> = {};
+          let total = 0;
+          let mine: string | null = null;
+          for (const r of rs) {
+            counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+            total += 1;
+            if (String(r.userId) === String(userId)) mine = r.emoji;
+          }
+          item.reactionCounts = counts;
+          item.reactionTotal = total;
+          item.myReaction = mine;
+        } catch (e) {
+          console.error("[announcements.list] reactions", e);
+        }
+        try {
+          const cs = await ctx.db
+            .query("announcementComments")
+            .withIndex("by_announcement", (q) =>
+              q.eq("announcementId", item._id),
+            )
+            .collect();
+          cs.sort(
+            (x, y) => Number(x.createdAt ?? 0) - Number(y.createdAt ?? 0),
+          );
+          item.comments = cs.slice(-50).map((c) => ({
+            _id: String(c._id),
+            authorName: String(c.authorName ?? "Utilisateur"),
+            body: String(c.body ?? ""),
+            createdAt: Number(c.createdAt ?? 0),
+            isMine: String(c.authorId) === String(userId),
+          }));
+          item.commentCount = item.comments.length;
+        } catch (e) {
+          console.error("[announcements.list] comments", e);
+        }
+      }
+
       return out;
     } catch (e) {
       console.error("[announcements.list]", e);
