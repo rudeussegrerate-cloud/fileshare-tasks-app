@@ -101,7 +101,7 @@ export function DocumentDetailDialog({
 
   // Opening a document counts as consulting it for the sender.
   useEffect(() => {
-    if (!document?.isRecipient) return;
+    if (!document?.isRecipient && !document?.canUpdateStatus) return;
     if (document.status !== "envoye") return;
     if (viewedRef.current === document._id) return;
     viewedRef.current = document._id;
@@ -113,8 +113,20 @@ export function DocumentDetailDialog({
   const handleStatus = async (status: DocumentStatus) => {
     if (!documentId) return;
     try {
-      await setStatus({ documentId, status });
-      toast.success(`Statut mis à jour : ${STATUS_META[status].label}`);
+      const res = await setStatus({ documentId, status });
+      if (res && typeof res === "object" && "outcome" in res) {
+        if (res.outcome === "fully_treated") {
+          toast.success("Document entièrement traité — l'émetteur est notifié");
+        } else if (res.outcome === "step_advanced") {
+          toast.success(
+            `Votre étape est terminée → transmis à ${(res as { nextAssignee?: string }).nextAssignee ?? "la suite"}`,
+          );
+        } else {
+          toast.success(`Statut mis à jour : ${STATUS_META[status].label}`);
+        }
+      } else {
+        toast.success(`Statut mis à jour : ${STATUS_META[status].label}`);
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Impossible de changer le statut.",
@@ -407,7 +419,7 @@ export function DocumentDetailDialog({
               </div>
             </section>
 
-            {documentOrNull.isRecipient ? (
+            {documentOrNull.canUpdateStatus || documentOrNull.isRecipient ? (
               <section className="space-y-3">
                 {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 0 ? (
                   <div className="rounded-lg border border-border bg-muted/20 p-3">
@@ -541,7 +553,9 @@ export function DocumentDetailDialog({
                 </h4>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {documentOrNull.hasCircuit
-                    ? "En circuit : préférez « Valider mon étape ». Le statut global se met à jour automatiquement."
+                    ? documentOrNull.isLastInCircuit
+                      ? "Vous êtes la dernière étape : « Traité » clôture le dossier pour l'émetteur."
+                      : "Vous pouvez marquer Consulté ou En cours. « Traité » termine votre étape et passe au suivant — le dossier n'est entièrement traité que pour la dernière personne."
                     : "L'émetteur voit ce statut en temps réel."}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -549,12 +563,12 @@ export function DocumentDetailDialog({
                     (status) => {
                       const active = documentOrNull.status === status;
                       const Icon = STATUS_META[status].icon;
-                      const hideTraite =
-                        documentOrNull.hasCircuit &&
+                      const traiteLabel =
                         status === "traite" &&
-                        (documentOrNull.currentStepIndex ?? 0) <
-                          (documentOrNull.circuitTotalSteps ?? 1) - 1;
-                      if (hideTraite) return null;
+                        documentOrNull.hasCircuit &&
+                        !documentOrNull.isLastInCircuit
+                          ? "Traité (mon étape)"
+                          : STATUS_META[status].label;
                       return (
                         <Button
                           key={status}
@@ -568,7 +582,7 @@ export function DocumentDetailDialog({
                           onClick={() => handleStatus(status)}
                         >
                           <Icon className="size-3.5" />
-                          {STATUS_META[status].label}
+                          {traiteLabel}
                         </Button>
                       );
                     },
