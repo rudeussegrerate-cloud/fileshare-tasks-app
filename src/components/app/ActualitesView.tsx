@@ -11,7 +11,7 @@ import {
   Lock,
   Users,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 const REACTIONS = ["👍", "❤️", "👏", "🎉", "😮"] as const;
@@ -48,20 +48,6 @@ function relativeTime(ts: number) {
 export function ActualitesView() {
   const listRaw = useQuery(api.announcements.list, { limit: 50 });
   const list = Array.isArray(listRaw) ? listRaw : undefined;
-
-  const ids = useMemo(() => {
-    if (!list) return [] as Id<"announcements">[];
-    return list
-      .map((a) => a?._id)
-      .filter(Boolean) as Id<"announcements">[];
-  }, [list]);
-
-  const engRaw = useQuery(
-    api.announcements.engagements,
-    ids.length > 0 ? { ids } : "skip",
-  );
-  const eng =
-    engRaw && typeof engRaw === "object" ? engRaw : ({} as Record<string, never>);
 
   const react = useMutation(api.announcements.react);
   const addComment = useMutation(api.announcements.addComment);
@@ -105,30 +91,17 @@ export function ActualitesView() {
           {list.map((a) => {
             if (!a || !a._id) return null;
             const id = String(a._id);
-            const e = (eng as Record<string, {
-              reactionCounts?: Record<string, number>;
-              reactionTotal?: number;
-              myReaction?: string | null;
-              comments?: Array<{
-                _id: string;
-                authorName: string;
-                body: string;
-                createdAt: number;
-                isMine?: boolean;
-              }>;
-              commentCount?: number;
-            }>)[id] ?? {
-              reactionCounts: {},
-              reactionTotal: 0,
-              myReaction: null,
-              comments: [],
-              commentCount: 0,
-            };
-            const myReaction = e.myReaction ?? null;
-            const totalReactions = e.reactionTotal ?? 0;
-            const commentCount = e.commentCount ?? 0;
-            const comments = e.comments ?? [];
-            const reactionCounts = e.reactionCounts ?? {};
+            const myReaction = (a as { myReaction?: string | null }).myReaction ?? null;
+            const totalReactions = (a as { reactionTotal?: number }).reactionTotal ?? 0;
+            const commentCount = (a as { commentCount?: number }).commentCount ?? 0;
+            const comments = (a as { comments?: Array<{
+              _id: string;
+              authorName: string;
+              body: string;
+              createdAt: number;
+              isMine?: boolean;
+            }> }).comments ?? [];
+            const reactionCounts = (a as { reactionCounts?: Record<string, number> }).reactionCounts ?? {};
             const VisIcon =
               a.visibility === "private"
                 ? Lock

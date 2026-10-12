@@ -122,6 +122,18 @@ export function SendDocument({
     (member) => member._id === recipientId,
   );
 
+  /** Tous les membres validés de tous les départements (pour le circuit inter-services) */
+  const allCircuitCandidates = (departments ?? []).flatMap((d) =>
+    (d.members ?? [])
+      .filter((m) => m._id !== me?.user._id)
+      .map((m) => ({
+        userId: m._id as Id<"users">,
+        name: m.name,
+        dept: d.name as string,
+        deptId: d._id as Id<"departments">,
+      })),
+  );
+
   const onBehalfDepartment = departments?.find(
     (d) => d._id === onBehalfDepartmentId,
   );
@@ -567,8 +579,9 @@ export function SendDocument({
                   </p>
                   <p className="text-xs text-muted-foreground">
                     Après le destinataire principal, le document passera
-                    automatiquement aux personnes suivantes dans l&apos;ordre.
-                    Le document n&apos;est « traité » qu&apos;à la dernière étape.
+                    aux personnes suivantes dans l&apos;ordre — y compris
+                    d&apos;autres départements. Le document n&apos;est « traité »
+                    qu&apos;à la dernière étape.
                   </p>
                   <ol className="space-y-1 text-xs">
                     <li className="flex items-center gap-2 rounded-md bg-brand-soft/50 px-2 py-1.5">
@@ -608,44 +621,57 @@ export function SendDocument({
                       </li>
                     ))}
                   </ol>
-                  {selectableMembers.filter(
-                    (m) =>
-                      m._id !== recipientId &&
-                      !circuitExtra.some((c) => c.userId === m._id),
-                  ).length > 0 ? (
-                    <div className="pt-1">
-                      <p className="mb-1 text-[11px] text-muted-foreground">
-                        Ajouter une étape (même département) :
+                  <div className="pt-1 space-y-2">
+                    <p className="text-[11px] text-muted-foreground">
+                      Ajouter une étape suivante (tous départements) :
+                    </p>
+                    {(departments ?? []).map((dep) => {
+                      const candidates = (dep.members ?? []).filter(
+                        (m) =>
+                          m._id !== recipientId &&
+                          m._id !== me?.user._id &&
+                          !circuitExtra.some((c) => c.userId === m._id),
+                      );
+                      if (candidates.length === 0) return null;
+                      return (
+                        <div key={dep._id}>
+                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {dep.name}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {candidates.map((m) => (
+                              <button
+                                key={m._id}
+                                type="button"
+                                className="rounded-full border border-border px-2.5 py-1 text-[11px] hover:border-brand hover:bg-brand-soft"
+                                onClick={() =>
+                                  setCircuitExtra((prev) => [
+                                    ...prev,
+                                    {
+                                      userId: m._id,
+                                      name: m.name,
+                                      dept: dep.name,
+                                    },
+                                  ])
+                                }
+                              >
+                                + {m.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {allCircuitCandidates.filter(
+                      (c) =>
+                        c.userId !== recipientId &&
+                        !circuitExtra.some((x) => x.userId === c.userId),
+                    ).length === 0 ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Aucun autre intervenant disponible.
                       </p>
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectableMembers
-                          .filter(
-                            (m) =>
-                              m._id !== recipientId &&
-                              !circuitExtra.some((c) => c.userId === m._id),
-                          )
-                          .map((m) => (
-                            <button
-                              key={m._id}
-                              type="button"
-                              className="rounded-full border border-border px-2.5 py-1 text-[11px] hover:border-brand hover:bg-brand-soft"
-                              onClick={() =>
-                                setCircuitExtra((prev) => [
-                                  ...prev,
-                                  {
-                                    userId: m._id,
-                                    name: m.name,
-                                    dept: selectedDepartment?.name,
-                                  },
-                                ])
-                              }
-                            >
-                              + {m.name}
-                            </button>
-                          ))}
-                      </div>
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
               ) : null}
 
