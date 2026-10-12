@@ -13,6 +13,10 @@ import {
   Send,
   UserCheck,
   Users,
+  BarChart3,
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
 } from "lucide-react";
 import type { AppView } from "@/components/app/AppShell";
 import { SmartInsights } from "./SmartInsights";
@@ -33,6 +37,10 @@ export function DashboardHome({
 }) {
   const me = useQuery(api.workspace.me);
   const stats = useQuery(api.documents.stats);
+  const overview = useQuery(
+    api.documents.enterpriseOverview,
+    me?.isAdmin || me?.isRoot ? {} : "skip",
+  );
   const inbox = useQuery(api.documents.inboxAll);
   const unreadMsg = useQuery(api.chat.unreadTotal);
   const pendingJoin = useQuery(
@@ -84,6 +92,166 @@ export function DashboardHome({
       </Button>
 
       <SmartInsights onNavigate={onNavigate} />
+
+      {/* Vue d'ensemble DG */}
+      {me.isAdmin && overview ? (
+        <section className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+                <BarChart3 className="size-4 text-brand" />
+                Vue d&apos;ensemble de l&apos;entreprise
+              </h3>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Tous les échanges et le suivi par département
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Documents actifs</p>
+              <p className="text-xl font-semibold tabular-nums">{overview.totals.documents}</p>
+            </div>
+            <div className="rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-amber-800/80">En cours / à traiter</p>
+              <p className="text-xl font-semibold tabular-nums text-amber-900">{overview.totals.open}</p>
+            </div>
+            <div className="rounded-lg border border-red-200/80 bg-red-50/80 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-red-800/80">En retard (&gt;48 h)</p>
+              <p className="text-xl font-semibold tabular-nums text-red-900">{overview.totals.overdue}</p>
+            </div>
+            <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/80 px-3 py-2">
+              <p className="text-[10px] uppercase tracking-wide text-emerald-800/80">Traités</p>
+              <p className="text-xl font-semibold tabular-nums text-emerald-900">{overview.totals.traite}</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+            <div className="rounded-md bg-muted/40 px-2 py-1.5">
+              <span className="text-muted-foreground">Départements</span>
+              <span className="ml-1 font-semibold">{overview.totals.departments}</span>
+            </div>
+            <div className="rounded-md bg-muted/40 px-2 py-1.5">
+              <span className="text-muted-foreground">Utilisateurs</span>
+              <span className="ml-1 font-semibold">{overview.totals.users}</span>
+            </div>
+            <button
+              type="button"
+              className="rounded-md bg-muted/40 px-2 py-1.5 text-left hover:bg-muted"
+              onClick={() => onNavigate("accounts")}
+            >
+              <span className="text-muted-foreground">Comptes à valider</span>
+              <span className="ml-1 font-semibold">{overview.totals.pendingAccounts}</span>
+            </button>
+            <button
+              type="button"
+              className="rounded-md bg-muted/40 px-2 py-1.5 text-left hover:bg-muted"
+              onClick={() => onNavigate("departments")}
+            >
+              <span className="text-muted-foreground">Adhésions en attente</span>
+              <span className="ml-1 font-semibold">{overview.totals.pendingJoins}</span>
+            </button>
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Suivi par département
+            </h4>
+            {overview.departmentStats.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Aucun département pour le moment.</p>
+            ) : (
+              <div className="overflow-x-auto rounded-lg border border-border">
+                <table className="w-full min-w-[520px] text-left text-xs">
+                  <thead className="bg-muted/50 text-[10px] uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Département</th>
+                      <th className="px-2 py-2 font-medium">Membres</th>
+                      <th className="px-2 py-2 font-medium">Envoyés</th>
+                      <th className="px-2 py-2 font-medium">Reçus</th>
+                      <th className="px-2 py-2 font-medium">Ouverts</th>
+                      <th className="px-2 py-2 font-medium">Traités</th>
+                      <th className="px-2 py-2 font-medium">Retard</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {overview.departmentStats.map((row) => (
+                      <tr
+                        key={row.departmentId}
+                        className="border-t border-border/60 hover:bg-muted/30"
+                      >
+                        <td className="px-3 py-2 font-medium text-foreground">
+                          {row.name}
+                          {row.chiefs > 0 ? (
+                            <span className="ml-1 text-[10px] text-muted-foreground">
+                              · {row.chiefs} chef{row.chiefs > 1 ? "s" : ""}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-2 py-2 tabular-nums">{row.members}</td>
+                        <td className="px-2 py-2 tabular-nums">{row.sent}</td>
+                        <td className="px-2 py-2 tabular-nums">{row.received}</td>
+                        <td className="px-2 py-2 tabular-nums text-amber-800">{row.open}</td>
+                        <td className="px-2 py-2 tabular-nums text-emerald-800">{row.traite}</td>
+                        <td className={`px-2 py-2 tabular-nums ${row.overdue > 0 ? "font-semibold text-red-700" : ""}`}>
+                          {row.overdue}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Derniers échanges (tous départements)
+            </h4>
+            {overview.recent.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Aucun document échangé.</p>
+            ) : (
+              <ul className="divide-y divide-border/60 rounded-lg border border-border">
+                {overview.recent.slice(0, 12).map((doc) => (
+                  <li key={doc._id}>
+                    <button
+                      type="button"
+                      className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/40"
+                      onClick={() => onOpen(doc._id as Id<"documents">)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {doc.objet || doc.fileName}
+                        </p>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                          {doc.senderName}
+                          <span className="text-muted-foreground/70"> ({doc.senderDepartment})</span>
+                          {" → "}
+                          {doc.recipientName}
+                          <span className="text-muted-foreground/70"> ({doc.recipientDepartment})</span>
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <StatusBadge status={doc.status as "envoye" | "consulte" | "en_cours" | "traite"} />
+                        <p className="mt-1 text-[10px] text-muted-foreground">
+                          {formatDateTime(doc.createdAt)}
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+      ) : me.isAdmin && overview === undefined ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" />
+          Chargement de la vue d&apos;ensemble…
+        </div>
+      ) : null}
+
+
 
       {/* Alertes prioritaires */}
       <div className="space-y-2">

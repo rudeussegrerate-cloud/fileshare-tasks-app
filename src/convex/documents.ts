@@ -812,3 +812,169 @@ export const stats = query({
   },
 });
 
+
+/**
+ * Vue d'ensemble entreprise — réservée au DG / root.
+ * Tous les échanges et le suivi par département.
+ */
+export const enterpriseOverview = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const me = await ctx.db.get(userId);
+    if (!me || (me.role !== "admin" && me.role !== "root")) {
+      return null;
+    }
+
+    const [docs, departments, users, joinReqs] = await Promise.all([
+      ctx.db.query("documents").collect(),
+      ctx.db.query("departments").collect(),
+      ctx.db.query("users").collect(),
+      ctx.db.query("departmentJoinRequests").collect(),
+    ]);
+
+    const active = docs.filter((d) => !d.archivedAt);
+    const byStatus = {
+      envoye: active.filter((d) => d.status === "envoye").length,
+      consulte: active.filter((d) => d.status === "consulte").length,
+      en_cours: active.filter((d) => d.status === "en_cours").length,
+      traite: active.filter((d) => d.status === "traite").length,
+    };
+    const open = byStatus.envoye + byStatus.consulte + byStatus.en_cours;
+    const overdue = active.filter((d) => {
+      if (d.status === "traite") return false;
+      const age = Date.now() - (d.createdAt ?? d._creationTime);
+      return age > 48 * 3600 * 1000;
+    }).length;
+
+    const depMap = new Map(
+      departments.map((d) => [String(d._id), d] as const),
+    );
+
+    type DepRow = {
+      departmentId: string;
+      name: string;
+      members: number;
+      chiefs: number;
+      sent: number;
+      received: number;
+      open: number;
+      traite: number;
+      overdue: number;
+    };
+
+    const perDept = new Map<string, DepRow>();
+    const ensure = (id: string | undefined | null, fallbackName?: string) => {
+      const key = id ? String(id) : "__none__";
+      if (!perDept.has(key)) {
+        const dep = id ? depMap.get(String(id)) : null;
+        perDept.set(key, {
+          departmentId: key,
+          name: dep?.name ?? fallbackName ?? "Sans département",
+          members: 0,
+          chiefs: 0,
+          sent: 0,
+          received: 0,
+          open: 0,
+          traite: 0,
+          overdue: 0,
+        });
+      }
+      return perDept.get(key)!;
+    };
+
+    for (const u of users) {
+      if (u.accountStatus && u.accountStatus !== "valide" && u.role !== "admin" && u.role !== "root") {
+        continue;
+      }
+      const row = ensure(u.departmentId ? String(u.departmentId) : null);
+      if (u.departmentId) {
+        row.members += 1;
+        if (u.departmentRole === "chef") row.chiefs += 1;
+      }
+    }
+
+    for (const d of active) {
+      const senderRow = ensure(
+        d.senderDepartmentId ? String(d.senderDepartmentId) : null,
+      );
+      senderRow.sent += 1;
+      const recvRow = ensure(
+        d.recipientDepartmentId ? String(d.recipientDepartmentId) : null,
+      );
+      recvRow.received += 1;
+      if (d.status !== "traite") {
+        recvRow.open += 1;
+        const age = Date.now() - (d.createdAt ?? d._creationTime);
+        if (age > 48 * 3600 * 1000) recvRow.overdue += 1;
+      } else {
+        recvRow.traite += 1;
+      }
+    }
+
+    // Inclure tous les départements même sans docs
+    for (const dep of departments) {
+      ensure(String(dep._id), dep.name);
+    }
+
+    const departmentStats = [...perDept.values()]
+      .filter((r) => r.departmentId !== "__none__" || r.sent + r.received > 0)
+      .sort((a, b) => b.open - a.open || a.name.localeCompare(b.name, "fr"));
+
+    const recent = [...active]
+      .sort(
+        (a, b) =>
+          Number(b.createdAt ?? b._creationTime) -
+          Number(a.createdAt ?? a._creationTime),
+      )
+      .slice(0, 20)
+      .map((d) => ({
+        _id: d._id,
+        fileName: d.fileName,
+        objet: d.objet,
+        status: d.status,
+        senderName: d.senderName,
+        recipientName: d.recipientName,
+        senderDepartment:
+          (d.senderDepartmentId &&
+            depMap.get(String(d.senderDepartmentId))?.name) ||
+          "—",
+        recipientDepartment:
+          (d.recipientDepartmentId &&
+            depMap.get(String(d.recipientDepartmentId))?.name) ||
+          "—",
+        createdAt: d.createdAt ?? d._creationTime,
+        tasks: d.tasks ?? [],
+      }));
+
+    const pendingAccounts = users.filter(
+      (u) => u.accountStatus === "en_attente",
+    ).length;
+    const pendingJoins = joinReqs.filter((r) => r.status === "pending").length;
+    const validatedUsers = users.filter(
+      (u) =>
+        !u.accountStatus ||
+        u.accountStatus === "valide" ||
+        u.role === "admin" ||
+        u.role === "root",
+    ).length;
+
+    return {
+      totals: {
+        documents: active.length,
+        open,
+        traite: byStatus.traite,
+        overdue,
+        byStatus,
+        departments: departments.length,
+        users: validatedUsers,
+        pendingAccounts,
+        pendingJoins,
+      },
+      departmentStats,
+      recent,
+      generatedAt: Date.now(),
+    };
+  },
+});
