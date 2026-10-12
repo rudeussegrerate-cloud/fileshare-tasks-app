@@ -139,10 +139,8 @@ const schema = defineSchema(
       recipientDepartmentId: v.optional(v.id("departments")),
       status: documentStatusValidator,
       // Identité unique (survît à l'impression / photocopie via QR + n°)
+      /** Identifiant automatique lisible (ex. SD-2026-ABC123) */
       publicRef: v.optional(v.string()),
-      trackingToken: v.optional(v.string()),
-      /** Empreinte SHA-256 du fichier (signature / intégrité) */
-      contentHash: v.optional(v.string()),
       // Circuit multi-personnes (séquentiel)
       hasCircuit: v.optional(v.boolean()),
       currentStepIndex: v.optional(v.number()),
@@ -160,21 +158,6 @@ const schema = defineSchema(
       .index("by_recipient_archived", ["recipientId", "archivedAt"])
       .index("by_sender_archived", ["senderId", "archivedAt"])
       .index("by_publicRef", ["publicRef"]),
-
-    // Chaîne de signatures numériques (une par validation d'étape)
-    documentSignatures: defineTable({
-      documentId: v.id("documents"),
-      stepIndex: v.number(),
-      signerId: v.id("users"),
-      signerName: v.string(),
-      decision: v.union(v.literal("done"), v.literal("rejected")),
-      /** Hash chaîné : base fichier + étape + signataire + décision + horodatage */
-      signatureHash: v.string(),
-      previousSignatureHash: v.optional(v.string()),
-      contentHash: v.optional(v.string()),
-      note: v.optional(v.string()),
-      signedAt: v.number(),
-    }).index("by_document", ["documentId", "stepIndex"]),
 
     // Étapes du circuit de traitement (ordre strict)
     documentSteps: defineTable({

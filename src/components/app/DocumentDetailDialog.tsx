@@ -208,47 +208,14 @@ export function DocumentDetailDialog({
               <StatusBadge status={documentOrNull.status} />
             </div>
 
-            {documentOrNull.contentHash || (documentOrNull.signatures && documentOrNull.signatures.length > 0) ? (
-              <section className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+            {documentOrNull.publicRef ? (
+              <section className="rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Signature numérique du fichier
+                  Identifiant du document
                 </p>
-                {documentOrNull.contentHash ? (
-                  <p className="break-all font-mono text-[11px] text-foreground">
-                    Empreinte · {documentOrNull.contentHash}
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Empreinte non enregistrée (documents plus anciens).
-                  </p>
-                )}
-                {Array.isArray(documentOrNull.signatures) &&
-                documentOrNull.signatures.length > 0 ? (
-                  <ul className="space-y-1 border-t border-border/60 pt-2 text-xs">
-                    {documentOrNull.signatures.map(
-                      (s: {
-                        stepIndex: number;
-                        signerName: string;
-                        decision: string;
-                        signatureHash: string;
-                        signedAt: number;
-                      }) => (
-                        <li key={s.stepIndex + s.signatureHash}>
-                          <span className="font-medium">{s.signerName}</span>
-                          {" · "}
-                          {s.decision === "done" ? "a signé / validé" : "a refusé"}
-                          <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground">
-                            {s.signatureHash}
-                          </span>
-                        </li>
-                      ),
-                    )}
-                  </ul>
-                ) : (
-                  <p className="text-[11px] text-muted-foreground">
-                    Aucune validation signée pour l&apos;instant.
-                  </p>
-                )}
+                <p className="font-mono text-sm font-semibold tracking-wide text-foreground">
+                  {documentOrNull.publicRef}
+                </p>
               </section>
             ) : null}
 

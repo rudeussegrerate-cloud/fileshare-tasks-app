@@ -83,13 +83,6 @@ function generatePublicRef() {
   return `SD-${y}-${part}`;
 }
 
-function generateTrackingToken() {
-  return (
-    Math.random().toString(36).slice(2) +
-    Math.random().toString(36).slice(2) +
-    Date.now().toString(36)
-  );
-}
 
 function sortByDateDesc(a: { createdAt: number }, b: { createdAt: number }) {
   return b.createdAt - a.createdAt;
@@ -197,8 +190,6 @@ export const send = mutation({
     onBehalfOfDepartment: v.optional(v.string()),
     /** Circuit séquentiel optionnel (après le 1er destinataire). */
     circuitAssigneeIds: v.optional(v.array(v.id("users"))),
-    /** SHA-256 du fichier (calculé côté client) — base de la signature numérique */
-    contentHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -303,8 +294,6 @@ export const send = mutation({
       recipientDepartmentId: recipient.departmentId,
       status: "envoye",
       publicRef: generatePublicRef(),
-      trackingToken: generateTrackingToken(),
-      contentHash: args.contentHash?.toLowerCase().slice(0, 64) || undefined,
       hasCircuit: circuitUsers.length > 1,
       currentStepIndex: 0,
       circuitTotalSteps: circuitUsers.length,
@@ -618,32 +607,6 @@ export const get = query({
         ? steps[myStepIndex + 1]!
         : null;
 
-    // Signatures numériques
-    let signatures: Array<{
-      stepIndex: number;
-      signerName: string;
-      decision: string;
-      signatureHash: string;
-      signedAt: number;
-    }> = [];
-    try {
-      const sigs = await ctx.db
-        .query("documentSignatures")
-        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
-        .collect();
-      signatures = sigs
-        .sort((a, b) => a.stepIndex - b.stepIndex)
-        .map((s) => ({
-          stepIndex: s.stepIndex,
-          signerName: s.signerName,
-          decision: s.decision,
-          signatureHash: s.signatureHash,
-          signedAt: s.signedAt,
-        }));
-    } catch {
-      signatures = [];
-    }
-
     const hasCircuit = Boolean(document.hasCircuit) || steps.length > 1;
 
     // Suivi global uniquement pour l'émetteur (créateur du circuit)
@@ -687,7 +650,6 @@ export const get = query({
       isRecipient: document.recipientId === userId,
       isSender,
       publicRef: document.publicRef ?? null,
-      contentHash: document.contentHash ?? null,
       hasCircuit,
       currentStepIndex: document.currentStepIndex ?? 0,
       circuitTotalSteps: document.circuitTotalSteps ?? steps.length,
@@ -695,7 +657,6 @@ export const get = query({
       steps: stepsGlobal,
       // Intervenant : vue relative uniquement
       relativeTracking,
-      signatures,
       activeStep: activeStep
         ? {
             stepIndex: activeStep.stepIndex,
@@ -1089,51 +1050,6 @@ export const completeStep = mutation({
       actedAt: now,
     });
 
-    // Signature numérique chaînée
-    try {
-      const prevSigs = await ctx.db
-        .query("documentSignatures")
-        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
-        .collect();
-      prevSigs.sort((a, b) => a.stepIndex - b.stepIndex);
-      const previousSignatureHash =
-        prevSigs.length > 0
-          ? prevSigs[prevSigs.length - 1]!.signatureHash
-          : document.contentHash ?? "genesis";
-      const payload = [
-        document.contentHash ?? "nohash",
-        String(active.stepIndex),
-        String(userId),
-        args.decision,
-        String(now),
-        previousSignatureHash,
-      ].join("|");
-      // Hash simple déterministe (non crypto fort, mais chaîné et vérifiable)
-      let h = 0;
-      for (let i = 0; i < payload.length; i++) {
-        h = (Math.imul(31, h) + payload.charCodeAt(i)) | 0;
-      }
-      const signatureHash =
-        (document.contentHash ?? "sig").slice(0, 16) +
-        ":" +
-        (h >>> 0).toString(16) +
-        ":" +
-        now.toString(36);
-      await ctx.db.insert("documentSignatures", {
-        documentId: args.documentId,
-        stepIndex: active.stepIndex,
-        signerId: userId,
-        signerName: displayName(user ?? {}),
-        decision: args.decision,
-        signatureHash,
-        previousSignatureHash,
-        contentHash: document.contentHash,
-        note,
-        signedAt: now,
-      });
-    } catch (e) {
-      console.error("[completeStep] signature", e);
-    }
 
     const next = steps.find((s) => s.stepIndex === active.stepIndex + 1);
     if (!next) {
@@ -1224,80 +1140,6 @@ export const completeStep = mutation({
 });
 
 
-/**
- * Suivi public par n° de référence (QR code / photocopie).
- * Infos limitées : statut, circuit, pas de fichier.
- */
-export const trackByRef = query({
-  args: {
-    publicRef: v.string(),
-    token: v.optional(v.string()),
-  },
-  handler: async (ctx, args) => {
-    const ref = args.publicRef.trim().toUpperCase();
-    if (!ref) return null;
-    const docs = await ctx.db
-      .query("documents")
-      .withIndex("by_publicRef", (q) => q.eq("publicRef", ref))
-      .collect();
-    let document: Doc<"documents"> | null = docs[0] ?? null;
-    if (!document) {
-      const all = await ctx.db.query("documents").take(500);
-      document =
-        all.find((d) => (d.publicRef ?? "").toUpperCase() === ref) ?? null;
-    }
-    if (!document) return null;
-
-    // Token optionnel : si fourni et incorrect, on refuse le détail étendu
-    const tokenOk =
-      !document.trackingToken ||
-      !args.token ||
-      args.token === document.trackingToken;
-
-    const steps = await ctx.db
-      .query("documentSteps")
-      .withIndex("by_document", (q) => q.eq("documentId", document!._id))
-      .collect();
-    steps.sort((a, b) => a.stepIndex - b.stepIndex);
-
-    const statusLabel: Record<string, string> = {
-      envoye: "En attente de traitement",
-      consulte: "Consulté / reçu",
-      en_cours: "En cours de traitement",
-      traite: "Traité",
-    };
-
-    return {
-      publicRef: document.publicRef ?? ref,
-      objet: tokenOk ? document.objet : "—",
-      status: document.status,
-      statusLabel: statusLabel[document.status] ?? document.status,
-      archived: Boolean(document.archivedAt),
-      hasCircuit: Boolean(document.hasCircuit) || steps.length > 1,
-      currentStepIndex: document.currentStepIndex ?? 0,
-      circuitTotalSteps: document.circuitTotalSteps ?? Math.max(steps.length, 1),
-      senderName: document.senderName,
-      currentHolder: document.recipientName,
-      steps: steps.map((s) => ({
-        stepIndex: s.stepIndex,
-        assigneeName: s.assigneeName,
-        status: s.status,
-        statusLabel:
-          s.status === "waiting"
-            ? "En attente"
-            : s.status === "active"
-              ? "À traiter"
-              : s.status === "done"
-                ? "Validé"
-                : "Refusé",
-        actedAt: s.actedAt ?? null,
-      })),
-      createdAt: document.createdAt,
-      updatedAt: document.updatedAt,
-      isComplete: document.status === "traite",
-    };
-  },
-});
 
 export const enterpriseOverview = query({
   args: {},
