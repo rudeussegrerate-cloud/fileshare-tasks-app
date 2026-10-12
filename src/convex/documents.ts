@@ -604,15 +604,23 @@ export const sentAll = query({
 export const get = query({
   args: { documentId: v.id("documents") },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    try {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
     const document = await ctx.db.get(args.documentId);
     if (!document) return null;
     const user = await ctx.db.get(userId);
-    const steps = await ctx.db
-      .query("documentSteps")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
-      .collect();
-    steps.sort((a, b) => a.stepIndex - b.stepIndex);
+    let steps: Doc<"documentSteps">[] = [];
+    try {
+      steps = await ctx.db
+        .query("documentSteps")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      steps.sort((a, b) => a.stepIndex - b.stepIndex);
+    } catch (e) {
+      console.error("[documents.get] steps", e);
+      steps = [];
+    }
     const isStepAssignee = steps.some((s) => s.assigneeId === userId);
     const isAdmin = isAdminRole(user?.role);
     if (
@@ -621,7 +629,7 @@ export const get = query({
       !isStepAssignee &&
       !isAdmin
     ) {
-      throw new Error("Vous n'avez pas accès à ce document.");
+      return null;
     }
 
     const activeStep = steps.find((s) => s.status === "active") ?? null;
@@ -701,6 +709,10 @@ export const get = query({
         document.status === "traite" &&
         (steps.length === 0 || steps.every((s) => s.status === "done")),
     };
+    } catch (e) {
+      console.error("[documents.get]", e);
+      return null;
+    }
   },
 });
 
@@ -722,13 +734,17 @@ export const markViewed = mutation({
       updatedAt: now,
     });
 
-    await writeAudit(ctx, {
-      action: "document.viewed",
-      actorId: userId,
-      actorName: displayName(user ?? {}),
-      documentId: args.documentId,
-      details: "Document consulté",
-    });
+    try {
+      await writeAudit(ctx, {
+        action: "document.viewed",
+        actorId: userId,
+        actorName: displayName(user ?? {}),
+        documentId: args.documentId,
+        details: "Document consulté",
+      });
+    } catch (e) {
+      console.error("[markViewed] audit", e);
+    }
 
     return null;
   },
@@ -916,19 +932,41 @@ export const remove = mutation({
 export const auditTrail = query({
   args: { documentId: v.id("documents") },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
-    const document = await ctx.db.get(args.documentId);
-    if (!document) return [];
-    if (document.senderId !== userId && document.recipientId !== userId) {
-      throw new Error("Vous n'avez pas accès à ce document.");
+    try {
+      const userId = await getAuthUserId(ctx);
+      if (!userId) return [];
+      const document = await ctx.db.get(args.documentId);
+      if (!document) return [];
+      const user = await ctx.db.get(userId);
+      let allowed =
+        document.senderId === userId ||
+        document.recipientId === userId ||
+        isAdminRole(user?.role);
+      if (!allowed) {
+        try {
+          const steps = await ctx.db
+            .query("documentSteps")
+            .withIndex("by_document", (q) =>
+              q.eq("documentId", args.documentId),
+            )
+            .collect();
+          allowed = steps.some((s) => s.assigneeId === userId);
+        } catch {
+          allowed = false;
+        }
+      }
+      if (!allowed) return [];
+
+      const logs = await ctx.db
+        .query("auditLogs")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+
+      return logs.sort((a, b) => b.createdAt - a.createdAt);
+    } catch (e) {
+      console.error("[documents.auditTrail]", e);
+      return [];
     }
-
-    const logs = await ctx.db
-      .query("auditLogs")
-      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
-      .collect();
-
-    return logs.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 

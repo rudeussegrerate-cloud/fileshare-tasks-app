@@ -105,7 +105,9 @@ export function DocumentDetailDialog({
     if (document.status !== "envoye") return;
     if (viewedRef.current === document._id) return;
     viewedRef.current = document._id;
-    void markViewed({ documentId: document._id });
+    void markViewed({ documentId: document._id }).catch(() => {
+      /* ne bloque pas l'ouverture */
+    });
   }, [document, markViewed]);
 
   const handleStatus = async (status: DocumentStatus) => {
@@ -179,9 +181,19 @@ export function DocumentDetailDialog({
   return (
     <Dialog open={documentId !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        {documentOrNull === undefined || documentOrNull === null ? (
+        {documentOrNull === undefined ? (
           <div className="flex items-center justify-center py-16">
             <Loader2 className="size-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : documentOrNull === null ? (
+          <div className="space-y-3 py-10 text-center">
+            <p className="font-medium text-foreground">Document inaccessible</p>
+            <p className="text-sm text-muted-foreground">
+              Ce dossier n&apos;existe plus ou vous n&apos;y avez pas accès.
+            </p>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              Fermer
+            </Button>
           </div>
         ) : (
           <>
@@ -205,7 +217,15 @@ export function DocumentDetailDialog({
               <p className="text-xs text-muted-foreground">
                 {formatDateTime(documentOrNull.createdAt)} · {formatBytes(documentOrNull.size)}
               </p>
-              <StatusBadge status={documentOrNull.status} />
+              <StatusBadge
+                status={
+                  (["envoye", "consulte", "en_cours", "traite"].includes(
+                    documentOrNull.status,
+                  )
+                    ? documentOrNull.status
+                    : "envoye") as DocumentStatus
+                }
+              />
             </div>
 
             {documentOrNull.publicRef ? (
