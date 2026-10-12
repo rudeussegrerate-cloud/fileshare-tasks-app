@@ -83,6 +83,10 @@ export function SendDocument({
     null,
   );
   const [recipientId, setRecipientId] = useState<Id<"users"> | null>(null);
+  /** Intervenants suivants dans le circuit (après le destinataire principal) */
+  const [circuitExtra, setCircuitExtra] = useState<
+    Array<{ userId: Id<"users">; name: string; dept?: string }>
+  >([]);
 
   // Objet de l'envoi
   const [objet, setObjet] = useState("");
@@ -158,6 +162,7 @@ export function SendDocument({
     setExtractedText("");
     setDepartmentId(null);
     setRecipientId(null);
+    setCircuitExtra([]);
     setObjet("");
     setSelectedTasks([]);
     setCustomTask("");
@@ -239,6 +244,10 @@ export function SendDocument({
         tasks: effectiveTasks,
         extractedText: extractedText || undefined,
         recipientId,
+        circuitAssigneeIds:
+          circuitExtra.length > 0
+            ? circuitExtra.map((c) => c.userId)
+            : undefined,
         onBehalfOfType: onBehalfType,
         onBehalfOfUserId: resolvedOnBehalfUserId,
         onBehalfOfName:
@@ -426,6 +435,7 @@ export function SendDocument({
                         onClick={() => {
                           setDepartmentId(department._id);
                           setRecipientId(null);
+    setCircuitExtra([]);
                         }}
                         className={cn(
                           "rounded-sm border p-4 text-left transition-all",
@@ -550,6 +560,95 @@ export function SendDocument({
                   })}
                 </ul>
               )}
+              {recipientId ? (
+                <div className="mt-4 space-y-2 rounded-sm border border-dashed border-border p-3">
+                  <p className="text-sm font-medium text-foreground">
+                    Circuit de traitement (optionnel)
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Après le destinataire principal, le document passera
+                    automatiquement aux personnes suivantes dans l&apos;ordre.
+                    Le document n&apos;est « traité » qu&apos;à la dernière étape.
+                  </p>
+                  <ol className="space-y-1 text-xs">
+                    <li className="flex items-center gap-2 rounded-md bg-brand-soft/50 px-2 py-1.5">
+                      <span className="flex size-5 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-primary-foreground">
+                        1
+                      </span>
+                      <span className="font-medium">
+                        {selectedRecipient?.name ?? "Destinataire"}
+                      </span>
+                      <span className="text-muted-foreground">(en premier)</span>
+                    </li>
+                    {circuitExtra.map((c, i) => (
+                      <li
+                        key={c.userId}
+                        className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5"
+                      >
+                        <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold">
+                          {i + 2}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-medium">
+                          {c.name}
+                          {c.dept ? (
+                            <span className="text-muted-foreground"> · {c.dept}</span>
+                          ) : null}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-[10px] text-destructive"
+                          onClick={() =>
+                            setCircuitExtra((prev) =>
+                              prev.filter((x) => x.userId !== c.userId),
+                            )
+                          }
+                        >
+                          Retirer
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                  {selectableMembers.filter(
+                    (m) =>
+                      m._id !== recipientId &&
+                      !circuitExtra.some((c) => c.userId === m._id),
+                  ).length > 0 ? (
+                    <div className="pt-1">
+                      <p className="mb-1 text-[11px] text-muted-foreground">
+                        Ajouter une étape (même département) :
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectableMembers
+                          .filter(
+                            (m) =>
+                              m._id !== recipientId &&
+                              !circuitExtra.some((c) => c.userId === m._id),
+                          )
+                          .map((m) => (
+                            <button
+                              key={m._id}
+                              type="button"
+                              className="rounded-full border border-border px-2.5 py-1 text-[11px] hover:border-brand hover:bg-brand-soft"
+                              onClick={() =>
+                                setCircuitExtra((prev) => [
+                                  ...prev,
+                                  {
+                                    userId: m._id,
+                                    name: m.name,
+                                    dept: selectedDepartment?.name,
+                                  },
+                                ])
+                              }
+                            >
+                              + {m.name}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
             </div>
           ) : null}
 
@@ -803,6 +902,16 @@ export function SendDocument({
                       {selectedRecipient?.name}
                     </dd>
                   </div>
+                  {circuitExtra.length > 0 ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-muted-foreground">Circuit</dt>
+                      <dd className="text-right font-medium">
+                        {[selectedRecipient?.name, ...circuitExtra.map((c) => c.name)]
+                          .filter(Boolean)
+                          .join(" → ")}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">Objet</dt>
                     <dd className="line-clamp-2 text-right font-medium">

@@ -54,6 +54,9 @@ export function DocumentDetailDialog({
   );
   const markViewed = useMutation(api.documents.markViewed);
   const setStatus = useMutation(api.documents.setStatus);
+  const completeStep = useMutation(api.documents.completeStep);
+  const [stepNote, setStepNote] = useState("");
+
   const archiveDoc = useMutation(api.documents.archive);
   const unarchiveDoc = useMutation(api.documents.unarchive);
   const removeDoc = useMutation(api.documents.remove);
@@ -337,18 +340,153 @@ export function DocumentDetailDialog({
             </section>
 
             {documentOrNull.isRecipient ? (
-              <section>
+              <section className="space-y-3">
+                {documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) ? (
+                  <div className="rounded-lg border border-border bg-muted/20 p-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Circuit de traitement ({(documentOrNull.currentStepIndex ?? 0) + 1}/
+                      {documentOrNull.circuitTotalSteps ?? documentOrNull.steps.length})
+                    </h4>
+                    <ol className="mt-2 space-y-1.5">
+                      {documentOrNull.steps.map((s: {
+                        stepIndex: number;
+                        assigneeName: string;
+                        status: string;
+                        note?: string | null;
+                        isMine?: boolean;
+                      }) => (
+                        <li
+                          key={s.stepIndex}
+                          className={cn(
+                            "flex items-start gap-2 rounded-md px-2 py-1.5 text-sm",
+                            s.status === "active" && "bg-brand-soft/60",
+                            s.status === "done" && "opacity-80",
+                          )}
+                        >
+                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold">
+                            {s.stepIndex + 1}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="font-medium">{s.assigneeName}</span>
+                            {s.isMine ? (
+                              <span className="ml-1 text-[10px] text-brand">(vous)</span>
+                            ) : null}
+                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                              {s.status === "waiting"
+                                ? "En attente"
+                                : s.status === "active"
+                                  ? "À traiter maintenant"
+                                  : s.status === "done"
+                                    ? "Validé"
+                                    : "Refusé"}
+                              {s.note ? ` — ${s.note}` : ""}
+                            </span>
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                    {documentOrNull.canActOnStep ? (
+                      <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
+                        <p className="text-xs text-muted-foreground">
+                          C&apos;est votre tour. Validez pour passer à l&apos;étape suivante,
+                          ou refusez pour signaler un problème.
+                        </p>
+                        <textarea
+                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                          rows={2}
+                          placeholder="Note optionnelle (avis, réserve…)"
+                          value={stepNote}
+                          onChange={(e) => setStepNote(e.target.value)}
+                        />
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="gap-1.5"
+                            disabled={busy}
+                            onClick={async () => {
+                              if (!documentId) return;
+                              setBusy(true);
+                              try {
+                                const res = await completeStep({
+                                  documentId,
+                                  decision: "done",
+                                  note: stepNote.trim() || undefined,
+                                });
+                                setStepNote("");
+                                if (res?.done) {
+                                  toast.success("Circuit terminé — document traité");
+                                } else if (res?.advanced) {
+                                  toast.success(
+                                    `Étape validée → ${res.nextAssignee ?? "suivant"}`,
+                                  );
+                                } else {
+                                  toast.success("Étape validée");
+                                }
+                              } catch (e) {
+                                toast.error(
+                                  e instanceof Error ? e.message : "Erreur",
+                                );
+                              } finally {
+                                setBusy(false);
+                              }
+                            }}
+                          >
+                            <CheckCircle2 className="size-3.5" />
+                            Valider mon étape
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={busy}
+                            onClick={async () => {
+                              if (!documentId) return;
+                              setBusy(true);
+                              try {
+                                await completeStep({
+                                  documentId,
+                                  decision: "rejected",
+                                  note: stepNote.trim() || undefined,
+                                });
+                                setStepNote("");
+                                toast.message("Étape refusée — expéditeur notifié");
+                              } catch (e) {
+                                toast.error(
+                                  e instanceof Error ? e.message : "Erreur",
+                                );
+                              } finally {
+                                setBusy(false);
+                              }
+                            }}
+                          >
+                            Refuser
+                          </Button>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Statut du traitement
                 </h4>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  L'émetteur voit ce statut en temps réel.
+                  {documentOrNull.hasCircuit
+                    ? "En circuit : préférez « Valider mon étape ». Le statut global se met à jour automatiquement."
+                    : "L'émetteur voit ce statut en temps réel."}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(["consulte", "en_cours", "traite"] as DocumentStatus[]).map(
                     (status) => {
                       const active = documentOrNull.status === status;
                       const Icon = STATUS_META[status].icon;
+                      const hideTraite =
+                        documentOrNull.hasCircuit &&
+                        status === "traite" &&
+                        (documentOrNull.currentStepIndex ?? 0) <
+                          (documentOrNull.circuitTotalSteps ?? 1) - 1;
+                      if (hideTraite) return null;
                       return (
                         <Button
                           key={status}
@@ -370,7 +508,37 @@ export function DocumentDetailDialog({
                 </div>
               </section>
             ) : (
-              <section>
+              <section className="space-y-3">
+                {documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) ? (
+                  <div className="rounded-lg border border-border bg-muted/20 p-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Circuit ({(documentOrNull.currentStepIndex ?? 0) + 1}/
+                      {documentOrNull.circuitTotalSteps ?? documentOrNull.steps.length})
+                    </h4>
+                    <ol className="mt-2 space-y-1 text-xs">
+                      {documentOrNull.steps.map((s: {
+                        stepIndex: number;
+                        assigneeName: string;
+                        status: string;
+                        note?: string | null;
+                      }) => (
+                        <li key={s.stepIndex} className="flex gap-2">
+                          <span className="font-medium">{s.stepIndex + 1}. {s.assigneeName}</span>
+                          <span className="text-muted-foreground">
+                            {s.status === "waiting"
+                              ? "en attente"
+                              : s.status === "active"
+                                ? "en cours"
+                                : s.status === "done"
+                                  ? "validé"
+                                  : "refusé"}
+                            {s.note ? ` — ${s.note}` : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Suivi du destinataire
                 </h4>

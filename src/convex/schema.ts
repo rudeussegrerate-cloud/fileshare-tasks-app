@@ -138,6 +138,10 @@ const schema = defineSchema(
       recipientName: v.string(),
       recipientDepartmentId: v.optional(v.id("departments")),
       status: documentStatusValidator,
+      // Circuit multi-personnes (séquentiel)
+      hasCircuit: v.optional(v.boolean()),
+      currentStepIndex: v.optional(v.number()),
+      circuitTotalSteps: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
       viewedAt: v.optional(v.number()),
@@ -150,6 +154,26 @@ const schema = defineSchema(
       .index("by_recipient_status", ["recipientId", "status"])
       .index("by_recipient_archived", ["recipientId", "archivedAt"])
       .index("by_sender_archived", ["senderId", "archivedAt"]),
+
+    // Étapes du circuit de traitement (ordre strict)
+    documentSteps: defineTable({
+      documentId: v.id("documents"),
+      stepIndex: v.number(), // 0, 1, 2…
+      assigneeId: v.id("users"),
+      assigneeName: v.string(),
+      taskLabel: v.optional(v.string()), // ex. « Pour visa »
+      status: v.union(
+        v.literal("waiting"),
+        v.literal("active"),
+        v.literal("done"),
+        v.literal("rejected"),
+      ),
+      note: v.optional(v.string()),
+      actedAt: v.optional(v.number()),
+      createdAt: v.number(),
+    })
+      .index("by_document", ["documentId", "stepIndex"])
+      .index("by_assignee", ["assigneeId", "status"]),
 
 
     // Demandes d'intégration dans un département (utilisateur → chef)

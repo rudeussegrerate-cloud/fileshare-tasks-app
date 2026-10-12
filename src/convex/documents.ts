@@ -181,6 +181,8 @@ export const send = mutation({
     onBehalfOfName: v.optional(v.string()),
     onBehalfOfFunction: v.optional(v.string()),
     onBehalfOfDepartment: v.optional(v.string()),
+    /** Circuit séquentiel optionnel (après le 1er destinataire). */
+    circuitAssigneeIds: v.optional(v.array(v.id("users"))),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -214,6 +216,21 @@ export const send = mutation({
     if (!recipient) throw new Error("Destinataire introuvable.");
     if (recipient._id === userId) {
       throw new Error("Vous ne pouvez pas vous envoyer un document à vous-même.");
+    }
+
+    // Circuit : destinataire principal + suivants (sans doublons, max 8)
+    const circuitIds: Id<"users">[] = [args.recipientId];
+    for (const id of args.circuitAssigneeIds ?? []) {
+      if (circuitIds.some((x) => x === id)) continue;
+      if (id === userId) continue;
+      circuitIds.push(id);
+      if (circuitIds.length >= 8) break;
+    }
+    const circuitUsers = [];
+    for (const id of circuitIds) {
+      const u = await ctx.db.get(id);
+      if (!u) throw new Error("Un intervenant du circuit est introuvable.");
+      circuitUsers.push(u);
     }
 
     // Resolve "de la part de"
@@ -269,9 +286,26 @@ export const send = mutation({
       recipientName: displayName(recipient),
       recipientDepartmentId: recipient.departmentId,
       status: "envoye",
+      hasCircuit: circuitUsers.length > 1,
+      currentStepIndex: 0,
+      circuitTotalSteps: circuitUsers.length,
       createdAt: now,
       updatedAt: now,
     });
+
+    // Créer les étapes du circuit
+    for (let i = 0; i < circuitUsers.length; i++) {
+      const u = circuitUsers[i]!;
+      await ctx.db.insert("documentSteps", {
+        documentId,
+        stepIndex: i,
+        assigneeId: u._id,
+        assigneeName: displayName(u),
+        taskLabel: tasks[0],
+        status: i === 0 ? "active" : "waiting",
+        createdAt: now,
+      });
+    }
 
     // Secondaires : ne doivent jamais faire échouer l'envoi (transaction unique)
     try {
@@ -521,15 +555,57 @@ export const get = query({
     const userId = await requireUserId(ctx);
     const document = await ctx.db.get(args.documentId);
     if (!document) return null;
-    if (document.senderId !== userId && document.recipientId !== userId) {
+    const user = await ctx.db.get(userId);
+    const steps = await ctx.db
+      .query("documentSteps")
+      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .collect();
+    steps.sort((a, b) => a.stepIndex - b.stepIndex);
+    const isStepAssignee = steps.some((s) => s.assigneeId === userId);
+    const isAdmin = isAdminRole(user?.role);
+    if (
+      document.senderId !== userId &&
+      document.recipientId !== userId &&
+      !isStepAssignee &&
+      !isAdmin
+    ) {
       throw new Error("Vous n'avez pas accès à ce document.");
     }
+
+    const activeStep = steps.find((s) => s.status === "active") ?? null;
 
     return {
       ...(await decorate(ctx, [document]))[0]!,
       downloadUrl: await ctx.storage.getUrl(document.storageId),
       isRecipient: document.recipientId === userId,
       isSender: document.senderId === userId,
+      hasCircuit: Boolean(document.hasCircuit) || steps.length > 1,
+      currentStepIndex: document.currentStepIndex ?? 0,
+      circuitTotalSteps: document.circuitTotalSteps ?? steps.length,
+      steps: steps.map((s) => ({
+        _id: s._id,
+        stepIndex: s.stepIndex,
+        assigneeId: s.assigneeId,
+        assigneeName: s.assigneeName,
+        taskLabel: s.taskLabel ?? null,
+        status: s.status,
+        note: s.note ?? null,
+        actedAt: s.actedAt ?? null,
+        isMine: s.assigneeId === userId,
+      })),
+      activeStep: activeStep
+        ? {
+            stepIndex: activeStep.stepIndex,
+            assigneeId: activeStep.assigneeId,
+            assigneeName: activeStep.assigneeName,
+            isMine: activeStep.assigneeId === userId,
+            status: activeStep.status,
+          }
+        : null,
+      canActOnStep:
+        activeStep != null &&
+        activeStep.assigneeId === userId &&
+        document.status !== "traite",
     };
   },
 });
@@ -576,6 +652,16 @@ export const setStatus = mutation({
     if (!document) throw new Error("Document introuvable.");
     if (document.recipientId !== userId) {
       throw new Error("Seul le destinataire peut changer le statut.");
+    }
+    // Circuit multi-étapes : utiliser « Valider mon étape » plutôt que Traité direct
+    if (
+      document.hasCircuit &&
+      args.status === "traite" &&
+      (document.currentStepIndex ?? 0) < (document.circuitTotalSteps ?? 1) - 1
+    ) {
+      throw new Error(
+        "Ce document suit un circuit. Validez votre étape pour passer au suivant.",
+      );
     }
 
     const user = await ctx.db.get(userId);
@@ -817,6 +903,158 @@ export const stats = query({
  * Vue d'ensemble entreprise — réservée au DG / root.
  * Tous les échanges et le suivi par département.
  */
+
+/** Valider ou refuser l'étape active du circuit. */
+export const completeStep = mutation({
+  args: {
+    documentId: v.id("documents"),
+    decision: v.union(v.literal("done"), v.literal("rejected")),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const document = await ctx.db.get(args.documentId);
+    if (!document) throw new Error("Document introuvable.");
+    const user = await ctx.db.get(userId);
+
+    const steps = await ctx.db
+      .query("documentSteps")
+      .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+      .collect();
+    steps.sort((a, b) => a.stepIndex - b.stepIndex);
+
+    if (steps.length === 0) {
+      // Pas de circuit : équivalent setStatus
+      if (document.recipientId !== userId) {
+        throw new Error("Seul le destinataire peut traiter ce document.");
+      }
+      const now = Date.now();
+      await ctx.db.patch(args.documentId, {
+        status: args.decision === "done" ? "traite" : "consulte",
+        updatedAt: now,
+      });
+      return { done: args.decision === "done", advanced: false };
+    }
+
+    const active = steps.find((s) => s.status === "active");
+    if (!active) throw new Error("Aucune étape active.");
+    if (active.assigneeId !== userId) {
+      throw new Error("Ce n'est pas votre tour dans le circuit.");
+    }
+
+    const now = Date.now();
+    const note = args.note?.trim().slice(0, 500) || undefined;
+
+    if (args.decision === "rejected") {
+      await ctx.db.patch(active._id, {
+        status: "rejected",
+        note,
+        actedAt: now,
+      });
+      await ctx.db.patch(args.documentId, {
+        status: "consulte",
+        updatedAt: now,
+      });
+      try {
+        await writeAudit(ctx, {
+          action: "document.step_rejected",
+          actorId: userId,
+          actorName: displayName(user ?? {}),
+          documentId: args.documentId,
+          details: note || "Étape refusée",
+        });
+      } catch {}
+      try {
+        await pushNotification(ctx, {
+          userId: document.senderId,
+          type: "document.status",
+          title: "Étape refusée",
+          body: `« ${document.objet} » — ${displayName(user ?? {})} a refusé l'étape ${active.stepIndex + 1}`,
+          documentId: args.documentId,
+        });
+      } catch {}
+      return { done: false, advanced: false, rejected: true };
+    }
+
+    // done
+    await ctx.db.patch(active._id, {
+      status: "done",
+      note,
+      actedAt: now,
+    });
+
+    const next = steps.find((s) => s.stepIndex === active.stepIndex + 1);
+    if (!next) {
+      await ctx.db.patch(args.documentId, {
+        status: "traite",
+        currentStepIndex: active.stepIndex,
+        updatedAt: now,
+      });
+      try {
+        await writeAudit(ctx, {
+          action: "document.circuit_complete",
+          actorId: userId,
+          actorName: displayName(user ?? {}),
+          documentId: args.documentId,
+          details: "Circuit terminé",
+        });
+      } catch {}
+      try {
+        await pushNotification(ctx, {
+          userId: document.senderId,
+          type: "document.status",
+          title: "Document entièrement traité",
+          body: `« ${document.objet} » — toutes les étapes sont terminées`,
+          documentId: args.documentId,
+        });
+      } catch {}
+      return { done: true, advanced: false };
+    }
+
+    // Avancer vers l'étape suivante
+    await ctx.db.patch(next._id, { status: "active" });
+    const nextUser = await ctx.db.get(next.assigneeId);
+    await ctx.db.patch(args.documentId, {
+      recipientId: next.assigneeId,
+      recipientName: next.assigneeName,
+      recipientDepartmentId: nextUser?.departmentId,
+      currentStepIndex: next.stepIndex,
+      status: "en_cours",
+      updatedAt: now,
+    });
+
+    try {
+      await writeAudit(ctx, {
+        action: "document.step_done",
+        actorId: userId,
+        actorName: displayName(user ?? {}),
+        documentId: args.documentId,
+        details: `Étape ${active.stepIndex + 1} validée → ${next.assigneeName}`,
+      });
+    } catch {}
+    try {
+      await pushNotification(ctx, {
+        userId: next.assigneeId,
+        type: "document.received",
+        title: "Document à traiter (circuit)",
+        body: `« ${document.objet} » — étape ${next.stepIndex + 1}/${steps.length}`,
+        documentId: args.documentId,
+      });
+    } catch {}
+    try {
+      await pushNotification(ctx, {
+        userId: document.senderId,
+        type: "document.status",
+        title: "Circuit avancé",
+        body: `« ${document.objet} » — passé à ${next.assigneeName}`,
+        documentId: args.documentId,
+      });
+    } catch {}
+
+    return { done: false, advanced: true, nextAssignee: next.assigneeName };
+  },
+});
+
 export const enterpriseOverview = query({
   args: {},
   handler: async (ctx) => {
