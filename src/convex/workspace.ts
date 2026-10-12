@@ -550,9 +550,11 @@ export const deleteDepartment = mutation({
 export const listAccounts = query({
   args: {},
   handler: async (ctx) => {
-    const viewer = await requireUser(ctx);
-    if (!isAdminRole(viewer.role)) {
-      throw new Error("Seul le DG peut consulter les comptes.");
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const viewer = await ctx.db.get(userId);
+    if (!viewer || !isAdminRole(viewer.role)) {
+      return [];
     }
 
     const users = await ctx.db.query("users").collect();

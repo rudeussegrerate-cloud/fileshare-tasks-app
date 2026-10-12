@@ -272,7 +272,15 @@ export function DocumentsList({
                         <p className="truncate text-sm font-semibold text-foreground">
                           {document.fileName}
                         </p>
-                        <StatusBadge status={document.status} />
+                        <StatusBadge
+                          status={
+                            (["envoye", "consulte", "en_cours", "traite"].includes(
+                              String(document.status),
+                            )
+                              ? document.status
+                              : "envoye") as "envoye" | "consulte" | "en_cours" | "traite"
+                          }
+                        />
                         {document.archivedAt ? (
                           <Badge
                             variant="outline"

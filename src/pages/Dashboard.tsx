@@ -192,16 +192,24 @@ export default function Dashboard() {
         </ViewErrorBoundary>
       ) : null}
 
-      <FloatingAssistant />
-      <SmartTips />
-      <SmartAutomations />
+      <ViewErrorBoundary label="l'assistant">
+        <FloatingAssistant />
+      </ViewErrorBoundary>
+      <ViewErrorBoundary label="les alertes">
+        <SmartTips />
+      </ViewErrorBoundary>
+      <ViewErrorBoundary label="les automatisations">
+        <SmartAutomations />
+      </ViewErrorBoundary>
 
-      <DocumentDetailDialog
-        documentId={openDocumentId}
-        onOpenChange={(open) => {
-          if (!open) setOpenDocumentId(null);
-        }}
-      />
+      <ViewErrorBoundary label="la fiche document">
+        <DocumentDetailDialog
+          documentId={openDocumentId}
+          onOpenChange={(open) => {
+            if (!open) setOpenDocumentId(null);
+          }}
+        />
+      </ViewErrorBoundary>
     </AppShell>
     </>
   );

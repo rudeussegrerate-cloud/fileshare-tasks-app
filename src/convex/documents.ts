@@ -639,7 +639,8 @@ export const inbox = query({
     cursor: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
     const limit = Math.min(Math.max(args.limit ?? 30, 1), 100);
     const includeArchived = args.includeArchived ?? false;
 
@@ -673,7 +674,8 @@ export const sent = query({
     cursor: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
     const limit = Math.min(Math.max(args.limit ?? 30, 1), 100);
     const includeArchived = args.includeArchived ?? false;
 
@@ -701,7 +703,8 @@ export const sent = query({
 export const inboxAll = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireUserId(ctx);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
     const documents = await collectInboxDocuments(ctx, userId, false);
     return await decorate(ctx, documents.sort(sortByDateDesc));
   },
@@ -710,7 +713,8 @@ export const inboxAll = query({
 export const sentAll = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireUserId(ctx);
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
     const documents = await ctx.db
       .query("documents")
       .withIndex("by_sender", (q) => q.eq("senderId", userId))
@@ -1492,6 +1496,7 @@ export const completeStep = mutation({
 export const enterpriseOverview = query({
   args: {},
   handler: async (ctx) => {
+    try {
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     const me = await ctx.db.get(userId);
@@ -1648,5 +1653,9 @@ export const enterpriseOverview = query({
       recent,
       generatedAt: Date.now(),
     };
+    } catch (e) {
+      console.error("[enterpriseOverview]", e);
+      return null;
+    }
   },
 });
