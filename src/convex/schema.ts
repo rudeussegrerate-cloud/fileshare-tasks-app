@@ -141,6 +141,9 @@ const schema = defineSchema(
       // Identité unique (survît à l'impression / photocopie via QR + n°)
       /** Identifiant automatique lisible (ex. SD-2026-ABC123) */
       publicRef: v.optional(v.string()),
+      revisionCount: v.optional(v.number()),
+      lastRevisedAt: v.optional(v.number()),
+      lastRevisedByName: v.optional(v.string()),
       // Circuit multi-personnes (séquentiel)
       hasCircuit: v.optional(v.boolean()),
       currentStepIndex: v.optional(v.number()),
@@ -158,6 +161,20 @@ const schema = defineSchema(
       .index("by_recipient_archived", ["recipientId", "archivedAt"])
       .index("by_sender_archived", ["senderId", "archivedAt"])
       .index("by_publicRef", ["publicRef"]),
+
+    // Versions renvoyées par les intermédiaires (même identifiant / dossier)
+    documentRevisions: defineTable({
+      documentId: v.id("documents"),
+      storageId: v.id("_storage"),
+      fileName: v.string(),
+      contentType: v.optional(v.string()),
+      size: v.optional(v.number()),
+      uploadedBy: v.id("users"),
+      uploadedByName: v.string(),
+      stepIndex: v.optional(v.number()),
+      note: v.optional(v.string()),
+      createdAt: v.number(),
+    }).index("by_document", ["documentId", "createdAt"]),
 
     // Étapes du circuit de traitement (ordre strict)
     documentSteps: defineTable({

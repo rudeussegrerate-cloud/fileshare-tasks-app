@@ -55,7 +55,11 @@ export function DocumentDetailDialog({
   const markViewed = useMutation(api.documents.markViewed);
   const setStatus = useMutation(api.documents.setStatus);
   const completeStep = useMutation(api.documents.completeStep);
+  const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
+  const attachRevision = useMutation(api.documents.attachRevision);
   const [stepNote, setStepNote] = useState("");
+  const [revising, setRevising] = useState(false);
+  const revisionInputRef = useRef<HTMLInputElement>(null);
 
   const archiveDoc = useMutation(api.documents.archive);
   const unarchiveDoc = useMutation(api.documents.unarchive);
@@ -248,6 +252,14 @@ export function DocumentDetailDialog({
                 <p className="font-mono text-sm font-semibold tracking-wide text-foreground">
                   {documentOrNull.publicRef}
                 </p>
+                {(documentOrNull.revisionCount ?? 0) > 0 ? (
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    {documentOrNull.revisionCount} renvoi(s) dans le circuit
+                    {documentOrNull.lastRevisedByName
+                      ? ` · dernier : ${documentOrNull.lastRevisedByName}`
+                      : ""}
+                  </p>
+                ) : null}
               </section>
             ) : null}
 
@@ -545,6 +557,93 @@ export function DocumentDetailDialog({
                         </div>
                       </div>
                     ) : null}
+                  </div>
+                ) : null}
+
+                {(documentOrNull.canUpdateStatus || documentOrNull.isRecipient) &&
+                documentOrNull.status !== "traite" ? (
+                  <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Renvoyer le fichier modifié
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Même dossier, même identifiant
+                      {documentOrNull.publicRef ? (
+                        <> (<span className="font-mono font-medium text-foreground">{documentOrNull.publicRef}</span>)</>
+                      ) : null}
+                      . Le système sait que c&apos;est la suite du suivi, pas un nouvel envoi.
+                    </p>
+                    {(documentOrNull.revisionCount ?? 0) > 0 ? (
+                      <p className="text-[11px] text-emerald-800">
+                        {documentOrNull.revisionCount} version(s) renvoyée(s)
+                        {documentOrNull.lastRevisedByName
+                          ? ` · dernière par ${documentOrNull.lastRevisedByName}`
+                          : ""}
+                      </p>
+                    ) : null}
+                    <input
+                      ref={revisionInputRef}
+                      type="file"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = "";
+                        if (!file || !documentId) return;
+                        setRevising(true);
+                        try {
+                          const uploadUrl = await generateUploadUrl();
+                          const response = await fetch(uploadUrl, {
+                            method: "POST",
+                            headers: {
+                              "Content-Type":
+                                file.type || "application/octet-stream",
+                            },
+                            body: file,
+                          });
+                          if (!response.ok) {
+                            throw new Error("Échec de l'envoi du fichier.");
+                          }
+                          const { storageId } = (await response.json()) as {
+                            storageId: Id<"_storage">;
+                          };
+                          await attachRevision({
+                            documentId,
+                            storageId,
+                            fileName: file.name || "document-modifie.bin",
+                            contentType: file.type || undefined,
+                            size: file.size,
+                          });
+                          toast.success(
+                            "Version renvoyée — le suivi reste sur le même identifiant",
+                          );
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error
+                              ? err.message
+                              : "Impossible de renvoyer le fichier",
+                          );
+                        } finally {
+                          setRevising(false);
+                        }
+                      }}
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      disabled={revising || busy}
+                      onClick={() => revisionInputRef.current?.click()}
+                    >
+                      {revising ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : null}
+                      Joindre ma version modifiée
+                    </Button>
+                    <p className="text-[11px] text-muted-foreground">
+                      Ensuite, marquez <strong>Traité</strong> pour confirmer
+                      que vous avez fini et transmettre à l&apos;étape suivante.
+                    </p>
                   </div>
                 ) : null}
 

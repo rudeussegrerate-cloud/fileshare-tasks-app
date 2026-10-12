@@ -203,6 +203,122 @@ export const generateUploadUrl = mutation({
 });
 
 /**
+ * L'intermédiaire joint la version modifiée du fichier.
+ * Même dossier / même identifiant publicRef — pas un nouvel envoi.
+ */
+export const attachRevision = mutation({
+  args: {
+    documentId: v.id("documents"),
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    contentType: v.optional(v.string()),
+    size: v.optional(v.number()),
+    note: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const document = await ctx.db.get(args.documentId);
+    if (!document) throw new Error("Document introuvable.");
+    if (document.status === "traite") {
+      throw new Error("Ce document est déjà clôturé.");
+    }
+
+    const user = await ctx.db.get(userId);
+    let steps: Doc<"documentSteps">[] = [];
+    try {
+      steps = await ctx.db
+        .query("documentSteps")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+    } catch {
+      steps = [];
+    }
+    const myStep = steps.find((s) => s.assigneeId === userId);
+    const allowed =
+      document.recipientId === userId ||
+      Boolean(myStep) ||
+      isAdminRole(user?.role);
+    if (!allowed) {
+      throw new Error("Vous n'êtes pas autorisé à renvoyer ce dossier.");
+    }
+
+    validateFile({
+      fileName: args.fileName,
+      contentType: args.contentType,
+      size: args.size,
+    });
+
+    const now = Date.now();
+    // Historique de la version précédente
+    await ctx.db.insert("documentRevisions", {
+      documentId: args.documentId,
+      storageId: document.storageId,
+      fileName: document.fileName,
+      contentType: document.contentType,
+      size: document.size,
+      uploadedBy: userId,
+      uploadedByName: displayName(user ?? {}),
+      stepIndex: myStep?.stepIndex,
+      note: args.note?.trim().slice(0, 300) || "Version précédente archivée",
+      createdAt: now,
+    });
+
+    // Le fichier courant devient la version renvoyée (même id, même publicRef)
+    await ctx.db.patch(args.documentId, {
+      storageId: args.storageId,
+      fileName: args.fileName,
+      contentType: args.contentType,
+      size: args.size,
+      revisionCount: (document.revisionCount ?? 0) + 1,
+      lastRevisedAt: now,
+      lastRevisedByName: displayName(user ?? {}),
+      updatedAt: now,
+      status: document.status === "envoye" ? "en_cours" : document.status,
+    });
+
+    // Nouvelle révision enregistrée aussi
+    await ctx.db.insert("documentRevisions", {
+      documentId: args.documentId,
+      storageId: args.storageId,
+      fileName: args.fileName,
+      contentType: args.contentType,
+      size: args.size,
+      uploadedBy: userId,
+      uploadedByName: displayName(user ?? {}),
+      stepIndex: myStep?.stepIndex,
+      note: args.note?.trim().slice(0, 300) || "Fichier modifié renvoyé dans le circuit",
+      createdAt: now + 1,
+    });
+
+    try {
+      await writeAudit(ctx, {
+        action: "document.revision",
+        actorId: userId,
+        actorName: displayName(user ?? {}),
+        documentId: args.documentId,
+        details: `Nouvelle version : ${args.fileName} (réf. ${document.publicRef ?? "—"})`,
+      });
+    } catch {}
+
+    try {
+      await pushNotification(ctx, {
+        userId: document.senderId,
+        type: "document.status",
+        title: "Fichier mis à jour dans le circuit",
+        body: `${displayName(user ?? {})} a renvoyé une version de « ${document.objet} » (${document.publicRef ?? "dossier"})`,
+        documentId: args.documentId,
+      });
+    } catch {}
+
+    return {
+      publicRef: document.publicRef ?? null,
+      revisionCount: (document.revisionCount ?? 0) + 1,
+    };
+  },
+});
+
+
+/**
  * Records a sent document and asks the backend to build its automatic
  * summary. The receiver is chosen in two steps on the client (department,
  * then member), so only the resolved `recipientId` matters here.
@@ -716,6 +832,9 @@ export const get = query({
       isRecipient: document.recipientId === userId,
       isSender,
       publicRef: document.publicRef ?? null,
+      revisionCount: document.revisionCount ?? 0,
+      lastRevisedAt: document.lastRevisedAt ?? null,
+      lastRevisedByName: document.lastRevisedByName ?? null,
       hasCircuit,
       currentStepIndex: document.currentStepIndex ?? 0,
       circuitTotalSteps: document.circuitTotalSteps ?? steps.length,
