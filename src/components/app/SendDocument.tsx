@@ -63,6 +63,19 @@ export const PREDEFINED_TASKS = [
   "Pour large diffusion",
 ] as const;
 
+
+async function sha256Hex(file: File): Promise<string | undefined> {
+  try {
+    const buf = await file.arrayBuffer();
+    const hash = await crypto.subtle.digest("SHA-256", buf);
+    return Array.from(new Uint8Array(hash))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  } catch {
+    return undefined;
+  }
+}
+
 export function SendDocument({
   onSent,
   onManageDepartments,
@@ -247,6 +260,8 @@ export function SendDocument({
           ? (onBehalfUserId ?? me?.user._id ?? undefined)
           : undefined;
 
+      const contentHash = await sha256Hex(file);
+
       const documentId = await sendDocument({
         storageId,
         fileName: file.name || `document-${Date.now()}.bin`,
@@ -255,6 +270,7 @@ export function SendDocument({
         objet: objet.trim(),
         tasks: effectiveTasks,
         extractedText: extractedText || undefined,
+        contentHash,
         recipientId,
         circuitAssigneeIds:
           circuitExtra.length > 0

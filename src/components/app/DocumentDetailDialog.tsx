@@ -24,7 +24,6 @@ import {
   Sparkles,
   CheckCircle2,
   Trash2,
-  QrCode,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -209,95 +208,88 @@ export function DocumentDetailDialog({
               <StatusBadge status={documentOrNull.status} />
             </div>
 
-            {documentOrNull.publicRef ? (
-              <section className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-muted/30 p-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Identité du dossier (QR / photocopie)
+            {documentOrNull.contentHash || (documentOrNull.signatures && documentOrNull.signatures.length > 0) ? (
+              <section className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Signature numérique du fichier
+                </p>
+                {documentOrNull.contentHash ? (
+                  <p className="break-all font-mono text-[11px] text-foreground">
+                    Empreinte · {documentOrNull.contentHash}
                   </p>
-                  <p className="font-mono text-base font-bold tracking-wide text-foreground">
-                    {documentOrNull.publicRef}
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Empreinte non enregistrée (documents plus anciens).
                   </p>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Ce numéro et le QR restent valides même après impression.
+                )}
+                {Array.isArray(documentOrNull.signatures) &&
+                documentOrNull.signatures.length > 0 ? (
+                  <ul className="space-y-1 border-t border-border/60 pt-2 text-xs">
+                    {documentOrNull.signatures.map(
+                      (s: {
+                        stepIndex: number;
+                        signerName: string;
+                        decision: string;
+                        signatureHash: string;
+                        signedAt: number;
+                      }) => (
+                        <li key={s.stepIndex + s.signatureHash}>
+                          <span className="font-medium">{s.signerName}</span>
+                          {" · "}
+                          {s.decision === "done" ? "a signé / validé" : "a refusé"}
+                          <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground">
+                            {s.signatureHash}
+                          </span>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                ) : (
+                  <p className="text-[11px] text-muted-foreground">
+                    Aucune validation signée pour l&apos;instant.
                   </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      onClick={() => {
-                        const base = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}`;
-                        const t = documentOrNull.trackingToken
-                          ? `?t=${encodeURIComponent(documentOrNull.trackingToken)}`
-                          : "";
-                        const url = `${base}/suivi/${encodeURIComponent(documentOrNull.publicRef!)}${t}`;
-                        window.open(url, "_blank", "noopener,noreferrer");
-                      }}
-                    >
-                      <QrCode className="size-3.5" />
-                      Ouvrir le suivi
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        const ref = documentOrNull.publicRef!;
-                        const base = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}`;
-                        const t = documentOrNull.trackingToken
-                          ? `?t=${encodeURIComponent(documentOrNull.trackingToken)}`
-                          : "";
-                        const url = `${base}/suivi/${encodeURIComponent(ref)}${t}`;
-                        const qr = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
-                        const steps = Array.isArray(documentOrNull.steps)
-                          ? documentOrNull.steps
-                              .map(
-                                (s: { stepIndex: number; assigneeName: string; status: string }) =>
-                                  `${s.stepIndex + 1}. ${s.assigneeName} (${s.status})`,
-                              )
-                              .join("<br/>")
-                          : "";
-                        const w = window.open("", "_blank", "noopener,noreferrer,width=720,height=900");
-                        if (!w) return;
-                        w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/><title>Fiche ${ref}</title>
-<style>
-  body{font-family:Georgia,serif;max-width:640px;margin:24px auto;color:#2c1810;line-height:1.4}
-  h1{font-size:1.25rem;margin:0 0 4px}
-  .ref{font-family:ui-monospace,monospace;font-size:1.4rem;font-weight:700;letter-spacing:0.04em}
-  .box{border:1px solid #c4b5a0;border-radius:8px;padding:12px;margin:12px 0;background:#faf8f4}
-  .qr{text-align:center}
-  img{width:180px;height:180px}
-  @media print{body{margin:0}}
-</style></head><body>
-<h1>ScanDoc — Fiche de suivi</h1>
-<p class="ref">${ref}</p>
-<div class="box"><strong>Objet</strong><br/>${(documentOrNull.objet || "").replace(/</g,"&lt;")}</div>
-<div class="box"><strong>Émetteur</strong> · ${(documentOrNull.senderName || "").replace(/</g,"&lt;")}<br/>
-<strong>Statut</strong> · ${documentOrNull.status}</div>
-${steps ? `<div class="box"><strong>Circuit</strong><br/>${steps}</div>` : ""}
-<div class="box qr"><img src="${qr}" alt="QR"/><p>Scannez pour le suivi en temps réel</p></div>
-<script>window.onload=()=>window.print()</script>
-</body></html>`);
-                        w.document.close();
-                      }}
-                    >
-                      Imprimer fiche + QR
-                    </Button>
-                  </div>
-                </div>
-                <img
-                  alt="QR suivi"
-                  className="size-[88px] shrink-0 rounded-md border bg-white p-0.5"
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
-                    `${typeof window !== "undefined" ? window.location.origin : ""}${import.meta.env.BASE_URL.replace(/\/$/, "")}/suivi/${encodeURIComponent(documentOrNull.publicRef)}${documentOrNull.trackingToken ? `?t=${encodeURIComponent(documentOrNull.trackingToken)}` : ""}`,
-                  )}`}
-                />
+                )}
+              </section>
+            ) : null}
+
+            {!documentOrNull.isSender &&
+            documentOrNull.relativeTracking ? (
+              <section className="rounded-lg border border-brand/20 bg-brand-soft/40 p-3 text-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Votre suivi (relatif)
+                </p>
+                <p className="mt-1">
+                  <span className="text-muted-foreground">Recevoir de · </span>
+                  <span className="font-medium">
+                    {documentOrNull.relativeTracking.receiveFrom}
+                  </span>
+                </p>
+                {documentOrNull.relativeTracking.sendTo ? (
+                  <p>
+                    <span className="text-muted-foreground">Puis transmettre à · </span>
+                    <span className="font-medium">
+                      {documentOrNull.relativeTracking.sendTo}
+                    </span>
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Vous êtes la dernière étape : votre validation clôture le circuit.
+                  </p>
+                )}
+                <p className="mt-2 text-xs">
+                  {documentOrNull.relativeTracking.isMyTurn
+                    ? "C'est votre tour de traiter ce document."
+                    : documentOrNull.relativeTracking.waitingForPrevious
+                      ? "En attente de la personne précédente."
+                      : documentOrNull.relativeTracking.myStatus === "done"
+                        ? "Vous avez déjà validé votre étape."
+                        : "En attente dans le circuit."}
+                </p>
               </section>
             ) : null}
 
             <Separator />
+
 
             <section className="space-y-2 rounded-sm border border-border bg-card px-4 py-3 text-sm">
               <p>
@@ -430,7 +422,7 @@ ${steps ? `<div class="box"><strong>Circuit</strong><br/>${steps}</div>` : ""}
 
             {documentOrNull.isRecipient ? (
               <section className="space-y-3">
-                {documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) ? (
+                {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 0 ? (
                   <div className="rounded-lg border border-border bg-muted/20 p-3">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Circuit de traitement ({(documentOrNull.currentStepIndex ?? 0) + 1}/
@@ -598,7 +590,7 @@ ${steps ? `<div class="box"><strong>Circuit</strong><br/>${steps}</div>` : ""}
               </section>
             ) : (
               <section className="space-y-3">
-                {documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) ? (
+                {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 0 ? (
                   <div className="rounded-lg border border-border bg-muted/20 p-3">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Circuit ({(documentOrNull.currentStepIndex ?? 0) + 1}/

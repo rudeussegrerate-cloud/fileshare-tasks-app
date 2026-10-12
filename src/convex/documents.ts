@@ -197,6 +197,8 @@ export const send = mutation({
     onBehalfOfDepartment: v.optional(v.string()),
     /** Circuit séquentiel optionnel (après le 1er destinataire). */
     circuitAssigneeIds: v.optional(v.array(v.id("users"))),
+    /** SHA-256 du fichier (calculé côté client) — base de la signature numérique */
+    contentHash: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -302,6 +304,7 @@ export const send = mutation({
       status: "envoye",
       publicRef: generatePublicRef(),
       trackingToken: generateTrackingToken(),
+      contentHash: args.contentHash?.toLowerCase().slice(0, 64) || undefined,
       hasCircuit: circuitUsers.length > 1,
       currentStepIndex: 0,
       circuitTotalSteps: circuitUsers.length,
@@ -337,16 +340,33 @@ export const send = mutation({
       console.error("[send] audit log échoué:", e);
     }
 
+    // Notifications relatives pour chaque intervenant du circuit
     try {
-      await pushNotification(ctx, {
-        userId: recipient._id,
-        type: "document.received",
-        title: "Nouveau document reçu",
-        body: `${displayName(sender)} : ${objet}`,
-        documentId,
-      });
+      for (let i = 0; i < circuitUsers.length; i++) {
+        const u = circuitUsers[i]!;
+        const fromName =
+          i === 0
+            ? displayName(sender)
+            : displayName(circuitUsers[i - 1]!);
+        const toName =
+          i < circuitUsers.length - 1
+            ? displayName(circuitUsers[i + 1]!)
+            : null;
+        const isFirst = i === 0;
+        await pushNotification(ctx, {
+          userId: u._id,
+          type: isFirst ? "document.received" : "document.circuit_pending",
+          title: isFirst
+            ? "Document à recevoir et traiter"
+            : "Document à recevoir (circuit)",
+          body: toName
+            ? `De la part de ${fromName} — « ${objet} ». Après traitement, transmettre à ${toName}.`
+            : `De la part de ${fromName} — « ${objet} ». Vous êtes la dernière étape : validez pour clôturer.`,
+          documentId,
+        });
+      }
     } catch (e) {
-      console.error("[send] notification in-app échouée:", e);
+      console.error("[send] notification circuit échouée:", e);
     }
 
     try {
@@ -589,28 +609,93 @@ export const get = query({
     }
 
     const activeStep = steps.find((s) => s.status === "active") ?? null;
+    const isSender = document.senderId === userId;
+    const myStepIndex = steps.findIndex((s) => s.assigneeId === userId);
+    const myStep = myStepIndex >= 0 ? steps[myStepIndex]! : null;
+    const prevStep = myStepIndex > 0 ? steps[myStepIndex - 1]! : null;
+    const nextStep =
+      myStepIndex >= 0 && myStepIndex < steps.length - 1
+        ? steps[myStepIndex + 1]!
+        : null;
+
+    // Signatures numériques
+    let signatures: Array<{
+      stepIndex: number;
+      signerName: string;
+      decision: string;
+      signatureHash: string;
+      signedAt: number;
+    }> = [];
+    try {
+      const sigs = await ctx.db
+        .query("documentSignatures")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      signatures = sigs
+        .sort((a, b) => a.stepIndex - b.stepIndex)
+        .map((s) => ({
+          stepIndex: s.stepIndex,
+          signerName: s.signerName,
+          decision: s.decision,
+          signatureHash: s.signatureHash,
+          signedAt: s.signedAt,
+        }));
+    } catch {
+      signatures = [];
+    }
+
+    const hasCircuit = Boolean(document.hasCircuit) || steps.length > 1;
+
+    // Suivi global uniquement pour l'émetteur (créateur du circuit)
+    const stepsGlobal = isSender
+      ? steps.map((s) => ({
+          _id: s._id,
+          stepIndex: s.stepIndex,
+          assigneeId: s.assigneeId,
+          assigneeName: s.assigneeName,
+          taskLabel: s.taskLabel ?? null,
+          status: s.status,
+          note: s.note ?? null,
+          actedAt: s.actedAt ?? null,
+          isMine: s.assigneeId === userId,
+        }))
+      : [];
+
+    // Suivi relatif pour un intervenant du circuit
+    const relativeTracking =
+      !isSender && myStep
+        ? {
+            receiveFrom:
+              myStepIndex === 0
+                ? document.senderName
+                : prevStep?.assigneeName ?? document.senderName,
+            sendTo: nextStep?.assigneeName ?? null,
+            isLastStep: !nextStep,
+            myStatus: myStep.status,
+            myStepIndex: myStep.stepIndex,
+            waitingForPrevious:
+              myStep.status === "waiting" &&
+              prevStep != null &&
+              prevStep.status !== "done",
+            isMyTurn: myStep.status === "active",
+          }
+        : null;
 
     return {
       ...(await decorate(ctx, [document]))[0]!,
       downloadUrl: await ctx.storage.getUrl(document.storageId),
       isRecipient: document.recipientId === userId,
-      isSender: document.senderId === userId,
+      isSender,
       publicRef: document.publicRef ?? null,
-      trackingToken: document.trackingToken ?? null,
-      hasCircuit: Boolean(document.hasCircuit) || steps.length > 1,
+      contentHash: document.contentHash ?? null,
+      hasCircuit,
       currentStepIndex: document.currentStepIndex ?? 0,
       circuitTotalSteps: document.circuitTotalSteps ?? steps.length,
-      steps: steps.map((s) => ({
-        _id: s._id,
-        stepIndex: s.stepIndex,
-        assigneeId: s.assigneeId,
-        assigneeName: s.assigneeName,
-        taskLabel: s.taskLabel ?? null,
-        status: s.status,
-        note: s.note ?? null,
-        actedAt: s.actedAt ?? null,
-        isMine: s.assigneeId === userId,
-      })),
+      // Global seulement pour l'émetteur
+      steps: stepsGlobal,
+      // Intervenant : vue relative uniquement
+      relativeTracking,
+      signatures,
       activeStep: activeStep
         ? {
             stepIndex: activeStep.stepIndex,
@@ -624,6 +709,9 @@ export const get = query({
         activeStep != null &&
         activeStep.assigneeId === userId &&
         document.status !== "traite",
+      isFullyTreated:
+        document.status === "traite" &&
+        (steps.length === 0 || steps.every((s) => s.status === "done")),
     };
   },
 });
@@ -1001,8 +1089,65 @@ export const completeStep = mutation({
       actedAt: now,
     });
 
+    // Signature numérique chaînée
+    try {
+      const prevSigs = await ctx.db
+        .query("documentSignatures")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      prevSigs.sort((a, b) => a.stepIndex - b.stepIndex);
+      const previousSignatureHash =
+        prevSigs.length > 0
+          ? prevSigs[prevSigs.length - 1]!.signatureHash
+          : document.contentHash ?? "genesis";
+      const payload = [
+        document.contentHash ?? "nohash",
+        String(active.stepIndex),
+        String(userId),
+        args.decision,
+        String(now),
+        previousSignatureHash,
+      ].join("|");
+      // Hash simple déterministe (non crypto fort, mais chaîné et vérifiable)
+      let h = 0;
+      for (let i = 0; i < payload.length; i++) {
+        h = (Math.imul(31, h) + payload.charCodeAt(i)) | 0;
+      }
+      const signatureHash =
+        (document.contentHash ?? "sig").slice(0, 16) +
+        ":" +
+        (h >>> 0).toString(16) +
+        ":" +
+        now.toString(36);
+      await ctx.db.insert("documentSignatures", {
+        documentId: args.documentId,
+        stepIndex: active.stepIndex,
+        signerId: userId,
+        signerName: displayName(user ?? {}),
+        decision: args.decision,
+        signatureHash,
+        previousSignatureHash,
+        contentHash: document.contentHash,
+        note,
+        signedAt: now,
+      });
+    } catch (e) {
+      console.error("[completeStep] signature", e);
+    }
+
     const next = steps.find((s) => s.stepIndex === active.stepIndex + 1);
     if (!next) {
+      // Complet uniquement si toutes les étapes sont done
+      const refreshed = await ctx.db
+        .query("documentSteps")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      const allDone = refreshed.every((s) => s.status === "done");
+      if (!allDone) {
+        throw new Error(
+          "Le document n'est pas entièrement traité : des étapes restent ouvertes.",
+        );
+      }
       await ctx.db.patch(args.documentId, {
         status: "traite",
         currentStepIndex: active.stepIndex,
@@ -1053,11 +1198,14 @@ export const completeStep = mutation({
       });
     } catch {}
     try {
+      const afterNext = steps.find((s) => s.stepIndex === next.stepIndex + 1);
       await pushNotification(ctx, {
         userId: next.assigneeId,
         type: "document.received",
-        title: "Document à traiter (circuit)",
-        body: `« ${document.objet} » — étape ${next.stepIndex + 1}/${steps.length}`,
+        title: "Vous devez recevoir ce document",
+        body: afterNext
+          ? `De la part de ${displayName(user ?? {})} — « ${document.objet} ». Après traitement, transmettre à ${afterNext.assigneeName}.`
+          : `De la part de ${displayName(user ?? {})} — « ${document.objet} ». Dernière étape : validez pour clôturer le circuit.`,
         documentId: args.documentId,
       });
     } catch {}
