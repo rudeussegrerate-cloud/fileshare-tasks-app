@@ -169,16 +169,28 @@ export default function Dashboard() {
 
       {view === "accounts" ? <AccountsView /> : null}
 
-      {view === "actualites" ? <ActualitesView key="actualites" /> : null}
+      {view === "actualites" ? (
+        <ViewErrorBoundary label="les actualités">
+          <ActualitesView key="actualites" />
+        </ViewErrorBoundary>
+      ) : null}
       {view === "announcements" ? (
-        <AnnouncementsView key="announcements" />
+        <ViewErrorBoundary label="les annonces">
+          <AnnouncementsView key="announcements" />
+        </ViewErrorBoundary>
       ) : null}
 
       {view === "messages" ? (
-        <MessagesView initialUserId={chatUserId} />
+        <ViewErrorBoundary label="la messagerie">
+          <MessagesView initialUserId={chatUserId} />
+        </ViewErrorBoundary>
       ) : null}
 
-      {view === "settings" ? <SettingsView onNavigate={setView} /> : null}
+      {view === "settings" ? (
+        <ViewErrorBoundary label="les paramètres">
+          <SettingsView onNavigate={setView} />
+        </ViewErrorBoundary>
+      ) : null}
 
       <FloatingAssistant />
       <SmartTips />

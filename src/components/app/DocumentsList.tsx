@@ -97,6 +97,7 @@ export function DocumentsList({
         return [
           String(anyD.fileName ?? ""),
           String(anyD.objet ?? ""),
+          String(anyD.publicRef ?? ""),
           String(anyD.status ?? ""),
           String(anyD.senderName ?? ""),
           String(anyD.recipientName ?? ""),
@@ -297,6 +298,11 @@ export function DocumentsList({
                         {formatDateTime(document.createdAt)} ·{" "}
                         {formatBytes(document.size)}
                       </p>
+                      {document.publicRef ? (
+                        <p className="text-[11px] font-mono text-muted-foreground">
+                          {document.publicRef}
+                        </p>
+                      ) : null}
                       {document.objet ? (
                         <p className="mt-2 line-clamp-1 text-xs leading-relaxed text-foreground/80">
                           <span className="font-medium text-brand-sky">

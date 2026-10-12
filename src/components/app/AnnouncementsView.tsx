@@ -22,7 +22,7 @@ import {
   Trash2,
   UserRound,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { formatDateTime, initialsOf } from "./shared";
 
@@ -52,6 +52,14 @@ export function AnnouncementsView() {
   const [selectedViewers, setSelectedViewers] = useState<string[]>([]);
   const [viewerSearch, setViewerSearch] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!origin && me?.department?.name) {
+      setOrigin(me.department.name);
+    } else if (!origin && me?.user?.name) {
+      setOrigin(me.user.name);
+    }
+  }, [me, origin]);
   const [showForm, setShowForm] = useState(true);
   const [mediaFile, setMediaFile] = useState<File | null>(null);
   const genMediaUrl = useMutation(api.announcements.generateMediaUploadUrl);

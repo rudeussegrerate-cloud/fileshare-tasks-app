@@ -11,7 +11,7 @@ import {
   Lock,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { toast } from "sonner";
 
 const REACTIONS = ["👍", "❤️", "👏", "🎉", "😮"] as const;
@@ -45,7 +45,38 @@ function relativeTime(ts: number) {
   }
 }
 
-export function ActualitesView() {
+class ActualitesSafe extends React.Component<
+  { children: React.ReactNode },
+  { error: string | null }
+> {
+  state = { error: null as string | null };
+  static getDerivedStateFromError(err: Error) {
+    return { error: err.message || "Erreur" };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="mx-auto max-w-[680px] rounded-xl border bg-card p-6 text-center">
+          <p className="font-medium">Actualités indisponibles</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Réessayez dans un instant.
+          </p>
+          <button
+            type="button"
+            className="mt-3 rounded-md bg-brand px-4 py-2 text-sm text-primary-foreground"
+            onClick={() => this.setState({ error: null })}
+          >
+            Réessayer
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function ActualitesViewInner() {
+
   const listRaw = useQuery(api.announcements.list, { limit: 50 });
   const list = Array.isArray(listRaw) ? listRaw : undefined;
 
@@ -366,5 +397,14 @@ export function ActualitesView() {
         </ul>
       )}
     </div>
+  );
+}
+
+
+export function ActualitesView() {
+  return (
+    <ActualitesSafe>
+      <ActualitesViewInner />
+    </ActualitesSafe>
   );
 }

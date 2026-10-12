@@ -144,6 +144,40 @@ function validateFile(args: {
   }
 }
 
+
+/** Documents visibles en « reçus » : destinataire actuel OU intervenant du circuit. */
+async function collectInboxDocuments(
+  ctx: DbCtx,
+  userId: Id<"users">,
+  includeArchived: boolean,
+) {
+  const byRecipient = await ctx.db
+    .query("documents")
+    .withIndex("by_recipient", (q) => q.eq("recipientId", userId))
+    .collect();
+  const map = new Map<string, Doc<"documents">>();
+  for (const d of byRecipient) {
+    map.set(String(d._id), d);
+  }
+  try {
+    const steps = await ctx.db
+      .query("documentSteps")
+      .withIndex("by_assignee", (q) => q.eq("assigneeId", userId))
+      .collect();
+    for (const s of steps) {
+      const key = String(s.documentId);
+      if (map.has(key)) continue;
+      const d = await ctx.db.get(s.documentId);
+      if (d) map.set(key, d);
+    }
+  } catch {
+    /* table absente ou index : ignorer */
+  }
+  return [...map.values()].filter((d) =>
+    includeArchived ? true : !d.archivedAt,
+  );
+}
+
 async function decorate(ctx: DbCtx, documents: Doc<"documents">[]) {
   return await Promise.all(
     documents.map(async (document) => ({
@@ -487,13 +521,12 @@ export const inbox = query({
     const limit = Math.min(Math.max(args.limit ?? 30, 1), 100);
     const includeArchived = args.includeArchived ?? false;
 
-    let documents = await ctx.db
-      .query("documents")
-      .withIndex("by_recipient", (q) => q.eq("recipientId", userId))
-      .collect();
-
+    let documents = await collectInboxDocuments(
+      ctx,
+      userId,
+      includeArchived,
+    );
     documents = documents
-      .filter((d) => (includeArchived ? true : !d.archivedAt))
       .filter((d) => (args.status ? d.status === args.status : true))
       .filter((d) => matchesSearch(d, (args.search ?? "").trim()))
       .sort(sortByDateDesc);
@@ -547,14 +580,8 @@ export const inboxAll = query({
   args: {},
   handler: async (ctx) => {
     const userId = await requireUserId(ctx);
-    const documents = await ctx.db
-      .query("documents")
-      .withIndex("by_recipient", (q) => q.eq("recipientId", userId))
-      .collect();
-    return await decorate(
-      ctx,
-      documents.filter((d) => !d.archivedAt).sort(sortByDateDesc),
-    );
+    const documents = await collectInboxDocuments(ctx, userId, false);
+    return await decorate(ctx, documents.sort(sortByDateDesc));
   },
 });
 
