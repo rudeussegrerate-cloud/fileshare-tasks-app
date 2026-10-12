@@ -14,7 +14,7 @@ import {
   Lock,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { toast } from "sonner";
 
 const REACTIONS = ["👍", "❤️", "👏", "🎉", "😮"] as const;
@@ -27,7 +27,9 @@ function initials(name: string) {
 }
 
 function relativeTime(ts: number) {
+  if (!ts || !Number.isFinite(ts)) return "";
   const d = Date.now() - ts;
+  if (d < 0) return "À l'instant";
   const m = Math.floor(d / 60000);
   if (m < 1) return "À l'instant";
   if (m < 60) return `${m} min`;
@@ -35,7 +37,11 @@ function relativeTime(ts: number) {
   if (h < 24) return `${h} h`;
   const days = Math.floor(h / 24);
   if (days < 7) return `${days} j`;
-  return formatDateTime(ts);
+  try {
+    return formatDateTime(ts);
+  } catch {
+    return "";
+  }
 }
 
 
@@ -69,7 +75,38 @@ type FeedItem = {
   canDelete?: boolean;
 };
 
-export function ActualitesView() {
+
+class ActualitesSafe extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="mx-auto max-w-[680px] space-y-3 rounded-xl border bg-card p-6 text-center">
+          <p className="font-medium text-foreground">Actualités temporairement indisponibles</p>
+          <p className="text-sm text-muted-foreground">
+            Réessayez dans un instant. Si le problème continue, changez d&apos;onglet puis revenez ici.
+          </p>
+          <button
+            type="button"
+            className="rounded-md bg-brand px-4 py-2 text-sm text-primary-foreground"
+            onClick={() => this.setState({ error: null })}
+          >
+            Réessayer
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function ActualitesViewInner() {
   const listRaw = useQuery(api.announcements.list, { limit: 50 });
   const list = (Array.isArray(listRaw) ? listRaw : undefined) as
     | FeedItem[]
@@ -464,5 +501,14 @@ export function ActualitesView() {
         </ul>
       )}
     </div>
+  );
+}
+
+
+export function ActualitesView() {
+  return (
+    <ActualitesSafe>
+      <ActualitesViewInner />
+    </ActualitesSafe>
   );
 }

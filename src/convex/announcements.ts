@@ -31,7 +31,7 @@ function canPost(user: Doc<"users">) {
   return false;
 }
 
-/** Fil Actualités — collect simple, jamais d'erreur client. */
+/** Fil Actualités — stable, avec likes/commentaires en mémoire. */
 export const list = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
@@ -42,14 +42,66 @@ export const list = query({
       if (!me) return [];
 
       const limit = Math.min(Math.max(args.limit ?? 40, 1), 80);
-      const all = await ctx.db.query("announcements").collect();
+
+      let all: Doc<"announcements">[] = [];
+      try {
+        all = await ctx.db.query("announcements").collect();
+      } catch (e) {
+        console.error("[announcements.list] collect", e);
+        return [];
+      }
+
       all.sort((a, b) => {
         const ta = Number(a.createdAt ?? a._creationTime ?? 0);
         const tb = Number(b.createdAt ?? b._creationTime ?? 0);
         return tb - ta;
       });
 
-      const out = [];
+      // Précharger engagements (sans index = pas d'erreur de schéma)
+      let allReactions: Doc<"announcementReactions">[] = [];
+      let allComments: Doc<"announcementComments">[] = [];
+      try {
+        allReactions = await ctx.db.query("announcementReactions").collect();
+      } catch {
+        allReactions = [];
+      }
+      try {
+        allComments = await ctx.db.query("announcementComments").collect();
+      } catch {
+        allComments = [];
+      }
+
+      const out: Array<{
+        _id: string;
+        title: string;
+        body: string;
+        origin: string;
+        authorId: string;
+        authorName: string;
+        authorFonction: string | null;
+        authorDepartmentName: string | null;
+        authorRoleLabel: string | null;
+        priority: string;
+        pinned: boolean;
+        visibility: string;
+        visibilityLabel: string;
+        mediaType: string | null;
+        mediaUrl: string | null;
+        createdAt: number;
+        reactionCounts: Record<string, number>;
+        reactionTotal: number;
+        myReaction: string | null;
+        comments: Array<{
+          _id: string;
+          authorName: string;
+          body: string;
+          createdAt: number;
+          isMine: boolean;
+        }>;
+        commentCount: number;
+        canDelete: boolean;
+      }> = [];
+
       for (const a of all) {
         if (out.length >= limit) break;
         try {
@@ -81,12 +133,32 @@ export const list = query({
             }
           }
 
+          const aid = String(a._id);
+          const rs = allReactions.filter(
+            (r) => String(r.announcementId) === aid,
+          );
+          const counts: Record<string, number> = {};
+          let total = 0;
+          let mine: string | null = null;
+          for (const r of rs) {
+            counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+            total += 1;
+            if (String(r.userId) === String(userId)) mine = r.emoji;
+          }
+
+          const cs = allComments
+            .filter((c) => String(c.announcementId) === aid)
+            .sort(
+              (x, y) => Number(x.createdAt ?? 0) - Number(y.createdAt ?? 0),
+            )
+            .slice(-50);
+
           out.push({
-            _id: a._id,
+            _id: aid,
             title: String(a.title ?? ""),
             body: String(a.body ?? ""),
             origin: String(a.origin ?? ""),
-            authorId: a.authorId,
+            authorId: String(a.authorId),
             authorName: String(a.authorName ?? "Utilisateur"),
             authorFonction: a.authorFonction ?? null,
             authorDepartmentName: a.authorDepartmentName ?? null,
@@ -103,67 +175,21 @@ export const list = query({
             mediaType: a.mediaType ?? null,
             mediaUrl,
             createdAt: Number(a.createdAt ?? a._creationTime ?? 0),
-            reactionCounts: {} as Record<string, number>,
-            reactionTotal: 0,
-            myReaction: null as string | null,
-            comments: [] as Array<{
-              _id: string;
-              authorName: string;
-              body: string;
-              createdAt: number;
-              isMine: boolean;
-            }>,
-            commentCount: 0,
+            reactionCounts: counts,
+            reactionTotal: total,
+            myReaction: mine,
+            comments: cs.map((c) => ({
+              _id: String(c._id),
+              authorName: String(c.authorName ?? "Utilisateur"),
+              body: String(c.body ?? ""),
+              createdAt: Number(c.createdAt ?? 0),
+              isMine: String(c.authorId) === String(userId),
+            })),
+            commentCount: cs.length,
             canDelete: isAuthor || admin,
           });
         } catch {
           /* ignore row */
-        }
-      }
-
-      // Charger likes + commentaires (après les posts, isolé)
-      for (const item of out) {
-        try {
-          const rs = await ctx.db
-            .query("announcementReactions")
-            .withIndex("by_announcement", (q) =>
-              q.eq("announcementId", item._id),
-            )
-            .collect();
-          const counts: Record<string, number> = {};
-          let total = 0;
-          let mine: string | null = null;
-          for (const r of rs) {
-            counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
-            total += 1;
-            if (String(r.userId) === String(userId)) mine = r.emoji;
-          }
-          item.reactionCounts = counts;
-          item.reactionTotal = total;
-          item.myReaction = mine;
-        } catch (e) {
-          console.error("[announcements.list] reactions", e);
-        }
-        try {
-          const cs = await ctx.db
-            .query("announcementComments")
-            .withIndex("by_announcement", (q) =>
-              q.eq("announcementId", item._id),
-            )
-            .collect();
-          cs.sort(
-            (x, y) => Number(x.createdAt ?? 0) - Number(y.createdAt ?? 0),
-          );
-          item.comments = cs.slice(-50).map((c) => ({
-            _id: String(c._id),
-            authorName: String(c.authorName ?? "Utilisateur"),
-            body: String(c.body ?? ""),
-            createdAt: Number(c.createdAt ?? 0),
-            isMine: String(c.authorId) === String(userId),
-          }));
-          item.commentCount = item.comments.length;
-        } catch (e) {
-          console.error("[announcements.list] comments", e);
         }
       }
 
