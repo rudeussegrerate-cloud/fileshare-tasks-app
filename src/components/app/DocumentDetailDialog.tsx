@@ -24,6 +24,7 @@ import {
   Sparkles,
   CheckCircle2,
   Trash2,
+  QrCode,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -207,6 +208,94 @@ export function DocumentDetailDialog({
               </p>
               <StatusBadge status={documentOrNull.status} />
             </div>
+
+            {documentOrNull.publicRef ? (
+              <section className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-muted/30 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Identité du dossier (QR / photocopie)
+                  </p>
+                  <p className="font-mono text-base font-bold tracking-wide text-foreground">
+                    {documentOrNull.publicRef}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Ce numéro et le QR restent valides même après impression.
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5"
+                      onClick={() => {
+                        const base = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}`;
+                        const t = documentOrNull.trackingToken
+                          ? `?t=${encodeURIComponent(documentOrNull.trackingToken)}`
+                          : "";
+                        const url = `${base}/suivi/${encodeURIComponent(documentOrNull.publicRef!)}${t}`;
+                        window.open(url, "_blank", "noopener,noreferrer");
+                      }}
+                    >
+                      <QrCode className="size-3.5" />
+                      Ouvrir le suivi
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        const ref = documentOrNull.publicRef!;
+                        const base = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}`;
+                        const t = documentOrNull.trackingToken
+                          ? `?t=${encodeURIComponent(documentOrNull.trackingToken)}`
+                          : "";
+                        const url = `${base}/suivi/${encodeURIComponent(ref)}${t}`;
+                        const qr = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
+                        const steps = Array.isArray(documentOrNull.steps)
+                          ? documentOrNull.steps
+                              .map(
+                                (s: { stepIndex: number; assigneeName: string; status: string }) =>
+                                  `${s.stepIndex + 1}. ${s.assigneeName} (${s.status})`,
+                              )
+                              .join("<br/>")
+                          : "";
+                        const w = window.open("", "_blank", "noopener,noreferrer,width=720,height=900");
+                        if (!w) return;
+                        w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/><title>Fiche ${ref}</title>
+<style>
+  body{font-family:Georgia,serif;max-width:640px;margin:24px auto;color:#2c1810;line-height:1.4}
+  h1{font-size:1.25rem;margin:0 0 4px}
+  .ref{font-family:ui-monospace,monospace;font-size:1.4rem;font-weight:700;letter-spacing:0.04em}
+  .box{border:1px solid #c4b5a0;border-radius:8px;padding:12px;margin:12px 0;background:#faf8f4}
+  .qr{text-align:center}
+  img{width:180px;height:180px}
+  @media print{body{margin:0}}
+</style></head><body>
+<h1>ScanDoc — Fiche de suivi</h1>
+<p class="ref">${ref}</p>
+<div class="box"><strong>Objet</strong><br/>${(documentOrNull.objet || "").replace(/</g,"&lt;")}</div>
+<div class="box"><strong>Émetteur</strong> · ${(documentOrNull.senderName || "").replace(/</g,"&lt;")}<br/>
+<strong>Statut</strong> · ${documentOrNull.status}</div>
+${steps ? `<div class="box"><strong>Circuit</strong><br/>${steps}</div>` : ""}
+<div class="box qr"><img src="${qr}" alt="QR"/><p>Scannez pour le suivi en temps réel</p></div>
+<script>window.onload=()=>window.print()</script>
+</body></html>`);
+                        w.document.close();
+                      }}
+                    >
+                      Imprimer fiche + QR
+                    </Button>
+                  </div>
+                </div>
+                <img
+                  alt="QR suivi"
+                  className="size-[88px] shrink-0 rounded-md border bg-white p-0.5"
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                    `${typeof window !== "undefined" ? window.location.origin : ""}${import.meta.env.BASE_URL.replace(/\/$/, "")}/suivi/${encodeURIComponent(documentOrNull.publicRef)}${documentOrNull.trackingToken ? `?t=${encodeURIComponent(documentOrNull.trackingToken)}` : ""}`,
+                  )}`}
+                />
+              </section>
+            ) : null}
 
             <Separator />
 

@@ -77,6 +77,20 @@ function displayName(user: { name?: string | null; email?: string | null }) {
   return user.name?.trim() || user.email || "Utilisateur";
 }
 
+function generatePublicRef() {
+  const y = new Date().getFullYear();
+  const part = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `SD-${y}-${part}`;
+}
+
+function generateTrackingToken() {
+  return (
+    Math.random().toString(36).slice(2) +
+    Math.random().toString(36).slice(2) +
+    Date.now().toString(36)
+  );
+}
+
 function sortByDateDesc(a: { createdAt: number }, b: { createdAt: number }) {
   return b.createdAt - a.createdAt;
 }
@@ -286,6 +300,8 @@ export const send = mutation({
       recipientName: displayName(recipient),
       recipientDepartmentId: recipient.departmentId,
       status: "envoye",
+      publicRef: generatePublicRef(),
+      trackingToken: generateTrackingToken(),
       hasCircuit: circuitUsers.length > 1,
       currentStepIndex: 0,
       circuitTotalSteps: circuitUsers.length,
@@ -579,6 +595,8 @@ export const get = query({
       downloadUrl: await ctx.storage.getUrl(document.storageId),
       isRecipient: document.recipientId === userId,
       isSender: document.senderId === userId,
+      publicRef: document.publicRef ?? null,
+      trackingToken: document.trackingToken ?? null,
       hasCircuit: Boolean(document.hasCircuit) || steps.length > 1,
       currentStepIndex: document.currentStepIndex ?? 0,
       circuitTotalSteps: document.circuitTotalSteps ?? steps.length,
@@ -989,6 +1007,8 @@ export const completeStep = mutation({
         status: "traite",
         currentStepIndex: active.stepIndex,
         updatedAt: now,
+        archivedAt: now,
+        archivedBy: userId,
       });
       try {
         await writeAudit(ctx, {
@@ -1052,6 +1072,82 @@ export const completeStep = mutation({
     } catch {}
 
     return { done: false, advanced: true, nextAssignee: next.assigneeName };
+  },
+});
+
+
+/**
+ * Suivi public par n° de référence (QR code / photocopie).
+ * Infos limitées : statut, circuit, pas de fichier.
+ */
+export const trackByRef = query({
+  args: {
+    publicRef: v.string(),
+    token: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const ref = args.publicRef.trim().toUpperCase();
+    if (!ref) return null;
+    const docs = await ctx.db
+      .query("documents")
+      .withIndex("by_publicRef", (q) => q.eq("publicRef", ref))
+      .collect();
+    let document: Doc<"documents"> | null = docs[0] ?? null;
+    if (!document) {
+      const all = await ctx.db.query("documents").take(500);
+      document =
+        all.find((d) => (d.publicRef ?? "").toUpperCase() === ref) ?? null;
+    }
+    if (!document) return null;
+
+    // Token optionnel : si fourni et incorrect, on refuse le détail étendu
+    const tokenOk =
+      !document.trackingToken ||
+      !args.token ||
+      args.token === document.trackingToken;
+
+    const steps = await ctx.db
+      .query("documentSteps")
+      .withIndex("by_document", (q) => q.eq("documentId", document!._id))
+      .collect();
+    steps.sort((a, b) => a.stepIndex - b.stepIndex);
+
+    const statusLabel: Record<string, string> = {
+      envoye: "En attente de traitement",
+      consulte: "Consulté / reçu",
+      en_cours: "En cours de traitement",
+      traite: "Traité",
+    };
+
+    return {
+      publicRef: document.publicRef ?? ref,
+      objet: tokenOk ? document.objet : "—",
+      status: document.status,
+      statusLabel: statusLabel[document.status] ?? document.status,
+      archived: Boolean(document.archivedAt),
+      hasCircuit: Boolean(document.hasCircuit) || steps.length > 1,
+      currentStepIndex: document.currentStepIndex ?? 0,
+      circuitTotalSteps: document.circuitTotalSteps ?? Math.max(steps.length, 1),
+      senderName: document.senderName,
+      currentHolder: document.recipientName,
+      steps: steps.map((s) => ({
+        stepIndex: s.stepIndex,
+        assigneeName: s.assigneeName,
+        status: s.status,
+        statusLabel:
+          s.status === "waiting"
+            ? "En attente"
+            : s.status === "active"
+              ? "À traiter"
+              : s.status === "done"
+                ? "Validé"
+                : "Refusé",
+        actedAt: s.actedAt ?? null,
+      })),
+      createdAt: document.createdAt,
+      updatedAt: document.updatedAt,
+      isComplete: document.status === "traite",
+    };
   },
 });
 

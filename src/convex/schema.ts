@@ -138,6 +138,9 @@ const schema = defineSchema(
       recipientName: v.string(),
       recipientDepartmentId: v.optional(v.id("departments")),
       status: documentStatusValidator,
+      // Identité unique (survît à l'impression / photocopie via QR + n°)
+      publicRef: v.optional(v.string()),
+      trackingToken: v.optional(v.string()),
       // Circuit multi-personnes (séquentiel)
       hasCircuit: v.optional(v.boolean()),
       currentStepIndex: v.optional(v.number()),
@@ -153,7 +156,8 @@ const schema = defineSchema(
       .index("by_sender", ["senderId"])
       .index("by_recipient_status", ["recipientId", "status"])
       .index("by_recipient_archived", ["recipientId", "archivedAt"])
-      .index("by_sender_archived", ["senderId", "archivedAt"]),
+      .index("by_sender_archived", ["senderId", "archivedAt"])
+      .index("by_publicRef", ["publicRef"]),
 
     // Étapes du circuit de traitement (ordre strict)
     documentSteps: defineTable({
