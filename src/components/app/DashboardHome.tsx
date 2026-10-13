@@ -1,8 +1,9 @@
 import React from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   ArrowLeft,
   Building2,
@@ -15,6 +16,8 @@ import {
   UserCheck,
   Users,
   BarChart3,
+  Bell,
+  X,
   Crown,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -503,6 +506,23 @@ function AlertsBlock({
   );
 }
 
+type DrillKind =
+  | "members"
+  | "sent"
+  | "received"
+  | "open"
+  | "traite"
+  | "overdue";
+
+const DRILL_LABELS: Record<DrillKind, string> = {
+  members: "Membres",
+  sent: "Envoyés",
+  received: "Reçus",
+  open: "À traiter",
+  traite: "Traités",
+  overdue: "En retard",
+};
+
 function EnterprisePanel({
   overview,
   onOpen,
@@ -547,29 +567,131 @@ function EnterprisePanel({
   onNavigate: (view: AppView) => void;
   onSelectDept: (id: Id<"departments">) => void;
 }) {
+  const [drill, setDrill] = useState<DrillKind | null>(null);
+  const detailData = useQuery(
+    api.documents.dgDetailList,
+    drill ? { kind: drill } : "skip",
+  );
+  const signalChief = useMutation(api.documents.signalChief);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Metric
           label="Documents actifs"
           value={overview.totals.documents}
+          onClick={() => setDrill("open")}
         />
         <Metric
           label="En cours / à traiter"
           value={overview.totals.open}
           className="border-amber-200/80 bg-amber-50/80 text-amber-900"
+          onClick={() => setDrill("open")}
         />
         <Metric
           label="En retard (>48 h)"
           value={overview.totals.overdue}
           className="border-red-200/80 bg-red-50/80 text-red-900"
+          onClick={() => setDrill("overdue")}
         />
         <Metric
           label="Traités"
           value={overview.totals.traite}
           className="border-emerald-200/80 bg-emerald-50/80 text-emerald-900"
+          onClick={() => setDrill("traite")}
         />
       </div>
+
+      {drill ? (
+        <div className="rounded-xl border border-brand/20 bg-brand-soft/20 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">
+              Détail · {DRILL_LABELS[drill]}
+            </h4>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1"
+              onClick={() => setDrill(null)}
+            >
+              <X className="size-3.5" />
+              Fermer
+            </Button>
+          </div>
+          {detailData === undefined ? (
+            <p className="text-xs text-muted-foreground">Chargement…</p>
+          ) : !detailData.items.length ? (
+            <p className="text-xs text-muted-foreground">Aucun élément.</p>
+          ) : (
+            <ul className="max-h-72 space-y-2 overflow-y-auto">
+              {detailData.items.map((item: any) => (
+                <li
+                  key={item._id}
+                  className="rounded-lg border border-border bg-card px-3 py-2"
+                >
+                  <button
+                    type="button"
+                    className="w-full text-left"
+                    onClick={() => onOpen(item._id as Id<"documents">)}
+                  >
+                    <p className="text-sm font-medium">
+                      {item.objet || item.fileName || item.name}
+                    </p>
+                    {item.publicRef ? (
+                      <p className="font-mono text-[10px] text-muted-foreground">
+                        {item.publicRef}
+                      </p>
+                    ) : null}
+                    <p className="text-[11px] text-muted-foreground">
+                      {item.senderName
+                        ? `${item.senderName} → ${item.recipientName}`
+                        : item.fonction || item.email || ""}
+                      {item.activeAssigneeName
+                        ? ` · chez ${item.activeAssigneeName}`
+                        : ""}
+                    </p>
+                  </button>
+                  {(drill === "overdue" || drill === "open") &&
+                  item.type === "document" &&
+                  item.status !== "traite" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="mt-2 h-7 gap-1 text-xs"
+                      disabled={busyId === item._id}
+                      onClick={async () => {
+                        setBusyId(item._id);
+                        try {
+                          const res = await signalChief({
+                            documentId: item._id as Id<"documents">,
+                          });
+                          toast.success(
+                            `Signalé au chef ${res.chiefName ?? ""}`,
+                          );
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error
+                              ? e.message
+                              : "Signalement impossible",
+                          );
+                        } finally {
+                          setBusyId(null);
+                        }
+                      }}
+                    >
+                      <Bell className="size-3" />
+                      Signaler au chef
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
         <div className="rounded-md bg-muted/40 px-2 py-1.5">
@@ -751,6 +873,7 @@ function DepartmentPanel({
 }: {
   detail: {
     department: {
+      _id?: string;
       name: string;
       description: string | null;
     };
@@ -792,6 +915,19 @@ function DepartmentPanel({
   onOpen: (id: Id<"documents">) => void;
   showBack?: boolean;
 }) {
+  const [drill, setDrill] = useState<DrillKind | null>(null);
+  const deptId = detail.department._id as Id<"departments"> | undefined;
+  const detailData = useQuery(
+    api.documents.dgDetailList,
+    drill && deptId
+      ? { kind: drill, departmentId: deptId }
+      : drill
+        ? { kind: drill }
+        : "skip",
+  );
+  const signalChief = useMutation(api.documents.signalChief);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
   return (
     <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div>
@@ -816,18 +952,32 @@ function DepartmentPanel({
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <Metric label="Membres" value={detail.totals.members} />
-        <Metric label="Envoyés" value={detail.totals.sent} />
-        <Metric label="Reçus" value={detail.totals.received} />
+        <Metric
+          label="Membres"
+          value={detail.totals.members}
+          onClick={() => setDrill("members")}
+        />
+        <Metric
+          label="Envoyés"
+          value={detail.totals.sent}
+          onClick={() => setDrill("sent")}
+        />
+        <Metric
+          label="Reçus"
+          value={detail.totals.received}
+          onClick={() => setDrill("received")}
+        />
         <Metric
           label="À traiter"
           value={detail.totals.open}
           className="text-amber-800"
+          onClick={() => setDrill("open")}
         />
         <Metric
           label="Traités"
           value={detail.totals.traite}
           className="text-emerald-800"
+          onClick={() => setDrill("traite")}
         />
         <Metric
           label="Retard"
@@ -835,6 +985,7 @@ function DepartmentPanel({
           className={
             detail.totals.overdue > 0 ? "font-semibold text-red-700" : ""
           }
+          onClick={() => setDrill("overdue")}
         />
       </div>
 
@@ -844,6 +995,104 @@ function DepartmentPanel({
           {detail.totals.circuitActive > 1 ? "s" : ""} en circuit chez un membre
           de ce département
         </p>
+      ) : null}
+
+      {drill ? (
+        <div className="rounded-xl border border-brand/20 bg-brand-soft/20 p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">
+              Détail · {DRILL_LABELS[drill]}
+            </h4>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 gap-1"
+              onClick={() => setDrill(null)}
+            >
+              <X className="size-3.5" />
+              Fermer
+            </Button>
+          </div>
+          {detailData === undefined ? (
+            <p className="text-xs text-muted-foreground">Chargement…</p>
+          ) : !detailData.items.length ? (
+            <p className="text-xs text-muted-foreground">Aucun élément.</p>
+          ) : (
+            <ul className="max-h-72 space-y-2 overflow-y-auto">
+              {detailData.items.map((item: any) =>
+                item.type === "member" ? (
+                  <li
+                    key={item._id}
+                    className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                  >
+                    <span className="font-medium">{item.name}</span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      {item.fonction ?? item.email ?? "—"}
+                      {item.departmentRole === "chef" ? " · Chef" : ""}
+                    </span>
+                  </li>
+                ) : (
+                  <li
+                    key={item._id}
+                    className="rounded-lg border border-border bg-card px-3 py-2"
+                  >
+                    <button
+                      type="button"
+                      className="w-full text-left"
+                      onClick={() => onOpen(item._id as Id<"documents">)}
+                    >
+                      <p className="text-sm font-medium">
+                        {item.objet || item.fileName}
+                      </p>
+                      <p className="font-mono text-[10px] text-muted-foreground">
+                        {item.publicRef ?? "—"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {item.senderName} → {item.recipientName}
+                        {item.activeAssigneeName
+                          ? ` · chez ${item.activeAssigneeName}`
+                          : ""}
+                      </p>
+                    </button>
+                    {(drill === "overdue" || drill === "open") &&
+                    item.status !== "traite" ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 h-7 gap-1 text-xs"
+                        disabled={busyId === item._id}
+                        onClick={async () => {
+                          setBusyId(item._id);
+                          try {
+                            const res = await signalChief({
+                              documentId: item._id as Id<"documents">,
+                            });
+                            toast.success(
+                              `Signalé au chef ${res.chiefName ?? ""} (${res.deptName ?? ""})`,
+                            );
+                          } catch (e) {
+                            toast.error(
+                              e instanceof Error
+                                ? e.message
+                                : "Signalement impossible",
+                            );
+                          } finally {
+                            setBusyId(null);
+                          }
+                        }}
+                      >
+                        <Bell className="size-3" />
+                        Signaler au chef
+                      </Button>
+                    ) : null}
+                  </li>
+                ),
+              )}
+            </ul>
+          )}
+        </div>
       ) : null}
 
       <div>
@@ -949,21 +1198,37 @@ function Metric({
   label,
   value,
   className = "",
+  onClick,
 }: {
   label: string;
   value: number;
   className?: string;
+  onClick?: () => void;
 }) {
-  return (
-    <div
-      className={`rounded-lg border border-border/80 bg-muted/30 px-3 py-2 ${className}`}
-    >
+  const cls = `rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-left transition ${className} ${
+    onClick
+      ? "cursor-pointer hover:border-brand/40 hover:bg-brand-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+      : ""
+  }`;
+  const inner = (
+    <>
       <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
       <p className="text-xl font-semibold tabular-nums">{value}</p>
-    </div>
+      {onClick ? (
+        <p className="mt-0.5 text-[10px] text-brand">Voir le détail →</p>
+      ) : null}
+    </>
   );
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cls}>
+        {inner}
+      </button>
+    );
+  }
+  return <div className={cls}>{inner}</div>;
 }
 
 function StatTile({

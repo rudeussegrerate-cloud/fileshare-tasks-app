@@ -2504,3 +2504,304 @@ export const fileManager = query({
     }
   },
 });
+
+/**
+ * Détail cliquable des cartes stats (DG / chef).
+ * kind: members | sent | received | open | traite | overdue
+ */
+export const dgDetailList = query({
+  args: {
+    kind: v.union(
+      v.literal("members"),
+      v.literal("sent"),
+      v.literal("received"),
+      v.literal("open"),
+      v.literal("traite"),
+      v.literal("overdue"),
+    ),
+    departmentId: v.optional(v.id("departments")),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const userId = await getAuthUserId(ctx);
+      if (!userId) return { kind: args.kind, items: [] as any[] };
+      const me = await ctx.db.get(userId);
+      if (!me) return { kind: args.kind, items: [] as any[] };
+
+      const isAdmin = isAdminRole(me.role);
+      const isChef =
+        me.departmentRole === "chef" &&
+        me.departmentId &&
+        (!args.departmentId ||
+          String(me.departmentId) === String(args.departmentId));
+
+      if (!isAdmin && !isChef) {
+        return { kind: args.kind, items: [] as any[] };
+      }
+
+      const deptId =
+        args.departmentId ??
+        (isChef && !isAdmin ? me.departmentId : undefined);
+
+      // —— Membres ——
+      if (args.kind === "members") {
+        let users = await ctx.db.query("users").collect();
+        users = users.filter(
+          (u) =>
+            !u.accountStatus ||
+            u.accountStatus === "valide" ||
+            u.role === "admin" ||
+            u.role === "root",
+        );
+        if (deptId) {
+          users = users.filter(
+            (u) => u.departmentId && String(u.departmentId) === String(deptId),
+          );
+        }
+        const items = users
+          .map((u) => ({
+            type: "member" as const,
+            _id: u._id,
+            name: displayName(u),
+            email: u.email ?? null,
+            fonction: u.fonction ?? null,
+            departmentRole: u.departmentRole ?? "membre",
+            lastSeenAt: u.lastSeenAt ?? null,
+            departmentId: u.departmentId ?? null,
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name, "fr"));
+        return { kind: args.kind, items };
+      }
+
+      // —— Documents ——
+      let docs = await ctx.db.query("documents").collect();
+      docs = docs.filter((d) => !d.archivedAt);
+
+      if (deptId) {
+        docs = docs.filter(
+          (d) =>
+            (d.senderDepartmentId &&
+              String(d.senderDepartmentId) === String(deptId)) ||
+            (d.recipientDepartmentId &&
+              String(d.recipientDepartmentId) === String(deptId)),
+        );
+      }
+
+      if (args.kind === "sent" && deptId) {
+        docs = docs.filter(
+          (d) =>
+            d.senderDepartmentId &&
+            String(d.senderDepartmentId) === String(deptId),
+        );
+      } else if (args.kind === "sent" && !deptId) {
+        // entreprise : tous
+      } else if (args.kind === "received" && deptId) {
+        docs = docs.filter(
+          (d) =>
+            d.recipientDepartmentId &&
+            String(d.recipientDepartmentId) === String(deptId),
+        );
+      } else if (args.kind === "open") {
+        docs = docs.filter((d) => d.status !== "traite");
+        if (deptId) {
+          docs = docs.filter(
+            (d) =>
+              d.recipientDepartmentId &&
+              String(d.recipientDepartmentId) === String(deptId),
+          );
+        }
+      } else if (args.kind === "traite") {
+        docs = docs.filter((d) => d.status === "traite");
+        if (deptId) {
+          docs = docs.filter(
+            (d) =>
+              d.recipientDepartmentId &&
+              String(d.recipientDepartmentId) === String(deptId),
+          );
+        }
+      } else if (args.kind === "overdue") {
+        const now = Date.now();
+        docs = docs.filter((d) => {
+          if (d.status === "traite") return false;
+          const stepHours = d.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
+          if (d.dueAt && now > d.dueAt) return true;
+          const age = now - (d.createdAt ?? d._creationTime);
+          return age > 48 * 3600 * 1000;
+        });
+        if (deptId) {
+          docs = docs.filter(
+            (d) =>
+              d.recipientDepartmentId &&
+              String(d.recipientDepartmentId) === String(deptId),
+          );
+        }
+      }
+
+      docs.sort(
+        (a, b) =>
+          Number(b.updatedAt ?? b.createdAt ?? 0) -
+          Number(a.updatedAt ?? a.createdAt ?? 0),
+      );
+
+      const items = [];
+      for (const d of docs.slice(0, 80)) {
+        let activeName: string | null = d.recipientName;
+        let activeDept: string | null = null;
+        let chiefId: Id<"users"> | null = null;
+        try {
+          const steps = await ctx.db
+            .query("documentSteps")
+            .withIndex("by_document", (q) => q.eq("documentId", d._id))
+            .collect();
+          const active = steps.find((s) => s.status === "active");
+          if (active) {
+            activeName = active.assigneeName;
+            activeDept = active.assigneeDepartmentName ?? null;
+            const assignee = await ctx.db.get(active.assigneeId);
+            if (assignee?.departmentId) {
+              const chefs = (
+                await ctx.db.query("users").collect()
+              ).filter(
+                (u) =>
+                  u.departmentId &&
+                  String(u.departmentId) === String(assignee.departmentId) &&
+                  u.departmentRole === "chef",
+              );
+              if (chefs[0]) chiefId = chefs[0]._id;
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+        items.push({
+          type: "document" as const,
+          _id: d._id,
+          publicRef: d.publicRef ?? null,
+          objet: d.objet,
+          fileName: d.fileName,
+          status: d.status,
+          senderName: d.senderName,
+          recipientName: d.recipientName,
+          activeAssigneeName: activeName,
+          activeDepartment: activeDept,
+          hasChief: Boolean(chiefId),
+          createdAt: d.createdAt ?? d._creationTime,
+          updatedAt: d.updatedAt ?? d.createdAt,
+        });
+      }
+
+      return { kind: args.kind, items };
+    } catch (e) {
+      console.error("[dgDetailList]", e);
+      return { kind: args.kind, items: [] as any[] };
+    }
+  },
+});
+
+/**
+ * DG (ou émetteur) signale au chef du département où le dossier est bloqué.
+ */
+export const signalChief = mutation({
+  args: {
+    documentId: v.id("documents"),
+    message: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const me = await ctx.db.get(userId);
+    if (!me) throw new Error("Compte introuvable.");
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) throw new Error("Document introuvable.");
+    if (doc.status === "traite") {
+      throw new Error("Ce dossier est déjà clôturé.");
+    }
+    if (!isAdminRole(me.role) && doc.senderId !== userId) {
+      throw new Error("Seul le DG ou l'émetteur peut signaler au chef.");
+    }
+    if (
+      doc.lastAlertAt &&
+      Date.now() - doc.lastAlertAt < ALERT_COOLDOWN_MS
+    ) {
+      const waitH = Math.ceil(
+        (ALERT_COOLDOWN_MS - (Date.now() - doc.lastAlertAt)) / 3600000,
+      );
+      throw new Error(
+        `Signalement récent déjà envoyé. Réessayez dans ~${waitH} h.`,
+      );
+    }
+
+    const steps = (
+      await ctx.db
+        .query("documentSteps")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect()
+    ).sort((a, b) => a.stepIndex - b.stepIndex);
+    const active = steps.find((s) => s.status === "active");
+
+    let targetUserId: Id<"users"> | null = active?.assigneeId ?? doc.recipientId;
+    let targetName = active?.assigneeName ?? doc.recipientName;
+    let chiefId: Id<"users"> | null = null;
+    let chiefName: string | null = null;
+    let deptName: string | null = active?.assigneeDepartmentName ?? null;
+
+    const holder = await ctx.db.get(targetUserId);
+    if (holder?.departmentId) {
+      const dep = await ctx.db.get(holder.departmentId);
+      deptName = dep?.name ?? deptName;
+      const chefs = (await ctx.db.query("users").collect()).filter(
+        (u) =>
+          u.departmentId &&
+          String(u.departmentId) === String(holder.departmentId) &&
+          u.departmentRole === "chef",
+      );
+      if (chefs[0]) {
+        chiefId = chefs[0]._id;
+        chiefName = displayName(chefs[0]);
+      }
+    }
+
+    if (!chiefId) {
+      throw new Error(
+        "Aucun chef de département trouvé pour relancer ce dossier.",
+      );
+    }
+
+    const ref = doc.publicRef ?? "—";
+    const msg =
+      args.message?.trim().slice(0, 300) ||
+      `Le dossier « ${doc.objet} » (${ref}) est en retard / trop long chez ${targetName}${deptName ? ` (${deptName})` : ""}. Merci de faire avancer le traitement.`;
+
+    await pushNotification(ctx, {
+      userId: chiefId,
+      type: "document.chief_signal",
+      title: "Signalement DG — dossier en retard",
+      body: `${displayName(me)} : ${msg}`,
+      documentId: args.documentId,
+    });
+    // Aussi la personne qui détient l'étape
+    if (targetUserId && String(targetUserId) !== String(chiefId)) {
+      try {
+        await pushNotification(ctx, {
+          userId: targetUserId,
+          type: "document.status",
+          title: "Relance hiérarchique",
+          body: `Le DG a signalé votre dossier « ${doc.objet} » (${ref}) au chef de département.`,
+          documentId: args.documentId,
+        });
+      } catch {}
+    }
+
+    try {
+      await writeAudit(ctx, {
+        action: "document.signal_chief",
+        actorId: userId,
+        actorName: displayName(me),
+        documentId: args.documentId,
+        details: `Signalement → chef ${chiefName} (${deptName ?? "—"})`,
+      });
+    } catch {}
+
+    await ctx.db.patch(args.documentId, { lastAlertAt: Date.now() });
+    return { ok: true as const, chiefName, deptName, targetName };
+  },
+});
