@@ -64,23 +64,34 @@ type NavItem = {
   adminOnly?: boolean;
 };
 
-/** Navigation groupée pour éviter la confusion */
+/**
+ * Arborescence ScanDoc (structure hiérarchique) :
+ * Niveau 1 — Accueil (tableau de bord)
+ * Niveau 2 — Rubriques thématiques
+ * Niveau 3 — Pages d'action
+ * Principe : classer par intention utilisateur, pas par technique.
+ */
 const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
-    title: "Travail",
+    title: "Vue d'ensemble",
     items: [
-      { key: "home", label: "Accueil", icon: LayoutDashboard },
-      { key: "send", label: "Envoyer un document", icon: Upload },
-      { key: "inbox", label: "Documents reçus", icon: Inbox },
-      { key: "sent", label: "Documents envoyés", icon: Send },
-      { key: "suivi", label: "Suivi des envois", icon: Route },
-      { key: "fichiers", label: "Gestionnaire fichiers", icon: FolderOpen },
-      { key: "messages", label: "Messagerie", icon: MessageCircle },
+      { key: "home", label: "Tableau de bord", icon: LayoutDashboard },
     ],
   },
   {
-    title: "Communication",
+    title: "Documents",
     items: [
+      { key: "send", label: "Nouvel envoi", icon: Upload },
+      { key: "inbox", label: "Boîte de réception", icon: Inbox },
+      { key: "sent", label: "Envoyés", icon: Send },
+      { key: "suivi", label: "Suivi & circuits", icon: Route },
+      { key: "fichiers", label: "Recherche fichiers", icon: FolderOpen },
+    ],
+  },
+  {
+    title: "Échanges",
+    items: [
+      { key: "messages", label: "Messagerie", icon: MessageCircle },
       { key: "actualites", label: "Actualités", icon: Newspaper },
       { key: "announcements", label: "Publier une annonce", icon: Megaphone },
     ],
@@ -88,13 +99,13 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Organisation",
     items: [
-      { key: "departments", label: "Départements & groupes", icon: Building2 },
-      { key: "accounts", label: "Comptes utilisateurs", icon: UserCheck, adminOnly: true },
+      { key: "departments", label: "Départements", icon: Building2 },
+      { key: "accounts", label: "Comptes", icon: UserCheck, adminOnly: true },
     ],
   },
   {
-    title: "Mon espace",
-    items: [{ key: "settings", label: "Paramètres & sécurité", icon: Settings }],
+    title: "Compte",
+    items: [{ key: "settings", label: "Paramètres", icon: Settings }],
   },
 ];
 

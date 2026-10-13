@@ -445,6 +445,59 @@ const stats = useQuery(api.documents.stats);
 
       {section === "navigation" || section === "aide" ? (
       <>
+      <Card className="border-border">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <FileText className="size-4" />
+            Arborescence du site
+          </CardTitle>
+          <CardDescription>
+            Plan de navigation hiérarchique — pour trouver rapidement chaque
+            fonction.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 font-medium">
+            Tableau de bord (accueil)
+          </div>
+          <div className="ml-3 space-y-3 border-l-2 border-border pl-3">
+            <div>
+              <p className="font-semibold text-foreground">Documents</p>
+              <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                <li>· Nouvel envoi</li>
+                <li>· Boîte de réception</li>
+                <li>· Envoyés</li>
+                <li>· Suivi &amp; circuits</li>
+                <li>· Recherche fichiers</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Échanges</p>
+              <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                <li>· Messagerie</li>
+                <li>· Actualités</li>
+                <li>· Publier une annonce</li>
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Organisation</p>
+              <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                <li>· Départements</li>
+                {(me.isAdmin || me.isRoot) ? (
+                  <li>· Comptes (DG)</li>
+                ) : null}
+              </ul>
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Compte</p>
+              <ul className="mt-1 space-y-0.5 text-muted-foreground">
+                <li>· Paramètres</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* —— Documents (tous) —— */}
       <Card className="border-border">
         <CardHeader>
