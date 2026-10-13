@@ -303,6 +303,12 @@ export function DocumentDetailDialog({
 
 
             <section className="space-y-2 rounded-sm border border-border bg-card px-4 py-3 text-sm">
+              {documentOrNull.observations ? (
+                <p>
+                  <span className="text-muted-foreground">Observations : </span>
+                  <span className="font-medium whitespace-pre-wrap">{documentOrNull.observations}</span>
+                </p>
+              ) : null}
               <p>
                 <span className="text-muted-foreground">Expéditeur : </span>
                 <span className="font-medium">{documentOrNull.senderName}</span>

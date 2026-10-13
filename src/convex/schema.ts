@@ -114,6 +114,8 @@ const schema = defineSchema(
       size: v.optional(v.number()),
       // Objet de l'envoi (pourquoi ce document est transmis)
       objet: v.string(),
+      /** Observations / instructions (ex. « DTD : M'en parler ») */
+      observations: v.optional(v.string()),
       // Tâches prédéfinies sélectionnées (cases à cocher multiples)
       tasks: v.array(v.string()),
       // Champ legacy conservé pour compatibilité (jointure des tâches)

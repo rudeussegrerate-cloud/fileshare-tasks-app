@@ -358,6 +358,71 @@ export const listDepartments = query({
  * The DG creates a department. Its chef is chosen among existing approved
  * accounts (the selection is optional and can be made later).
  */
+
+/** Crée les directions MNDPT (fiche de transmission) si absentes — réservé admin/root. */
+export const seedMndptDepartments = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const me = await ctx.db.get(userId);
+    if (!me || (me.role !== "admin" && me.role !== "root")) {
+      throw new Error("Réservé au DG / super utilisateur.");
+    }
+    const names = [
+      "MINISTRE",
+      "DIRCAB",
+      "DGDN",
+      "DGOVT",
+      "DG PAOMA",
+      "DG ARTEC",
+      "PCA PAOMA",
+      "PCA ARTEC",
+      "PRMP",
+      "DCP",
+      "DCAC",
+      "DAF",
+      "DSI",
+      "DRH",
+      "DLP",
+      "DAJ",
+      "DRSP",
+      "DEG",
+      "DTD",
+      "DCC",
+      "DIN",
+      "DP",
+      "SAI",
+      "SCE",
+      "SAG",
+      "SSP",
+      "DIR Antananarivo",
+      "DIR Toamasina",
+      "DIR Mahajanga",
+      "DIR Fianarantsoa",
+      "DIR Toliara",
+      "DIR Antsiranana",
+    ];
+    const existing = await ctx.db.query("departments").collect();
+    const byName = new Map(
+      existing.map((d) => [d.name.trim().toUpperCase(), d] as const),
+    );
+    let created = 0;
+    const now = Date.now();
+    for (const name of names) {
+      const key = name.toUpperCase();
+      if (byName.has(key)) continue;
+      await ctx.db.insert("departments", {
+        name,
+        createdAt: now,
+        createdBy: userId,
+      });
+      created += 1;
+    }
+    return { created, total: names.length };
+  },
+});
+
 export const createDepartment = mutation({
   args: {
     name: v.string(),

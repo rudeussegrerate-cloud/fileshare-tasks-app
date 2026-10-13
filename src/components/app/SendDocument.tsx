@@ -49,17 +49,18 @@ export const PREDEFINED_TASKS = [
   "Pour avis",
   "Pour documentation",
   "Pour information",
-  "Suite a votre demande",
+  "Suite à votre demande",
   "Prière de m'en parler",
   "Prière de nous représenter",
   "Pour affichage",
   "Pour attribution",
-  "Pour suite a donner",
+  "Pour suite à donner",
   "Pour exploitation",
-  "Réunion a ce sujet",
+  "Réunion à ce sujet",
   "Après visa",
   "Urgent",
   "Pour classement",
+  "Scan et e-mail",
   "Pour large diffusion",
 ] as const;
 
@@ -95,6 +96,7 @@ export function SendDocument({
 
   // Objet de l'envoi
   const [objet, setObjet] = useState("");
+  const [observations, setObservations] = useState("");
   const [publicRef, setPublicRef] = useState(
     (initialPublicRef ?? "").toUpperCase(),
   );
@@ -190,6 +192,7 @@ export function SendDocument({
     setRecipientId(null);
     setCircuitExtra([]);
     setObjet("");
+    setObservations("");
     setPublicRef("");
     setSelectedTasks([]);
     setCustomTask("");
@@ -268,6 +271,7 @@ export function SendDocument({
         contentType: file.type || undefined,
         size: file.size,
         objet: objet.trim(),
+        observations: observations.trim() || undefined,
         tasks: effectiveTasks,
         extractedText: extractedText || undefined,
         recipientId,
@@ -942,6 +946,21 @@ export function SendDocument({
 
               <div className="space-y-3">
                 <Label>
+              <div className="space-y-2">
+                <Label htmlFor="observations">Observations / instructions</Label>
+                <Textarea
+                  id="observations"
+                  value={observations}
+                  onChange={(e) => setObservations(e.target.value)}
+                  placeholder="Ex. DTD : M'en parler"
+                  rows={3}
+                  className="resize-y"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Zone Observations de la fiche de transmission MNDPT.
+                </p>
+              </div>
+
                   Tâches à réaliser{" "}
                   <span className="font-normal text-muted-foreground">
                     (plusieurs choix possibles)
@@ -1040,6 +1059,10 @@ export function SendDocument({
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
+                    <dt className="text-muted-foreground">Observations</dt>
+                    <dd className="font-medium whitespace-pre-wrap">
+                      {observations.trim() || "—"}
+                    </dd>
                     <dt className="text-muted-foreground">Tâches</dt>
                     <dd className="text-right font-medium">
                       {effectiveTasks.length > 0

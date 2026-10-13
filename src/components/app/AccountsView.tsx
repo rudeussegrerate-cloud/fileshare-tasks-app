@@ -46,6 +46,8 @@ function statusLabel(status: string) {
 }
 
 export function AccountsView() {
+
+  const seedDepts = useMutation(api.workspace.seedMndptDepartments);
   const me = useQuery(api.workspace.me);
   const accounts = useQuery(api.workspace.listAccounts);
   const validateAccount = useMutation(api.workspace.validateAccount);
@@ -117,6 +119,31 @@ export function AccountsView() {
 
   return (
     <div className="space-y-5">
+      <div className="rounded-lg border border-border bg-muted/30 p-3">
+        <p className="text-sm text-muted-foreground">
+          Structure officielle MNDPT (directions de la fiche de transmission SG).
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="mt-2"
+          onClick={async () => {
+            try {
+              const res = await seedDepts({});
+              toast.success(
+                res.created > 0
+                  ? `${res.created} direction(s) MNDPT créées`
+                  : "Directions MNDPT déjà présentes",
+              );
+            } catch (e) {
+              toast.error(e instanceof Error ? e.message : "Erreur");
+            }
+          }}
+        >
+          Initialiser les directions MNDPT
+        </Button>
+      </div>
       <div className="space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">Comptes utilisateurs</h2>
         <p className="text-sm text-muted-foreground">
