@@ -1671,7 +1671,12 @@ export const departmentOverview = query({
       const userId = await getAuthUserId(ctx);
       if (!userId) return null;
       const me = await ctx.db.get(userId);
-      if (!me || (me.role !== "admin" && me.role !== "root")) {
+      if (!me) return null;
+      const isAdmin = me.role === "admin" || me.role === "root";
+      const isChefOfDept =
+        me.departmentRole === "chef" &&
+        me.departmentId === args.departmentId;
+      if (!isAdmin && !isChefOfDept) {
         return null;
       }
 
