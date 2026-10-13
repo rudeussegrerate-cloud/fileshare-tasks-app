@@ -286,3 +286,12 @@
     box-shadow: var(--shadow-lg);
   }
 }
+
+
+@keyframes bot-float {
+  0%, 100% { transform: translateY(0) rotate(-1deg); }
+  50% { transform: translateY(-6px) rotate(1deg); }
+}
+.bot-alive {
+  animation: bot-float 3.2s ease-in-out infinite;
+}

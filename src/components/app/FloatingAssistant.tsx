@@ -75,7 +75,7 @@ const COLORS: Record<string, string> = {
   violet: "from-violet-600 to-violet-500",
 };
 
-type IdleEmotion = "idle" | "wave" | "look" | "sleep" | "excited" | "think";
+type IdleEmotion = "idle" | "wave" | "look" | "sleep" | "excited" | "think" | "happy" | "sad" | "curious";
 
 /**
  * Avatar robot 3D (SVG + ombres / reflets).
@@ -106,11 +106,13 @@ function BotAvatar({
     mood === "joyeux" ||
     mood === "blagueur" ||
     emotion === "excited" ||
-    emotion === "wave";
-  const serious = mood === "sérieux" && emotion === "idle";
+    emotion === "wave" ||
+    emotion === "happy";
+  const serious =
+    (mood === "sérieux" && emotion === "idle") || emotion === "sad";
   const sleepy = emotion === "sleep";
-  const thinking = emotion === "think";
-  const looking = emotion === "look";
+  const thinking = emotion === "think" || emotion === "curious";
+  const looking = emotion === "look" || emotion === "curious";
 
   // LED yeux
   const eyeColor = sleepy
@@ -353,11 +355,17 @@ function BotAvatar({
         </svg>
       )}
 
-      {emotion === "excited" ? (
+      {emotion === "excited" || emotion === "happy" ? (
         <span className="absolute -right-1 -top-1 text-sm">⚡</span>
       ) : null}
-      {emotion === "think" ? (
+      {emotion === "think" || emotion === "curious" ? (
         <span className="absolute -right-0.5 -top-2 text-xs">💭</span>
+      ) : null}
+      {emotion === "sad" ? (
+        <span className="absolute -right-1 -top-1 text-sm">💧</span>
+      ) : null}
+      {emotion === "wave" ? (
+        <span className="absolute -left-1 top-0 text-sm">👋</span>
       ) : null}
       {emotion === "sleep" ? (
         <span className="absolute -right-1 top-0 text-[10px] text-cyan-400/80">
@@ -472,11 +480,13 @@ export function FloatingAssistant() {
     const sequence: IdleEmotion[] = [
       "idle",
       "look",
+      "curious",
       "wave",
-      "idle",
+      "happy",
       "think",
       "excited",
       "idle",
+      "look",
       "sleep",
     ];
     let i = 0;
@@ -484,7 +494,7 @@ export function FloatingAssistant() {
       i = (i + 1) % sequence.length;
       setIdleEmotion(sequence[i]!);
     };
-    const id = window.setInterval(tick, 3200);
+    const id = window.setInterval(tick, 2600);
     return () => window.clearInterval(id);
   }, [open, dragging]);
 
@@ -546,7 +556,7 @@ export function FloatingAssistant() {
         <button
           type="button"
           className={`fixed z-40 flex touch-none flex-col items-center gap-1 rounded-full focus:outline-none ${
-            dragging ? "cursor-grabbing" : "cursor-grab animate-soft-pulse"
+            dragging ? "cursor-grabbing" : "cursor-grab animate-soft-pulse bot-alive"
           }`}
           style={{ left: pos.x, top: pos.y }}
           title={`${botName} — glisser pour déplacer, cliquer pour parler`}
@@ -715,28 +725,46 @@ export function FloatingAssistant() {
                   reply?: string;
                   action?: string | null;
                   learned?: boolean;
+                  emotion?: string;
                 };
                 if (res?.learned) {
                   toast.success("Tâche apprise par le bot");
                 }
+                if (res?.emotion) {
+                  const e = res.emotion as IdleEmotion;
+                  setIdleEmotion(e);
+                  // garder l'expression un moment
+                  window.setTimeout(() => {
+                    if (!open) setIdleEmotion("idle");
+                  }, 4000);
+                }
                 const action = res?.action;
                 if (action && action !== "reply") {
                   const map: Record<string, string> = {
+                    open_home: "home",
                     open_inbox: "inbox",
+                    open_sent: "sent",
                     open_send: "send",
+                    open_suivi: "suivi",
+                    open_fichiers: "fichiers",
                     open_messages: "messages",
                     open_actualites: "actualites",
+                    open_announcements: "announcements",
                     open_departments: "departments",
+                    open_settings: "settings",
+                    open_accounts: "accounts",
                     remind_tasks: "inbox",
                   };
                   const view = map[action];
                   if (view) {
+                    toast.message("Je vous y emmène…");
                     window.dispatchEvent(
                       new CustomEvent("scandoc:navigate", {
                         detail: { view },
                       }),
                     );
-                    setOpen(false);
+                    // laisse le temps de lire la réponse
+                    window.setTimeout(() => setOpen(false), 900);
                   }
                 }
               } catch (err) {
