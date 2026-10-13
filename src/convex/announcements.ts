@@ -31,156 +31,99 @@ function canPost(user: Doc<"users">) {
   return false;
 }
 
-/** Fil Actualités — ne doit jamais lever d'exception */
+/** Fil Actualités — version minimale anti Server Error */
 export const list = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
     try {
       const userId = await getAuthUserId(ctx);
       if (!userId) return [];
-
-      let me: Doc<"users"> | null = null;
-      try {
-        me = await ctx.db.get(userId);
-      } catch {
-        return [];
-      }
+      const me = await ctx.db.get(userId);
       if (!me) return [];
 
-      const limit = Math.min(Math.max(args.limit ?? 40, 1), 50);
+      const limit = Math.min(Math.max(Number(args.limit) || 40, 1), 50);
 
-      let rows: Doc<"announcements">[] = [];
+      let rows: any[] = [];
       try {
         rows = await ctx.db.query("announcements").collect();
       } catch (e) {
-        console.error("[announcements.list] collect", e);
+        console.error("[announcements.list] no table or collect failed", e);
         return [];
       }
 
-      try {
-        rows.sort(
-          (a, b) =>
-            Number((b as any).createdAt ?? (b as any)._creationTime ?? 0) -
-            Number((a as any).createdAt ?? (a as any)._creationTime ?? 0),
-        );
-      } catch {
-        /* garder l'ordre brut */
-      }
+      // Tri simple
+      rows.sort((a, b) => {
+        const tb = Number(b?.createdAt ?? 0);
+        const ta = Number(a?.createdAt ?? 0);
+        return tb - ta;
+      });
 
-      // Charger réactions / commentaires une seule fois (best-effort)
-      let reactions: Doc<"announcementReactions">[] = [];
-      let comments: Doc<"announcementComments">[] = [];
-      try {
-        reactions = await ctx.db.query("announcementReactions").collect();
-      } catch {
-        reactions = [];
-      }
-      try {
-        comments = await ctx.db.query("announcementComments").collect();
-      } catch {
-        comments = [];
-      }
-
+      const admin = me.role === "admin" || me.role === "root";
       const out: any[] = [];
+
       for (const a of rows) {
         if (out.length >= limit) break;
-        try {
-          const isAuthor = String((a as any).authorId) === String(me._id);
-          const admin = isAdmin(me.role);
-          const vis = ((a as any).visibility as string | undefined) || "public";
+        if (!a || !a._id) continue;
 
-          let visible = admin || isAuthor || vis === "public";
+        try {
+          const authorId = a.authorId ? String(a.authorId) : "";
+          const isAuthor = authorId === String(me._id);
+          const vis = a.visibility ? String(a.visibility) : "public";
+
+          let visible = admin || isAuthor || vis === "public" || !a.visibility;
           if (!visible && vis === "private") {
             visible = Boolean(
-              (a as any).departmentId &&
+              a.departmentId &&
                 me.departmentId &&
-                String((a as any).departmentId) === String(me.departmentId),
+                String(a.departmentId) === String(me.departmentId),
             );
           }
-          if (!visible && vis === "custom") {
-            const ids = ((a as any).viewerIds as Id<"users">[] | undefined) ?? [];
-            visible = ids.some((id) => String(id) === String(me._id));
+          if (!visible && vis === "custom" && Array.isArray(a.viewerIds)) {
+            visible = a.viewerIds.some(
+              (id: unknown) => String(id) === String(me._id),
+            );
           }
           if (!visible) continue;
 
-          let mediaUrl: string | null = null;
-          const mediaStorageId = (a as any).mediaStorageId;
-          if (mediaStorageId) {
-            try {
-              mediaUrl = await ctx.storage.getUrl(mediaStorageId);
-            } catch {
-              mediaUrl = null;
-            }
-          }
-
-          const aid = String((a as any)._id);
-          const reactionCounts: Record<string, number> = {};
-          let reactionTotal = 0;
-          let myReaction: string | null = null;
-          for (const r of reactions) {
-            try {
-              if (String((r as any).announcementId) !== aid) continue;
-              const emoji = String((r as any).emoji || "👍");
-              reactionCounts[emoji] = (reactionCounts[emoji] ?? 0) + 1;
-              reactionTotal += 1;
-              if (String((r as any).userId) === String(userId)) {
-                myReaction = emoji;
-              }
-            } catch {
-              /* skip */
-            }
-          }
-
-          const cs = comments
-            .filter((c) => {
-              try {
-                return String((c as any).announcementId) === aid;
-              } catch {
-                return false;
-              }
-            })
-            .sort(
-              (x, y) =>
-                Number((x as any).createdAt ?? 0) -
-                Number((y as any).createdAt ?? 0),
-            )
-            .slice(-30)
-            .map((c) => ({
-              _id: String((c as any)._id),
-              authorName: String((c as any).authorName ?? "Utilisateur"),
-              body: String((c as any).body ?? ""),
-              createdAt: Number((c as any).createdAt ?? 0),
-              isMine: String((c as any).authorId) === String(userId),
-            }));
-
+          // Pas de getUrl / réactions ici (évite crashs storage & tables annexes)
           out.push({
-            _id: (a as any)._id,
-            title: String((a as any).title ?? ""),
-            body: String((a as any).body ?? ""),
-            origin: String((a as any).origin ?? ""),
-            authorName: String((a as any).authorName ?? "Utilisateur"),
-            authorFonction: (a as any).authorFonction ?? null,
-            authorDepartmentName: (a as any).authorDepartmentName ?? null,
-            authorRoleLabel: (a as any).authorRoleLabel ?? null,
-            priority: (a as any).priority ?? "normal",
-            pinned: Boolean((a as any).pinned),
+            _id: a._id,
+            title: a.title != null ? String(a.title) : "",
+            body: a.body != null ? String(a.body) : "",
+            origin: a.origin != null ? String(a.origin) : "",
+            authorName:
+              a.authorName != null ? String(a.authorName) : "Utilisateur",
+            authorFonction: a.authorFonction != null ? String(a.authorFonction) : null,
+            authorDepartmentName:
+              a.authorDepartmentName != null
+                ? String(a.authorDepartmentName)
+                : null,
+            authorRoleLabel:
+              a.authorRoleLabel != null ? String(a.authorRoleLabel) : null,
+            priority: a.priority != null ? String(a.priority) : "normal",
+            pinned: Boolean(a.pinned),
             visibility: vis,
-            mediaType: (a as any).mediaType ?? null,
-            mediaUrl,
-            createdAt: Number(
-              (a as any).createdAt ?? (a as any)._creationTime ?? 0,
-            ),
-            canDelete: isAuthor || admin,
-            reactionCounts,
-            reactionTotal,
-            myReaction,
-            comments: cs,
-            commentCount: cs.length,
+            mediaType: a.mediaType != null ? String(a.mediaType) : null,
+            mediaUrl: null as string | null,
+            createdAt: Number(a.createdAt) || 0,
+            canDelete: Boolean(isAuthor || admin),
+            reactionCounts: {} as Record<string, number>,
+            reactionTotal: 0,
+            myReaction: null as string | null,
+            comments: [] as Array<{
+              _id: string;
+              authorName: string;
+              body: string;
+              createdAt: number;
+              isMine: boolean;
+            }>,
+            commentCount: 0,
           });
         } catch (rowErr) {
-          console.error("[announcements.list] row", rowErr);
+          console.error("[announcements.list] skip row", rowErr);
         }
       }
+
       return out;
     } catch (e) {
       console.error("[announcements.list] fatal", e);
