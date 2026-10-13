@@ -333,3 +333,20 @@
 .bot-speaking {
   box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.45), 0 8px 20px rgba(0,0,0,0.25);
 }
+
+
+@keyframes circuit-pulse-flow {
+  0% { opacity: 0.45; transform: scaleX(0.4); transform-origin: left; }
+  50% { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0.45; transform: scaleX(0.4); }
+}
+.circuit-pulse {
+  animation: circuit-pulse-flow 1.4s ease-in-out infinite;
+}
+@keyframes circuit-node-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.45); }
+  50% { box-shadow: 0 0 0 8px rgba(139, 92, 246, 0); }
+}
+.circuit-node-active {
+  animation: circuit-node-glow 1.8s ease-out infinite;
+}

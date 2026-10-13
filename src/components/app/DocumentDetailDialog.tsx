@@ -37,6 +37,7 @@ import {
   type DocumentStatus,
   PREDEFINED_TASKS,
 } from "./shared";
+import { CircuitPathMap } from "./CircuitPathMap";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export function DocumentDetailDialog({
@@ -741,101 +742,17 @@ export function DocumentDetailDialog({
             ) : (
               <section className="space-y-3">
                 {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 0 ? (
-                  <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-3">
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Où est le dossier ?
-                      </h4>
-                      {documentOrNull.status === "traite" || documentOrNull.isFullyTreated ? (
-                        <p className="mt-1 text-sm font-medium text-emerald-800">
-                          Circuit terminé — document entièrement traité
-                        </p>
-                      ) : documentOrNull.currentLocation ? (
-                        <p className="mt-1 text-sm">
-                          <span className="text-muted-foreground">Actuellement chez · </span>
-                          <span className="font-semibold">{documentOrNull.currentLocation.name}</span>
-                          {documentOrNull.currentLocation.department ? (
-                            <span className="text-muted-foreground">
-                              {" "}({documentOrNull.currentLocation.department})
-                            </span>
-                          ) : null}
-                          {documentOrNull.currentLocation.stepIndex >= 0 ? (
-                            <span className="text-muted-foreground">
-                              {" "}· étape {documentOrNull.currentLocation.stepIndex + 1}/
-                              {documentOrNull.circuitTotalSteps}
-                            </span>
-                          ) : null}
-                        </p>
-                      ) : null}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Étapes par personne / département
-                      </h4>
-                      <ol className="mt-2 space-y-2">
-                        {documentOrNull.steps.map((s: {
-                          stepIndex: number;
-                          assigneeName: string;
-                          assigneeDepartmentName?: string | null;
-                          status: string;
-                          statusLabel?: string;
-                          note?: string | null;
-                          isCurrent?: boolean;
-                        }) => (
-                          <li
-                            key={s.stepIndex}
-                            className={cn(
-                              "rounded-md border px-3 py-2 text-sm",
-                              s.status === "active" && "border-amber-300 bg-amber-50",
-                              s.status === "done" && "border-emerald-200 bg-emerald-50/60",
-                              s.status === "waiting" && "border-border bg-card",
-                              s.status === "rejected" && "border-red-200 bg-red-50",
-                            )}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <p className="font-medium">
-                                  Étape {s.stepIndex + 1} · {s.assigneeName}
-                                </p>
-                                {s.assigneeDepartmentName ? (
-                                  <p className="text-[11px] text-muted-foreground">
-                                    Département · {s.assigneeDepartmentName}
-                                  </p>
-                                ) : null}
-                              </div>
-                              <span
-                                className={cn(
-                                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                                  s.status === "done" && "bg-emerald-100 text-emerald-900",
-                                  s.status === "active" && "bg-amber-100 text-amber-900",
-                                  s.status === "waiting" && "bg-muted text-muted-foreground",
-                                  s.status === "rejected" && "bg-red-100 text-red-900",
-                                )}
-                              >
-                                {s.statusLabel ??
-                                  (s.status === "done"
-                                    ? "Traité"
-                                    : s.status === "active"
-                                      ? "Ici"
-                                      : s.status === "rejected"
-                                        ? "Refusé"
-                                        : "En attente")}
-                              </span>
-                            </div>
-                            {s.note ? (
-                              <p className="mt-1 text-[11px] text-muted-foreground">{s.note}</p>
-                            ) : null}
-                          </li>
-                        ))}
-                      </ol>
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        Chaque intervenant peut marquer « Traité » pour sa part.
-                        Le dossier n&apos;est entièrement traité que lorsque
-                        toutes les étapes sont terminées.
-                      </p>
-                    </div>
-                  </div>
+                  <CircuitPathMap
+                    steps={documentOrNull.steps}
+                    currentStepIndex={documentOrNull.currentStepIndex ?? 0}
+                    publicRef={documentOrNull.publicRef}
+                    isFullyTreated={
+                      Boolean(documentOrNull.isFullyTreated) ||
+                      documentOrNull.status === "traite"
+                    }
+                  />
                 ) : null}
+
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Statut global (vu par vous)
                 </h4>
