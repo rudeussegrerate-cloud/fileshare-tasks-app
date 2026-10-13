@@ -2081,7 +2081,7 @@ export const circuitTracking = query({
       const now = Date.now();
       const items = [];
       for (const d of docs) {
-        let steps = [];
+        let steps: Doc<"documentSteps">[] = [];
         try {
           steps = (
             await ctx.db
