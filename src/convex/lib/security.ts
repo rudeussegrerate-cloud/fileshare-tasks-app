@@ -1,5 +1,8 @@
 /**
- * Utilitaires de sécurité partagés (validation, rate-limit).
+ * Utilitaires de sécurité partagés
+ * (validation, assainissement anti-XSS, rate-limit, audit).
+ * Aligné sur les bonnes pratiques des applications web :
+ * validation côté serveur, limitation des abus, traçabilité.
  */
 import type { MutationCtx } from "../_generated/server";
 
@@ -21,9 +24,19 @@ export function assertStrongPassword(password: string) {
   }
 }
 
+/**
+ * Nettoie le texte utilisateur :
+ * - supprime caractères de contrôle
+ * - neutralise balises HTML (défense XSS en profondeur)
+ * - limite la longueur
+ */
 export function sanitizeText(input: string, max: number): string {
-  return input
+  return String(input ?? "")
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "")
+    .replace(/</g, "‹")
+    .replace(/>/g, "›")
+    .replace(/javascript:/gi, "")
+    .replace(/on\w+\s*=/gi, "")
     .trim()
     .slice(0, max);
 }

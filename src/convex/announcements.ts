@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query } from "./_generated/server";
+import { assertRateLimit, sanitizeText } from "./lib/security";
 
 const REACTIONS = ["👍", "❤️", "👏", "🎉", "😮"] as const;
 
@@ -205,9 +206,15 @@ export const create = mutation({
         "Votre compte doit être validé pour publier une annonce.",
       );
     }
-    const title = args.title.trim().slice(0, 120);
-    const body = args.body.trim().slice(0, 4000);
-    const origin = args.origin.trim().slice(0, 80);
+    await assertRateLimit(ctx, {
+      userId: String(me._id),
+      action: "announcement.create",
+      maxPerWindow: 20,
+      windowMs: 60 * 60 * 1000,
+    });
+    const title = sanitizeText(args.title, 120);
+    const body = sanitizeText(args.body, 4000);
+    const origin = sanitizeText(args.origin, 80);
     if (title.length < 3) throw new Error("Titre trop court (3 caractères minimum).");
     if (body.length < 1 && !args.mediaStorageId) {
       throw new Error("Ajoutez un texte ou un média.");
@@ -323,7 +330,13 @@ export const addComment = mutation({
     const me = await requireUser(ctx);
     const a = await ctx.db.get(args.announcementId);
     if (!a) throw new Error("Annonce introuvable.");
-    const body = args.body.trim().slice(0, 1000);
+    await assertRateLimit(ctx, {
+      userId: String(me._id),
+      action: "announcement.comment",
+      maxPerWindow: 60,
+      windowMs: 60 * 60 * 1000,
+    });
+    const body = sanitizeText(args.body, 1000);
     if (!body) throw new Error("Commentaire vide.");
     return await ctx.db.insert("announcementComments", {
       announcementId: args.announcementId,

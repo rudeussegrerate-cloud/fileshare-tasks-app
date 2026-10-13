@@ -622,6 +622,53 @@ const stats = useQuery(api.documents.stats);
         </Card>
       )}
 
+      {(me.isAdmin || me.isRoot) && (
+        <Card className="border-border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Shield className="size-4 text-brand" />
+              Posture de sécurité
+            </CardTitle>
+            <CardDescription>
+              Mesures actives sur ScanDoc (bonnes pratiques applications web).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2 text-sm text-foreground/90">
+              <li className="flex gap-2">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-600" />
+                Authentification (mot de passe fort, OTP, Google OAuth)
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-600" />
+                Autorisations par rôle (membre, chef, DG) et validation de comptes
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-600" />
+                Assainissement des textes (anti-XSS) et taille max des fichiers
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-600" />
+                Limitation de débit (rate-limit) sur envois et publications
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-600" />
+                Journal d&apos;audit exportable (traçabilité des actions)
+              </li>
+              <li className="flex gap-2">
+                <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-emerald-600" />
+                Données isolées par utilisateur / département (pas d&apos;accès transversal non autorisé)
+              </li>
+            </ul>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Recommandation : conserver des comptes DG limités, valider les
+              nouveaux comptes avant accès, et exporter le journal d&apos;audit
+              périodiquement.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {/* —— Super utilisateur —— */}
       {me.isRoot && (
         <Card className="border-border">
