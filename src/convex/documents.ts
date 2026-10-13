@@ -1659,3 +1659,151 @@ export const enterpriseOverview = query({
     }
   },
 });
+
+/**
+ * Tableau de bord détaillé d'un département (DG uniquement).
+ * Membres, stats docs, retards, derniers échanges liés au département.
+ */
+export const departmentOverview = query({
+  args: { departmentId: v.id("departments") },
+  handler: async (ctx, args) => {
+    try {
+      const userId = await getAuthUserId(ctx);
+      if (!userId) return null;
+      const me = await ctx.db.get(userId);
+      if (!me || (me.role !== "admin" && me.role !== "root")) {
+        return null;
+      }
+
+      const department = await ctx.db.get(args.departmentId);
+      if (!department) return null;
+
+      const [allUsers, allDocs] = await Promise.all([
+        ctx.db.query("users").collect(),
+        ctx.db.query("documents").collect(),
+      ]);
+
+      const members = allUsers
+        .filter(
+          (u) =>
+            u.departmentId === args.departmentId &&
+            (u.accountStatus === "valide" ||
+              !u.accountStatus ||
+              u.role === "admin" ||
+              u.role === "root"),
+        )
+        .map((u) => ({
+          _id: u._id,
+          name: displayName(u),
+          email: u.email ?? null,
+          fonction: u.fonction ?? null,
+          departmentRole: u.departmentRole ?? "membre",
+          lastSeenAt: u.lastSeenAt ?? null,
+          accountStatus: u.accountStatus ?? "valide",
+        }))
+        .sort((a, b) => {
+          if (a.departmentRole === "chef" && b.departmentRole !== "chef")
+            return -1;
+          if (b.departmentRole === "chef" && a.departmentRole !== "chef")
+            return 1;
+          return a.name.localeCompare(b.name, "fr");
+        });
+
+      const chief = members.find((m) => m.departmentRole === "chef") ?? null;
+
+      const related = allDocs.filter(
+        (d) =>
+          !d.archivedAt &&
+          (d.senderDepartmentId === args.departmentId ||
+            d.recipientDepartmentId === args.departmentId),
+      );
+
+      const sent = related.filter(
+        (d) => d.senderDepartmentId === args.departmentId,
+      );
+      const received = related.filter(
+        (d) => d.recipientDepartmentId === args.departmentId,
+      );
+      const open = received.filter((d) => d.status !== "traite");
+      const traite = received.filter((d) => d.status === "traite");
+      const overdue = open.filter((d) => {
+        const age = Date.now() - (d.createdAt ?? d._creationTime);
+        return age > 48 * 3600 * 1000;
+      });
+
+      const recent = [...related]
+        .sort(
+          (a, b) =>
+            Number(b.createdAt ?? b._creationTime) -
+            Number(a.createdAt ?? a._creationTime),
+        )
+        .slice(0, 25)
+        .map((d) => ({
+          _id: d._id,
+          fileName: d.fileName,
+          objet: d.objet,
+          status: d.status,
+          senderName: d.senderName,
+          recipientName: d.recipientName,
+          direction:
+            d.senderDepartmentId === args.departmentId &&
+            d.recipientDepartmentId === args.departmentId
+              ? "interne"
+              : d.senderDepartmentId === args.departmentId
+                ? "envoyé"
+                : "reçu",
+          hasCircuit: Boolean(d.hasCircuit),
+          currentStepIndex: d.currentStepIndex ?? 0,
+          circuitTotalSteps: d.circuitTotalSteps ?? 0,
+          createdAt: d.createdAt ?? d._creationTime,
+        }));
+
+      // Docs où un membre du département est étape active du circuit
+      let circuitActive = 0;
+      try {
+        for (const d of related.filter((x) => x.hasCircuit)) {
+          const steps = await ctx.db
+            .query("documentSteps")
+            .withIndex("by_document", (q) => q.eq("documentId", d._id))
+            .collect();
+          const active = steps.find((s) => s.status === "active");
+          if (
+            active &&
+            members.some((m) => m._id === active.assigneeId)
+          ) {
+            circuitActive += 1;
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+
+      return {
+        department: {
+          _id: department._id,
+          name: department.name,
+          description: department.description ?? null,
+          parentId: department.parentId ?? null,
+          createdAt: department.createdAt,
+        },
+        chief,
+        members,
+        totals: {
+          members: members.length,
+          sent: sent.length,
+          received: received.length,
+          open: open.length,
+          traite: traite.length,
+          overdue: overdue.length,
+          circuitActive,
+        },
+        recent,
+        generatedAt: Date.now(),
+      };
+    } catch (e) {
+      console.error("[departmentOverview]", e);
+      return null;
+    }
+  },
+});
+

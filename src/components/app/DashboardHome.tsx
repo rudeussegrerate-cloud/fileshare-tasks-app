@@ -4,6 +4,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useQuery } from "convex/react";
 import {
+  ArrowLeft,
   Building2,
   Inbox,
   Loader2,
@@ -17,14 +18,19 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  Crown,
 } from "lucide-react";
+import { useState } from "react";
 import type { AppView } from "@/components/app/AppShell";
 import { SmartInsights } from "./SmartInsights";
 import {
   StatusBadge,
   fileIconFor,
   formatDateTime,
+  initialsOf,
 } from "./shared";
+
+const ONLINE_MS = 2 * 60 * 1000;
 
 export function DashboardHome({
   onOpen,
@@ -40,6 +46,16 @@ export function DashboardHome({
   const overview = useQuery(
     api.documents.enterpriseOverview,
     me?.isAdmin || me?.isRoot ? {} : "skip",
+  );
+  const [selectedDeptId, setSelectedDeptId] =
+    useState<Id<"departments"> | null>(null);
+  const deptDetail = useQuery(
+    api.documents.departmentOverview,
+    me?.isAdmin || me?.isRoot
+      ? selectedDeptId
+        ? { departmentId: selectedDeptId }
+        : "skip"
+      : "skip",
   );
   const inbox = useQuery(api.documents.inboxAll);
   const unreadMsg = useQuery(api.chat.unreadTotal);
@@ -175,29 +191,51 @@ export function DashboardHome({
                     </tr>
                   </thead>
                   <tbody>
-                    {overview.departmentStats.map((row) => (
-                      <tr
-                        key={row.departmentId}
-                        className="border-t border-border/60 hover:bg-muted/30"
-                      >
-                        <td className="px-3 py-2 font-medium text-foreground">
-                          {row.name}
-                          {row.chiefs > 0 ? (
-                            <span className="ml-1 text-[10px] text-muted-foreground">
-                              · {row.chiefs} chef{row.chiefs > 1 ? "s" : ""}
+                    {overview.departmentStats.map((row) => {
+                      const canOpen =
+                        row.departmentId !== "__none__" &&
+                        row.departmentId.length > 10;
+                      return (
+                        <tr
+                          key={row.departmentId}
+                          className={`border-t border-border/60 ${
+                            canOpen
+                              ? "cursor-pointer hover:bg-brand-soft/40"
+                              : "hover:bg-muted/30"
+                          }`}
+                          onClick={() => {
+                            if (!canOpen) return;
+                            setSelectedDeptId(
+                              row.departmentId as Id<"departments">,
+                            );
+                          }}
+                          title={
+                            canOpen
+                              ? "Ouvrir le tableau de bord de ce département"
+                              : undefined
+                          }
+                        >
+                          <td className="px-3 py-2 font-medium text-foreground">
+                            <span className={canOpen ? "text-brand underline-offset-2 hover:underline" : ""}>
+                              {row.name}
                             </span>
-                          ) : null}
-                        </td>
-                        <td className="px-2 py-2 tabular-nums">{row.members}</td>
-                        <td className="px-2 py-2 tabular-nums">{row.sent}</td>
-                        <td className="px-2 py-2 tabular-nums">{row.received}</td>
-                        <td className="px-2 py-2 tabular-nums text-amber-800">{row.open}</td>
-                        <td className="px-2 py-2 tabular-nums text-emerald-800">{row.traite}</td>
-                        <td className={`px-2 py-2 tabular-nums ${row.overdue > 0 ? "font-semibold text-red-700" : ""}`}>
-                          {row.overdue}
-                        </td>
-                      </tr>
-                    ))}
+                            {row.chiefs > 0 ? (
+                              <span className="ml-1 text-[10px] text-muted-foreground">
+                                · {row.chiefs} chef{row.chiefs > 1 ? "s" : ""}
+                              </span>
+                            ) : null}
+                          </td>
+                          <td className="px-2 py-2 tabular-nums">{row.members}</td>
+                          <td className="px-2 py-2 tabular-nums">{row.sent}</td>
+                          <td className="px-2 py-2 tabular-nums">{row.received}</td>
+                          <td className="px-2 py-2 tabular-nums text-amber-800">{row.open}</td>
+                          <td className="px-2 py-2 tabular-nums text-emerald-800">{row.traite}</td>
+                          <td className={`px-2 py-2 tabular-nums ${row.overdue > 0 ? "font-semibold text-red-700" : ""}`}>
+                            {row.overdue}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -251,7 +289,212 @@ export function DashboardHome({
         </div>
       ) : null}
 
+      {/* Détail département (clic ligne tableau DG) */}
+      {me.isAdmin && selectedDeptId ? (
+        <section className="space-y-3 rounded-xl border border-brand/30 bg-card p-4 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setSelectedDeptId(null)}
+            >
+              <ArrowLeft className="size-4" />
+              Vue d&apos;ensemble
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onNavigate("departments")}
+            >
+              Gérer les départements
+            </Button>
+          </div>
 
+          {!deptDetail ? (
+            <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Chargement du département…
+            </div>
+          ) : (
+            <>
+              <div>
+                <h3 className="flex items-center gap-2 text-base font-semibold">
+                  <Building2 className="size-4 text-brand" />
+                  {deptDetail.department.name}
+                </h3>
+                {deptDetail.department.description ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {deptDetail.department.description}
+                  </p>
+                ) : null}
+                {deptDetail.chief ? (
+                  <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Crown className="size-3.5 text-amber-600" />
+                    Chef · {deptDetail.chief.name}
+                    {deptDetail.chief.fonction
+                      ? ` (${deptDetail.chief.fonction})`
+                      : ""}
+                  </p>
+                ) : (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Aucun chef désigné
+                  </p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                {[
+                  { label: "Membres", value: deptDetail.totals.members },
+                  { label: "Envoyés", value: deptDetail.totals.sent },
+                  { label: "Reçus", value: deptDetail.totals.received },
+                  {
+                    label: "À traiter",
+                    value: deptDetail.totals.open,
+                    tone: "text-amber-800",
+                  },
+                  {
+                    label: "Traités",
+                    value: deptDetail.totals.traite,
+                    tone: "text-emerald-800",
+                  },
+                  {
+                    label: "Retard",
+                    value: deptDetail.totals.overdue,
+                    tone:
+                      deptDetail.totals.overdue > 0
+                        ? "text-red-700 font-semibold"
+                        : "",
+                  },
+                ].map((c) => (
+                  <div
+                    key={c.label}
+                    className="rounded-lg border border-border/80 bg-muted/30 px-3 py-2"
+                  >
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      {c.label}
+                    </p>
+                    <p
+                      className={`text-xl font-semibold tabular-nums ${c.tone ?? ""}`}
+                    >
+                      {c.value}
+                    </p>
+                  </div>
+                ))}
+              </div>
+
+              {deptDetail.totals.circuitActive > 0 ? (
+                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  {deptDetail.totals.circuitActive} document
+                  {deptDetail.totals.circuitActive > 1 ? "s" : ""} en circuit
+                  actuellement chez un membre de ce département
+                </p>
+              ) : null}
+
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Membres ({deptDetail.members.length})
+                </h4>
+                {deptDetail.members.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Aucun membre validé.
+                  </p>
+                ) : (
+                  <ul className="grid gap-2 sm:grid-cols-2">
+                    {deptDetail.members.map((m) => {
+                      const online =
+                        m.lastSeenAt != null &&
+                        Date.now() - m.lastSeenAt < ONLINE_MS;
+                      return (
+                        <li
+                          key={m._id}
+                          className="flex items-center gap-2 rounded-lg border border-border/70 px-3 py-2"
+                        >
+                          <span className="flex size-8 items-center justify-center rounded-full bg-brand-soft text-[11px] font-semibold text-brand">
+                            {initialsOf(m.name)}
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-medium">
+                              {m.name}
+                              {m.departmentRole === "chef" ? (
+                                <span className="ml-1 text-[10px] text-amber-700">
+                                  Chef
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="block truncate text-[11px] text-muted-foreground">
+                              {m.fonction ?? m.email ?? "—"}
+                              {" · "}
+                              {online ? "En ligne" : "Hors ligne"}
+                            </span>
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Activité récente
+                </h4>
+                {deptDetail.recent.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    Aucun échange lié à ce département.
+                  </p>
+                ) : (
+                  <ul className="divide-y divide-border/60 rounded-lg border border-border">
+                    {deptDetail.recent.map((doc) => (
+                      <li key={doc._id}>
+                        <button
+                          type="button"
+                          className="flex w-full items-start gap-3 px-3 py-2.5 text-left hover:bg-muted/40"
+                          onClick={() => onOpen(doc._id as Id<"documents">)}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">
+                              {doc.objet || doc.fileName}
+                            </p>
+                            <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                              {doc.direction === "envoyé"
+                                ? "Envoyé"
+                                : doc.direction === "reçu"
+                                  ? "Reçu"
+                                  : "Interne"}
+                              {" · "}
+                              {doc.senderName} → {doc.recipientName}
+                              {doc.hasCircuit
+                                ? ` · circuit ${doc.currentStepIndex + 1}/${doc.circuitTotalSteps || "?"}`
+                                : ""}
+                            </p>
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <StatusBadge
+                              status={
+                                doc.status as
+                                  | "envoye"
+                                  | "consulte"
+                                  | "en_cours"
+                                  | "traite"
+                              }
+                            />
+                            <p className="mt-1 text-[10px] text-muted-foreground">
+                              {formatDateTime(doc.createdAt)}
+                            </p>
+                          </div>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
+        </section>
+      ) : null}
 
       {/* Alertes prioritaires */}
       <div className="space-y-2">

@@ -319,6 +319,19 @@ export function DocumentsList({
                           {document.objet}
                         </p>
                       ) : null}
+                      {mode === "sent" && document.hasCircuit ? (
+                        <p className="mt-1 text-xs font-medium text-amber-900">
+                          {document.status === "traite"
+                            ? "Circuit terminé"
+                            : `📍 Chez ${document.recipientName}${
+                                document.recipientDepartmentName
+                                  ? ` (${document.recipientDepartmentName})`
+                                  : ""
+                              } · étape ${(document.currentStepIndex ?? 0) + 1}/${
+                                document.circuitTotalSteps ?? "?"
+                              }`}
+                        </p>
+                      ) : null}
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground/80">
                         <span className="font-medium text-brand-sky">
                           Tâches :{" "}
