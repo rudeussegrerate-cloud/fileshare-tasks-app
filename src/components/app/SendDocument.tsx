@@ -27,7 +27,7 @@ import {
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { PresenceDot } from "./PresenceDot";
-import { EmptyState, StepDots, formatBytes, initialsOf } from "./shared";
+import { EmptyState, StepDots, formatBytes, initialsOf , PREDEFINED_TASKS } from "./shared";
 
 const ONLINE_MS = 2 * 60 * 1000;
 function isOnline(lastSeenAt?: number | null) {
@@ -39,32 +39,6 @@ const STEPS = ["Document", "Département", "Destinataire", "Détails & envoi"];
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
-
-/** Tâches prédéfinies (cases à cocher multiples) */
-export const PREDEFINED_TASKS = [
-  "Pour compte rendu",
-  "Pour compétence",
-  "Pour signature",
-  "Pour études",
-  "Pour avis",
-  "Pour documentation",
-  "Pour information",
-  "Suite à votre demande",
-  "Prière de m'en parler",
-  "Prière de nous représenter",
-  "Pour affichage",
-  "Pour attribution",
-  "Pour suite à donner",
-  "Pour exploitation",
-  "Réunion à ce sujet",
-  "Après visa",
-  "Urgent",
-  "Pour classement",
-  "Scan et e-mail",
-  "Pour large diffusion",
-] as const;
-
-
 
 export function SendDocument({
   onSent,

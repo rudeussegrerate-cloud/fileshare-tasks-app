@@ -218,6 +218,8 @@ export const attachRevision = mutation({
     contentType: v.optional(v.string()),
     size: v.optional(v.number()),
     note: v.optional(v.string()),
+    /** Tâches optionnelles destinées au prochain intervenant du circuit */
+    tasksForNext: v.optional(v.array(v.string())),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -267,8 +269,13 @@ export const attachRevision = mutation({
       createdAt: now,
     });
 
+    const tasksForNext = (args.tasksForNext ?? [])
+      .map((t) => t.trim())
+      .filter(Boolean)
+      .slice(0, 30);
+
     // Le fichier courant devient la version renvoyée (même id, même publicRef)
-    await ctx.db.patch(args.documentId, {
+    const docPatch: Record<string, unknown> = {
       storageId: args.storageId,
       fileName: args.fileName,
       contentType: args.contentType,
@@ -278,7 +285,33 @@ export const attachRevision = mutation({
       lastRevisedByName: displayName(user ?? {}),
       updatedAt: now,
       status: document.status === "envoye" ? "en_cours" : document.status,
-    });
+    };
+    if (tasksForNext.length > 0) {
+      docPatch.tasks = tasksForNext;
+      docPatch.task = tasksForNext.join(" · ");
+    }
+    await ctx.db.patch(args.documentId, docPatch);
+
+    // Attribuer les tâches au prochain dans le circuit (étape suivante en attente ou active)
+    if (tasksForNext.length > 0 && myStep) {
+      const ordered = [...steps].sort((a, b) => a.stepIndex - b.stepIndex);
+      const nextStep =
+        ordered.find((s) => s.stepIndex === myStep.stepIndex + 1) ??
+        ordered.find(
+          (s) =>
+            s.stepIndex > myStep.stepIndex &&
+            (s.status === "waiting" || s.status === "active"),
+        );
+      if (nextStep) {
+        try {
+          await ctx.db.patch(nextStep._id, {
+            taskLabel: tasksForNext.join(" · ").slice(0, 500),
+          });
+        } catch (e) {
+          console.error("[attachRevision] next taskLabel", e);
+        }
+      }
+    }
 
     // Nouvelle révision enregistrée aussi
     await ctx.db.insert("documentRevisions", {
@@ -290,7 +323,13 @@ export const attachRevision = mutation({
       uploadedBy: userId,
       uploadedByName: displayName(user ?? {}),
       stepIndex: myStep?.stepIndex,
-      note: args.note?.trim().slice(0, 300) || "Fichier modifié renvoyé dans le circuit",
+      note:
+        (
+          (args.note?.trim() || "Fichier modifié renvoyé dans le circuit") +
+          (tasksForNext.length
+            ? ` | Tâches pour la suite : ${tasksForNext.join(", ")}`
+            : "")
+        ).slice(0, 500),
       createdAt: now + 1,
     });
 
@@ -309,7 +348,9 @@ export const attachRevision = mutation({
         userId: document.senderId,
         type: "document.status",
         title: "Fichier mis à jour dans le circuit",
-        body: `${displayName(user ?? {})} a renvoyé une version de « ${document.objet} » (${document.publicRef ?? "dossier"})`,
+        body: `${displayName(user ?? {})} a renvoyé une version de « ${document.objet} » (${document.publicRef ?? "dossier"})${
+          tasksForNext.length ? ` — tâches : ${tasksForNext.slice(0, 3).join(", ")}` : ""
+        }`,
         documentId: args.documentId,
       });
     } catch {}
@@ -317,6 +358,7 @@ export const attachRevision = mutation({
     return {
       publicRef: document.publicRef ?? null,
       revisionCount: (document.revisionCount ?? 0) + 1,
+      tasksForNext,
     };
   },
 });

@@ -35,7 +35,9 @@ import {
   formatBytes,
   formatDateTime,
   type DocumentStatus,
+  PREDEFINED_TASKS,
 } from "./shared";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function DocumentDetailDialog({
   documentId,
@@ -59,6 +61,7 @@ export function DocumentDetailDialog({
   const attachRevision = useMutation(api.documents.attachRevision);
   const [stepNote, setStepNote] = useState("");
   const [revising, setRevising] = useState(false);
+  const [revisionTasks, setRevisionTasks] = useState<string[]>([]);
   const revisionInputRef = useRef<HTMLInputElement>(null);
 
   const archiveDoc = useMutation(api.documents.archive);
@@ -579,6 +582,38 @@ export function DocumentDetailDialog({
                       ) : null}
                       . Le système sait que c&apos;est la suite du suivi, pas un nouvel envoi.
                     </p>
+                    <div className="space-y-1.5 rounded-md border border-border/60 bg-background/80 p-2">
+                      <p className="text-[11px] font-medium text-foreground">
+                        Tâches pour le prochain (optionnel)
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Comme à l&apos;envoi : ces cases s&apos;appliquent à la personne suivante du circuit.
+                      </p>
+                      <div className="grid max-h-36 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2">
+                        {PREDEFINED_TASKS.map((task) => {
+                          const checked = revisionTasks.includes(task);
+                          return (
+                            <label
+                              key={task}
+                              className="flex cursor-pointer items-start gap-2 rounded px-1 py-0.5 text-[11px] hover:bg-muted/50"
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  setRevisionTasks((prev) =>
+                                    v
+                                      ? [...prev, task]
+                                      : prev.filter((t) => t !== task),
+                                  );
+                                }}
+                                className="mt-0.5"
+                              />
+                              <span>{task}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
                     {(documentOrNull.revisionCount ?? 0) > 0 ? (
                       <p className="text-[11px] text-emerald-800">
                         {documentOrNull.revisionCount} version(s) renvoyée(s)
@@ -618,9 +653,16 @@ export function DocumentDetailDialog({
                             fileName: file.name || "document-modifie.bin",
                             contentType: file.type || undefined,
                             size: file.size,
+                            tasksForNext:
+                              revisionTasks.length > 0
+                                ? revisionTasks
+                                : undefined,
                           });
+                          setRevisionTasks([]);
                           toast.success(
-                            "Version renvoyée — le suivi reste sur le même identifiant",
+                            revisionTasks.length > 0
+                              ? "Version renvoyée avec tâches pour le suivant"
+                              : "Version renvoyée — le suivi reste sur le même identifiant",
                           );
                         } catch (err) {
                           toast.error(

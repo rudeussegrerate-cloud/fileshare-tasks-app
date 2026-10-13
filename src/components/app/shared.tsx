@@ -188,3 +188,28 @@ export function StepDots({
     </ol>
   );
 }
+
+
+/** Tâches prédéfinies (fiche de transmission MNDPT) */
+export const PREDEFINED_TASKS = [
+  "Pour compte rendu",
+  "Pour compétence",
+  "Pour signature",
+  "Pour études",
+  "Pour avis",
+  "Pour documentation",
+  "Pour information",
+  "Suite à votre demande",
+  "Prière de m'en parler",
+  "Prière de nous représenter",
+  "Pour affichage",
+  "Pour attribution",
+  "Pour suite à donner",
+  "Pour exploitation",
+  "Réunion à ce sujet",
+  "Après visa",
+  "Urgent",
+  "Pour classement",
+  "Scan et e-mail",
+  "Pour large diffusion",
+] as const;
