@@ -5,10 +5,10 @@
 
 /* DO NOT CHANGE */
 @theme inline {
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -48,132 +48,229 @@
 }
 
 /*
-  Design éditorial beige / marron (inspiré maquette studio) :
-  - Fonds crème, cartes ivoire
-  - Typo élégante, accents terracotta / brun
-  - Espaces aérés, bordures discrètes
-  Toutes les fonctionnalités ScanDoc restent intactes.
+  ScanDoc design system — normes UI/UX (UK Gov / Material / HIG) :
+  - Clarté & simplicité (Do the hard work to make it simple)
+  - Hiérarchie typo & espacement cohérents
+  - Contraste lisible, focus visible (This is for everyone)
+  - Patterns réutilisables (Be consistent, not uniform)
 */
 :root {
   --radius: 10px;
-  --background: #f3efe6;
-  --foreground: #2c2419;
-  --card: #faf7f1;
-  --card-foreground: #2c2419;
-  --popover: #faf7f1;
-  --popover-foreground: #2c2419;
-  /* Brun profond institutionnel */
-  --primary: #5c4033;
-  --primary-foreground: #faf7f1;
-  --secondary: #e8e0d4;
-  --secondary-foreground: #2c2419;
-  --muted: #ebe4d8;
-  --muted-foreground: #6b5e4f;
-  --accent: #f0e6d8;
-  --accent-foreground: #5c4033;
-  --destructive: #a33b2b;
-  --border: #d4c8b8;
-  --input: #c9bba8;
-  --ring: #5c4033;
+  /* Surfaces */
+  --background: #f5f1ea;
+  --foreground: #1f1a14;
+  --card: #fffcf7;
+  --card-foreground: #1f1a14;
+  --popover: #fffcf7;
+  --popover-foreground: #1f1a14;
+  /* Brand institutionnel */
+  --primary: #4a3429;
+  --primary-foreground: #fffcf7;
+  --secondary: #ebe3d6;
+  --secondary-foreground: #1f1a14;
+  --muted: #efe8dc;
+  --muted-foreground: #5c5348;
+  --accent: #f3ebe0;
+  --accent-foreground: #4a3429;
+  --destructive: #b42318;
+  --border: #d6cbb8;
+  --input: #cfc3b0;
+  --ring: #4a3429;
 
-  --brand: #5c4033;
-  --brand-deep: #3d2a22;
-  --brand-sky: #8b6f5c;
-  --brand-accent: #c4785a;
-  --brand-soft: #efe6dc;
+  --brand: #4a3429;
+  --brand-deep: #2f211a;
+  --brand-sky: #7a6554;
+  --brand-accent: #c26a4a;
+  --brand-soft: #f0e8dc;
 
-  --chart-1: #5c4033;
-  --chart-2: #c4785a;
-  --chart-3: #8b6f5c;
-  --chart-4: #a33b2b;
-  --chart-5: #6b5e4f;
+  --chart-1: #4a3429;
+  --chart-2: #c26a4a;
+  --chart-3: #7a6554;
+  --chart-4: #b42318;
+  --chart-5: #5c5348;
 
-  --sidebar: #faf7f1;
-  --sidebar-foreground: #2c2419;
-  --sidebar-primary: #5c4033;
-  --sidebar-primary-foreground: #faf7f1;
-  --sidebar-accent: #efe6dc;
-  --sidebar-accent-foreground: #5c4033;
-  --sidebar-border: #e0d5c6;
-  --sidebar-ring: #5c4033;
+  --sidebar: #fffcf7;
+  --sidebar-foreground: #1f1a14;
+  --sidebar-primary: #4a3429;
+  --sidebar-primary-foreground: #fffcf7;
+  --sidebar-accent: #f0e8dc;
+  --sidebar-accent-foreground: #4a3429;
+  --sidebar-border: #e5dccf;
+  --sidebar-ring: #4a3429;
+
+  /* Espacement & ombres (Material-inspired depth) */
+  --shadow-sm: 0 1px 2px rgba(31, 26, 20, 0.05);
+  --shadow-md: 0 2px 8px rgba(31, 26, 20, 0.06), 0 0 0 1px rgba(31, 26, 20, 0.04);
+  --shadow-lg: 0 8px 24px rgba(31, 26, 20, 0.08), 0 0 0 1px rgba(31, 26, 20, 0.04);
 }
 
 .dark {
-  --background: #1a1612;
-  --foreground: #f0e8dc;
-  --card: #242018;
-  --card-foreground: #f0e8dc;
-  --popover: #242018;
-  --popover-foreground: #f0e8dc;
-  --primary: #d4b896;
-  --primary-foreground: #1a1612;
-  --secondary: #3a3228;
-  --secondary-foreground: #f0e8dc;
-  --muted: #3a3228;
-  --muted-foreground: #b0a090;
-  --accent: #3a3228;
-  --accent-foreground: #d4b896;
-  --destructive: #c45c4a;
-  --border: #3f372e;
-  --input: #3f372e;
-  --ring: #d4b896;
-  --brand: #d4b896;
-  --brand-deep: #c4a882;
-  --brand-sky: #b09070;
-  --brand-accent: #c4785a;
-  --brand-soft: #2e2820;
-  --sidebar: #242018;
-  --sidebar-foreground: #f0e8dc;
-  --sidebar-primary: #d4b896;
-  --sidebar-primary-foreground: #1a1612;
-  --sidebar-accent: #3a3228;
-  --sidebar-accent-foreground: #f0e8dc;
-  --sidebar-border: #3f372e;
-  --sidebar-ring: #d4b896;
+  --background: #161310;
+  --foreground: #f3ebe0;
+  --card: #211c17;
+  --card-foreground: #f3ebe0;
+  --popover: #211c17;
+  --popover-foreground: #f3ebe0;
+  --primary: #e0c9a8;
+  --primary-foreground: #1a1510;
+  --secondary: #322b24;
+  --secondary-foreground: #f3ebe0;
+  --muted: #322b24;
+  --muted-foreground: #b5a794;
+  --accent: #322b24;
+  --accent-foreground: #e0c9a8;
+  --destructive: #f04438;
+  --border: #3a322a;
+  --input: #3a322a;
+  --ring: #e0c9a8;
+  --brand: #e0c9a8;
+  --brand-deep: #d4b896;
+  --brand-sky: #b8a088;
+  --brand-accent: #d4846a;
+  --brand-soft: #2a241e;
+  --sidebar: #211c17;
+  --sidebar-foreground: #f3ebe0;
+  --sidebar-primary: #e0c9a8;
+  --sidebar-primary-foreground: #1a1510;
+  --sidebar-accent: #322b24;
+  --sidebar-accent-foreground: #f3ebe0;
+  --sidebar-border: #3a322a;
+  --sidebar-ring: #e0c9a8;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 @layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
     font-family:
       "Segoe UI",
       system-ui,
       -apple-system,
+      "Helvetica Neue",
       Roboto,
       Helvetica,
       Arial,
       sans-serif;
     font-size: 15px;
-    line-height: 1.45;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+    text-rendering: optimizeLegibility;
   }
-  h1,
-  h2,
-  h3 {
-    font-family:
-      Georgia,
-      "Times New Roman",
-      "Palatino Linotype",
-      serif;
+
+  /* Hiérarchie typographique (Material / HIG) */
+  h1 {
+    font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
+    font-size: 1.75rem;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+    font-weight: 600;
+  }
+  h2 {
+    font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
+    font-size: 1.35rem;
+    line-height: 1.3;
     letter-spacing: -0.02em;
     font-weight: 600;
+  }
+  h3 {
+    font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
+    font-size: 1.1rem;
+    line-height: 1.35;
+    letter-spacing: -0.015em;
+    font-weight: 600;
+  }
+
+  /* Accessibilité : focus visible (This is for everyone) */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  /* Réduction de mouvement */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
 @layer components {
+  /* Carte standard — élévation légère, bordure discrète */
   .fb-card {
-    @apply rounded-xl border-0 bg-card;
-    box-shadow:
-      0 1px 3px rgba(44, 36, 25, 0.06),
-      0 0 0 1px rgba(44, 36, 25, 0.04);
+    @apply rounded-xl border border-border/60 bg-card;
+    box-shadow: var(--shadow-md);
   }
+
   .editorial-panel {
-    @apply rounded-xl bg-card px-6 py-8;
-    box-shadow:
-      0 2px 12px rgba(44, 36, 25, 0.05),
-      0 0 0 1px rgba(44, 36, 25, 0.04);
+    @apply rounded-xl bg-card px-5 py-6 sm:px-6 sm:py-8;
+    box-shadow: var(--shadow-md);
+  }
+
+  /* Section de page (hiérarchie visuelle) */
+  .sc-section {
+    @apply space-y-3;
+  }
+
+  .sc-section-title {
+    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+  }
+
+  /* Tuile métrique cliquable */
+  .sc-metric {
+    @apply rounded-xl border border-border/70 bg-card px-3 py-3 text-left transition;
+    box-shadow: var(--shadow-sm);
+  }
+  .sc-metric:hover {
+    border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
+    background: var(--brand-soft);
+  }
+
+  /* Lien de navigation latérale */
+  .sc-nav-item {
+    @apply flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition;
+  }
+  .sc-nav-item:hover {
+    @apply bg-secondary/80 text-foreground;
+  }
+  .sc-nav-item[data-active="true"] {
+    @apply bg-brand text-primary-foreground shadow-sm;
+  }
+
+  /* Zone de contenu principale */
+  .sc-main {
+    @apply mx-auto w-full max-w-4xl;
+  }
+
+  /* Fade d'entrée doux (désactivé si reduced-motion) */
+  .sc-fade-in {
+    animation: sc-fade-in 0.28s ease-out;
+  }
+  @keyframes sc-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 }
 
@@ -181,5 +278,11 @@
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: #c9bba8 transparent;
+  }
+  .shadow-elevated {
+    box-shadow: var(--shadow-md);
+  }
+  .shadow-raised {
+    box-shadow: var(--shadow-lg);
   }
 }
