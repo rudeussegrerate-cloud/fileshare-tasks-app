@@ -119,7 +119,7 @@ export function DocumentDetailDialog({
     try {
       const res = await setStatus({ documentId, status });
       if (res && typeof res === "object" && "outcome" in res) {
-        if (res.outcome === "fully_treated" || res.outcome === "circuit_complete") {
+        if (res.outcome === "circuit_complete") {
           toast.success("Document entièrement traité — l'émetteur est notifié");
         } else if (res.outcome === "step_advanced") {
           toast.success(

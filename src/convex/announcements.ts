@@ -78,7 +78,7 @@ export const list = query({
         comments = [];
       }
 
-      const out: Array<Record<string, unknown>> = [];
+      const out: any[] = [];
       for (const a of rows) {
         if (out.length >= limit) break;
         try {

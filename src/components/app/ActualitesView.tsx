@@ -78,7 +78,34 @@ class ActualitesSafe extends React.Component<
 function ActualitesViewInner() {
 
   const listRaw = useQuery(api.announcements.list, { limit: 50 });
-  const list = Array.isArray(listRaw) ? listRaw : undefined;
+  const list = Array.isArray(listRaw)
+    ? (listRaw as Array<{
+        _id: string;
+        title?: string;
+        body?: string;
+        origin?: string;
+        authorName?: string;
+        authorFonction?: string | null;
+        authorDepartmentName?: string | null;
+        priority?: string;
+        visibility?: string;
+        mediaUrl?: string | null;
+        mediaType?: string | null;
+        createdAt?: number;
+        canDelete?: boolean;
+        myReaction?: string | null;
+        reactionTotal?: number;
+        commentCount?: number;
+        reactionCounts?: Record<string, number>;
+        comments?: Array<{
+          _id: string;
+          authorName: string;
+          body: string;
+          createdAt: number;
+          isMine?: boolean;
+        }>;
+      }>)
+    : undefined;
 
   const react = useMutation(api.announcements.react);
   const addComment = useMutation(api.announcements.addComment);
