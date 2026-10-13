@@ -15,7 +15,6 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2, Settings2, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { stylizeToGhibli } from "@/lib/ghibliStyle";
 
 const MOODS = [
   { id: "joyeux", label: "Joyeux" },
@@ -25,13 +24,47 @@ const MOODS = [
   { id: "blagueur", label: "Blagueur" },
 ];
 
-/** Couleurs de cheveux / accessoires du personnage chibi */
-const HAIR: Record<string, { hair: string; hairDark: string; accent: string }> = {
-  navy: { hair: "#1e3a5f", hairDark: "#0f2744", accent: "#3b82f6" },
-  teal: { hair: "#0d9488", hairDark: "#0f766e", accent: "#2dd4bf" },
-  amber: { hair: "#f59e0b", hairDark: "#d97706", accent: "#fbbf24" },
-  rose: { hair: "#f43f5e", hairDark: "#e11d48", accent: "#fb7185" },
-  violet: { hair: "#7c3aed", hairDark: "#5b21b6", accent: "#a78bfa" },
+
+/** Palette métal / LED du robot 3D */
+const ROBOT: Record<
+  string,
+  { body: string; bodyDark: string; accent: string; led: string; panel: string }
+> = {
+  navy: {
+    body: "#3d5a80",
+    bodyDark: "#1b2838",
+    accent: "#60a5fa",
+    led: "#38bdf8",
+    panel: "#0f172a",
+  },
+  teal: {
+    body: "#0f766e",
+    bodyDark: "#134e4a",
+    accent: "#2dd4bf",
+    led: "#5eead4",
+    panel: "#042f2e",
+  },
+  amber: {
+    body: "#b45309",
+    bodyDark: "#78350f",
+    accent: "#fbbf24",
+    led: "#fde68a",
+    panel: "#1c1917",
+  },
+  rose: {
+    body: "#be123c",
+    bodyDark: "#881337",
+    accent: "#fb7185",
+    led: "#fda4af",
+    panel: "#1c1917",
+  },
+  violet: {
+    body: "#6d28d9",
+    bodyDark: "#4c1d95",
+    accent: "#a78bfa",
+    led: "#c4b5fd",
+    panel: "#1e1b4b",
+  },
 };
 
 const COLORS: Record<string, string> = {
@@ -45,8 +78,8 @@ const COLORS: Record<string, string> = {
 type IdleEmotion = "idle" | "wave" | "look" | "sleep" | "excited" | "think";
 
 /**
- * Avatar chibi expressif (style sticker cartoon).
- * Design original — pas une copie de personnages protégés.
+ * Avatar robot 3D (SVG + ombres / reflets).
+ * Expressions via LED yeux / antenne selon humeur.
  */
 function BotAvatar({
   color,
@@ -67,76 +100,8 @@ function BotAvatar({
 }) {
   const dim =
     size === "lg" ? "size-[72px]" : size === "sm" ? "size-10" : "size-14";
-  let palette = HAIR[color] ?? HAIR.navy!;
-  // Avatar masculin type sticker : cheveux verts, traits plus nets
-  if (gender === "male" && !photoUrl) {
-    palette = { hair: "#5cb85c", hairDark: "#3d8b3d", accent: "#2d6a2d" };
-  }
-  const skin = gender === "male" ? "#f0d0a0" : "#ffdbac";
-  const skinShade = "#f5c99a";
+  const palette = ROBOT[color] ?? ROBOT.navy!;
 
-  // Photo utilisateur comme visage (toujours animée)
-  if (photoUrl) {
-    const happy =
-      mood === "joyeux" ||
-      mood === "blagueur" ||
-      emotion === "excited" ||
-      emotion === "wave";
-    return (
-      <div
-        className={cn(
-          "relative select-none overflow-visible transition-transform",
-          dim,
-          bounce && emotion === "idle" && "assistant-bounce",
-          emotion === "wave" && "assistant-wave-body",
-          emotion === "excited" && "assistant-excited",
-          emotion === "sleep" && "assistant-sleep",
-          emotion === "think" && "assistant-think",
-        )}
-      >
-        <div
-          className={cn(
-            "relative h-full w-full overflow-hidden rounded-full border-2 border-white shadow-lg ring-2",
-            emotion === "sleep" && "opacity-80 grayscale-[30%]",
-          )}
-          
-        >
-          <img
-            src={photoUrl}
-            alt="Avatar assistant"
-            className={cn(
-              "h-full w-full object-cover",
-              emotion === "look" && "origin-center scale-110 translate-x-0.5",
-              emotion === "sleep" && "brightness-90",
-            )}
-            draggable={false}
-          />
-          {/* Voile d'expression */}
-          {emotion === "sleep" ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/25 to-transparent py-0.5 text-center text-[8px] text-white">
-              zzz
-            </div>
-          ) : null}
-        </div>
-        {happy && emotion !== "sleep" ? (
-          <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 text-[10px]">
-            😊
-          </span>
-        ) : null}
-        {emotion === "excited" ? (
-          <span className="absolute -right-1 -top-1 text-sm">✨</span>
-        ) : null}
-        {emotion === "think" ? (
-          <span className="absolute -right-0.5 -top-2 text-xs">💭</span>
-        ) : null}
-        {emotion === "wave" ? (
-          <span className="absolute -left-1 top-1/3 text-sm">👋</span>
-        ) : null}
-      </div>
-    );
-  }
-
-  // Expression
   const happy =
     mood === "joyeux" ||
     mood === "blagueur" ||
@@ -147,157 +112,255 @@ function BotAvatar({
   const thinking = emotion === "think";
   const looking = emotion === "look";
 
+  // LED yeux
+  const eyeColor = sleepy
+    ? "#64748b"
+    : serious
+      ? "#f87171"
+      : happy
+        ? palette.led
+        : thinking
+          ? "#fbbf24"
+          : palette.led;
+
+  const eyeY = looking ? 38 : sleepy ? 40 : 36;
+  const eyeH = sleepy ? 2 : happy ? 10 : serious ? 6 : 8;
+  const mouthPath = sleepy
+    ? "M48 58 H72"
+    : happy
+      ? "M48 56 Q60 68 72 56"
+      : serious
+        ? "M50 60 H70"
+        : thinking
+          ? "M52 58 Q60 62 70 56"
+          : "M50 58 Q60 64 70 58";
+
   return (
     <div
       className={cn(
-        "relative select-none transition-transform",
+        "relative select-none",
         dim,
-        bounce && emotion === "idle" && "assistant-bounce",
-        emotion === "wave" && "assistant-wave-body",
-        emotion === "excited" && "assistant-excited",
-        emotion === "sleep" && "assistant-sleep",
-        emotion === "think" && "assistant-think",
+        bounce && "animate-bounce",
+        emotion === "wave" && "animate-soft-pulse",
       )}
-      title={emotion}
+      style={{
+        filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.35))",
+        transformStyle: "preserve-3d",
+        transform: "perspective(400px) rotateY(-8deg) rotateX(6deg)",
+      }}
+      aria-hidden
     >
-      <svg viewBox="0 0 120 120" className="h-full w-full drop-shadow-md" aria-hidden>
-        {/* Ombre */}
-        <ellipse cx="60" cy="112" rx="28" ry="5" fill="rgba(0,0,0,0.12)" />
+      {/* Reflet 3D */}
+      <div
+        className="pointer-events-none absolute inset-0 rounded-2xl opacity-30"
+        style={{
+          background:
+            "linear-gradient(135deg, rgba(255,255,255,0.45) 0%, transparent 45%, rgba(0,0,0,0.2) 100%)",
+          zIndex: 2,
+        }}
+      />
 
-        {/* Cheveux arrière */}
-        <path
-          d="M28 58 C22 30 40 12 60 10 C80 12 98 30 92 58 L88 52 C82 28 68 18 60 18 C52 18 38 28 32 52 Z"
-          fill={palette.hair}
-        />
-
-        {/* Tête */}
-        <ellipse cx="60" cy="58" rx="34" ry="36" fill={skin} />
-        <ellipse cx="48" cy="68" rx="8" ry="5" fill={skinShade} opacity="0.45" />
-        <ellipse cx="72" cy="68" rx="8" ry="5" fill={skinShade} opacity="0.45" />
-
-        {/* Cheveux avant (frange) */}
-        <path
-          d="M30 48 C36 28 50 22 60 22 C70 22 84 28 90 48 C82 38 72 34 60 34 C48 34 38 38 30 48 Z"
-          fill={palette.hairDark}
-        />
-        <path
-          d="M42 28 C48 20 56 18 60 18 C55 24 50 28 42 32 Z"
-          fill={palette.hair}
-        />
-        <path
-          d="M78 28 C72 20 64 18 60 18 C65 24 70 28 78 32 Z"
-          fill={palette.hair}
-        />
-
-        {/* Yeux */}
-        {sleepy ? (
-          <>
-            <path d="M42 56 Q48 60 54 56" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-            <path d="M66 56 Q72 60 78 56" stroke="#333" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-          </>
-        ) : serious ? (
-          <>
-            <path d="M40 52 L54 54" stroke="#333" strokeWidth="2.2" strokeLinecap="round" />
-            <path d="M66 54 L80 52" stroke="#333" strokeWidth="2.2" strokeLinecap="round" />
-            <ellipse cx="48" cy="58" rx="4.5" ry="5.5" fill="#2a2a2a" />
-            <ellipse cx="72" cy="58" rx="4.5" ry="5.5" fill="#2a2a2a" />
-            <circle cx="49.5" cy="56.5" r="1.3" fill="#fff" />
-            <circle cx="73.5" cy="56.5" r="1.3" fill="#fff" />
-          </>
-        ) : (
-          <>
-            <ellipse
-              cx={looking ? 50 : 48}
-              cy="57"
-              rx="6"
-              ry="7.5"
-              fill="#2a2a2a"
-            />
-            <ellipse
-              cx={looking ? 74 : 72}
-              cy="57"
-              rx="6"
-              ry="7.5"
-              fill="#2a2a2a"
-            />
-            <circle cx={looking ? 52 : 50} cy="54.5" r="2.2" fill="#fff" />
-            <circle cx={looking ? 76 : 74} cy="54.5" r="2.2" fill="#fff" />
-            <circle cx={looking ? 48.5 : 46.5} cy="58" r="1" fill="#fff" opacity="0.7" />
-            <circle cx={looking ? 72.5 : 70.5} cy="58" r="1" fill="#fff" opacity="0.7" />
-          </>
-        )}
-
-        {/* Sourcils */}
-        {!sleepy && (
-          <>
-            <path
-              d={
-                serious
-                  ? "M40 48 L54 50"
-                  : happy
-                    ? "M40 48 Q48 44 54 48"
-                    : "M40 49 Q48 46 54 49"
-              }
-              stroke={palette.hairDark}
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-            />
-            <path
-              d={
-                serious
-                  ? "M66 50 L80 48"
-                  : happy
-                    ? "M66 48 Q72 44 80 48"
-                    : "M66 49 Q72 46 80 49"
-              }
-              stroke={palette.hairDark}
-              strokeWidth="2"
-              fill="none"
-              strokeLinecap="round"
-            />
-          </>
-        )}
-
-        {/* Bouche */}
-        {sleepy ? (
-          <ellipse cx="60" cy="74" rx="4" ry="2.5" fill="#e8a0a0" />
-        ) : happy ? (
-          <path
-            d="M48 70 Q60 84 72 70"
-            fill="#e85d75"
-            stroke="#c44d62"
-            strokeWidth="1"
+      {photoUrl ? (
+        <div className="relative h-full w-full overflow-hidden rounded-2xl border-2 border-white/20 bg-slate-900 shadow-inner">
+          <img
+            src={photoUrl}
+            alt=""
+            className="h-full w-full object-cover"
           />
-        ) : serious ? (
-          <path d="M52 74 L68 74" stroke="#c44d62" strokeWidth="2.2" strokeLinecap="round" />
-        ) : thinking ? (
-          <path d="M56 74 Q62 78 68 72" stroke="#c44d62" strokeWidth="2" fill="none" strokeLinecap="round" />
-        ) : (
-          <path d="M50 72 Q60 80 70 72" stroke="#c44d62" strokeWidth="2.2" fill="none" strokeLinecap="round" />
-        )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/50 to-transparent py-0.5 text-center text-[8px] font-medium text-cyan-200">
+            BOT
+          </div>
+        </div>
+      ) : (
+        <svg viewBox="0 0 120 140" className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={`rb-${color}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor={palette.body} />
+              <stop offset="55%" stopColor={palette.bodyDark} />
+              <stop offset="100%" stopColor={palette.body} />
+            </linearGradient>
+            <linearGradient id={`rv-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.35)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+            </linearGradient>
+            <filter id={`glow-${color}`}>
+              <feGaussianBlur stdDeviation="1.6" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
-        {/* Joues */}
-        {(happy || mood === "calme") && !serious && (
-          <>
-            <ellipse cx="38" cy="68" rx="5" ry="3.5" fill="#ffb4b4" opacity="0.65" />
-            <ellipse cx="82" cy="68" rx="5" ry="3.5" fill="#ffb4b4" opacity="0.65" />
-          </>
-        )}
+          {/* Ombre sol */}
+          <ellipse cx="60" cy="132" rx="28" ry="6" fill="rgba(0,0,0,0.25)" />
 
-        {/* Corps miniature */}
-        <ellipse cx="60" cy="102" rx="16" ry="10" fill={palette.accent} />
-        <rect x="48" y="92" width="24" height="12" rx="6" fill={palette.accent} />
-      </svg>
+          {/* Antenne */}
+          <line
+            x1="60"
+            y1="8"
+            x2="60"
+            y2="22"
+            stroke={palette.bodyDark}
+            strokeWidth="3"
+            strokeLinecap="round"
+          />
+          <circle
+            cx="60"
+            cy="6"
+            r="5"
+            fill={emotion === "excited" || happy ? palette.led : palette.accent}
+            filter={`url(#glow-${color})`}
+          >
+            {happy ? (
+              <animate
+                attributeName="opacity"
+                values="1;0.4;1"
+                dur="1.2s"
+                repeatCount="indefinite"
+              />
+            ) : null}
+          </circle>
+
+          {/* Tête */}
+          <rect
+            x="28"
+            y="22"
+            width="64"
+            height="52"
+            rx="14"
+            fill={`url(#rb-${color})`}
+            stroke={palette.bodyDark}
+            strokeWidth="2"
+          />
+          {/* Visor / écran visage */}
+          <rect
+            x="34"
+            y="30"
+            width="52"
+            height="36"
+            rx="8"
+            fill={palette.panel}
+            stroke="rgba(255,255,255,0.12)"
+          />
+          <rect
+            x="34"
+            y="30"
+            width="52"
+            height="12"
+            rx="8"
+            fill={`url(#rv-${color})`}
+            opacity="0.5"
+          />
+
+          {/* Yeux LED */}
+          <rect
+            x="42"
+            y={eyeY}
+            width="12"
+            height={eyeH}
+            rx="3"
+            fill={eyeColor}
+            filter={`url(#glow-${color})`}
+          />
+          <rect
+            x="66"
+            y={eyeY}
+            width="12"
+            height={eyeH}
+            rx="3"
+            fill={eyeColor}
+            filter={`url(#glow-${color})`}
+          />
+
+          {/* Bouche LED */}
+          <path
+            d={mouthPath}
+            stroke={eyeColor}
+            strokeWidth="2.5"
+            fill="none"
+            strokeLinecap="round"
+            filter={`url(#glow-${color})`}
+          />
+
+          {/* Cou */}
+          <rect x="52" y="72" width="16" height="8" rx="2" fill={palette.bodyDark} />
+
+          {/* Torse */}
+          <rect
+            x="32"
+            y="78"
+            width="56"
+            height="36"
+            rx="10"
+            fill={`url(#rb-${color})`}
+            stroke={palette.bodyDark}
+            strokeWidth="2"
+          />
+          {/* Panneau poitrine */}
+          <rect
+            x="44"
+            y="86"
+            width="32"
+            height="18"
+            rx="4"
+            fill={palette.panel}
+            stroke="rgba(255,255,255,0.1)"
+          />
+          <circle cx="52" cy="95" r="3" fill={palette.accent} opacity="0.9" />
+          <circle cx="60" cy="95" r="3" fill={palette.led} opacity="0.85">
+            <animate attributeName="opacity" values="0.85;0.3;0.85" dur="2s" repeatCount="indefinite" />
+          </circle>
+          <circle cx="68" cy="95" r="3" fill={palette.accent} opacity="0.7" />
+
+          {/* Bras */}
+          <rect
+            x="14"
+            y="82"
+            width="16"
+            height="10"
+            rx="4"
+            fill={palette.body}
+            stroke={palette.bodyDark}
+            strokeWidth="1.5"
+            transform={emotion === "wave" ? "rotate(-25 22 87)" : ""}
+          />
+          <rect
+            x="90"
+            y="82"
+            width="16"
+            height="10"
+            rx="4"
+            fill={palette.body}
+            stroke={palette.bodyDark}
+            strokeWidth="1.5"
+          />
+
+          {/* Badge genre discret */}
+          {gender === "male" ? (
+            <text x="60" y="112" textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.35)">
+              R-01
+            </text>
+          ) : gender === "female" ? (
+            <text x="60" y="112" textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.35)">
+              R-02
+            </text>
+          ) : (
+            <text x="60" y="112" textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.35)">
+              AI
+            </text>
+          )}
+        </svg>
+      )}
 
       {emotion === "excited" ? (
-        <span className="absolute -right-1 -top-1 text-sm">✨</span>
+        <span className="absolute -right-1 -top-1 text-sm">⚡</span>
       ) : null}
       {emotion === "think" ? (
         <span className="absolute -right-0.5 -top-2 text-xs">💭</span>
       ) : null}
       {emotion === "sleep" ? (
-        <span className="absolute -right-1 top-0 text-[10px] text-muted-foreground">
+        <span className="absolute -right-1 top-0 text-[10px] text-cyan-400/80">
           zzz
         </span>
       ) : null}
@@ -783,13 +846,13 @@ export function FloatingAssistant() {
                   ))}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Homme : avatar sticker aux cheveux verts. Ou importez une photo
-                  (style Ghibli).
+                  Homme / femme : variantes du robot 3D. Ou importez une photo pour l'écran du robot
+                  (écran robot).
                 </p>
               </div>
               <Label>Photo de l&apos;assistant (avatar)</Label>
               <p className="text-[11px] text-muted-foreground">
-                Importez une photo : elle est transformée en style Ghibli et devient le visage animé du bot.
+                Importez une photo : elle s'affiche sur l'écran du robot 3D.
               </p>
               <div className="flex flex-wrap gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs font-medium hover:bg-muted">
@@ -809,14 +872,7 @@ export function FloatingAssistant() {
                       }
                       setUploadingAvatar(true);
                       try {
-                        toast.message("Transformation style Ghibli…");
-                        let blob: Blob;
-                        try {
-                          blob = await stylizeToGhibli(file);
-                        } catch {
-                          toast.message("Style simplifié (photo originale)…");
-                          blob = file;
-                        }
+                        const blob: Blob = file;
                         const postUrl = await genAvatarUrl({});
                         const result = await fetch(postUrl, {
                           method: "POST",
