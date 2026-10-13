@@ -369,6 +369,7 @@ export const seedMndptDepartments = mutation({
     if (!me || (me.role !== "admin" && me.role !== "root")) {
       throw new Error("Réservé au DG / super utilisateur.");
     }
+    // Uniquement les cases du tableau de la fiche de transmission SG
     const names = [
       "MINISTRE",
       "DIRCAB",
@@ -396,12 +397,6 @@ export const seedMndptDepartments = mutation({
       "SCE",
       "SAG",
       "SSP",
-      "DIR Antananarivo",
-      "DIR Toamasina",
-      "DIR Mahajanga",
-      "DIR Fianarantsoa",
-      "DIR Toliara",
-      "DIR Antsiranana",
     ];
     const existing = await ctx.db.query("departments").collect();
     const byName = new Map(
