@@ -1135,192 +1135,221 @@ export const setStatus = mutation({
     status: documentStatusValidator,
   },
   handler: async (ctx, args) => {
-    const userId = await requireUserId(ctx);
-    const document = await ctx.db.get(args.documentId);
-    if (!document) throw new Error("Document introuvable.");
-    if (document.status === "traite") {
-      throw new Error("Ce document est déjà entièrement traité.");
-    }
-
-    const user = await ctx.db.get(userId);
-    let steps: Doc<"documentSteps">[] = [];
     try {
-      steps = await ctx.db
-        .query("documentSteps")
-        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
-        .collect();
-      steps.sort((a, b) => a.stepIndex - b.stepIndex);
-    } catch {
-      steps = [];
-    }
-
-    const isAssignee = steps.some((s) => s.assigneeId === userId);
-    const isRecipient = document.recipientId === userId;
-    if (!isRecipient && !isAssignee && !isAdminRole(user?.role)) {
-      throw new Error("Vous ne pouvez pas modifier le statut de ce document.");
-    }
-
-    const now = Date.now();
-    const statusLabels: Record<string, string> = {
-      envoye: "Envoyé",
-      consulte: "Consulté",
-      en_cours: "En cours de traitement",
-      traite: "Traité",
-    };
-
-    // --- Circuit : Traité ---
-    // Intermédiaire : valide son étape et passe au suivant automatiquement
-    // Dernière étape : clôture le dossier
-    if (args.status === "traite" && steps.length > 0) {
-      const myStep =
-        steps.find((s) => s.assigneeId === userId && s.status === "active") ??
-        steps.find((s) => s.assigneeId === userId && s.status !== "done");
-      if (!myStep) {
-        throw new Error(
-          "Vous n'avez plus d'étape à valider sur ce document.",
-        );
-      }
-      if (myStep.status === "waiting") {
-        throw new Error(
-          "Ce n'est pas encore votre tour dans le circuit.",
-        );
+      const userId = await requireUserId(ctx);
+      const document = await ctx.db.get(args.documentId);
+      if (!document) throw new Error("Document introuvable.");
+      if (document.status === "traite") {
+        throw new Error("Ce document est déjà entièrement traité.");
       }
 
-      await ctx.db.patch(myStep._id, {
-        status: "done",
-        actedAt: now,
-      });
+      const user = await ctx.db.get(userId);
+      let steps: Doc<"documentSteps">[] = [];
+      try {
+        steps = await ctx.db
+          .query("documentSteps")
+          .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+          .collect();
+        steps.sort((a, b) => a.stepIndex - b.stepIndex);
+      } catch {
+        steps = [];
+      }
 
-      const next = steps.find((s) => s.stepIndex === myStep.stepIndex + 1);
-      if (!next) {
+      const isAssignee = steps.some((s) => s.assigneeId === userId);
+      const isRecipient = document.recipientId === userId;
+      if (!isRecipient && !isAssignee && !isAdminRole(user?.role)) {
+        throw new Error("Vous ne pouvez pas modifier le statut de ce document.");
+      }
+
+      const now = Date.now();
+      const actorLabel = displayName(user ?? {});
+
+      // --- Circuit + statut Traité ---
+      if (args.status === "traite" && steps.length > 0) {
+        // Étape de l'utilisateur : active, ou destinataire actuel, ou première non-done
+        let myStep =
+          steps.find((s) => s.assigneeId === userId && s.status === "active") ??
+          steps.find(
+            (s) =>
+              s.assigneeId === userId &&
+              document.recipientId === userId &&
+              s.status !== "done" &&
+              s.status !== "rejected",
+          ) ??
+          steps.find((s) => s.assigneeId === userId && s.status !== "done");
+
+        // Destinataire actuel sans étape nominative : prendre l'étape active
+        if (!myStep && isRecipient) {
+          myStep =
+            steps.find((s) => s.status === "active") ??
+            steps.find((s) => s.status !== "done");
+        }
+
+        if (!myStep) {
+          throw new Error(
+            "Vous n'avez plus d'étape à valider sur ce document.",
+          );
+        }
+        if (myStep.status === "waiting" && myStep.assigneeId === userId) {
+          throw new Error(
+            "Ce n'est pas encore votre tour dans le circuit.",
+          );
+        }
+        if (
+          myStep.status === "waiting" &&
+          myStep.assigneeId !== userId &&
+          !isRecipient
+        ) {
+          throw new Error(
+            "Ce n'est pas encore votre tour dans le circuit.",
+          );
+        }
+
+        // Marquer mon étape terminée
+        try {
+          await ctx.db.patch(myStep._id, {
+            status: "done",
+            actedAt: now,
+          });
+        } catch (e) {
+          console.error("[setStatus] patch myStep", e);
+          throw new Error("Impossible de valider votre étape.");
+        }
+
+        const next = steps.find((s) => s.stepIndex === myStep!.stepIndex + 1);
+
+        // Dernière étape → clôturer
+        if (!next) {
+          await ctx.db.patch(args.documentId, {
+            status: "traite",
+            currentStepIndex: myStep.stepIndex,
+            updatedAt: now,
+            viewedAt: document.viewedAt ?? now,
+          });
+          try {
+            await writeAudit(ctx, {
+              action: "document.circuit_complete",
+              actorId: userId,
+              actorName: actorLabel,
+              documentId: args.documentId,
+              details: "Dernière étape validée — document traité",
+            });
+          } catch {}
+          try {
+            await pushNotification(ctx, {
+              userId: document.senderId,
+              type: "document.status",
+              title: "Document entièrement traité",
+              body: `« ${document.objet} » (${document.publicRef ?? "—"}) — clôturé par ${actorLabel}`,
+              documentId: args.documentId,
+            });
+          } catch {}
+          return { outcome: "circuit_complete" as const };
+        }
+
+        // Étape suivante
+        const stepHours =
+          typeof document.stepDeadlineHours === "number" &&
+          document.stepDeadlineHours > 0
+            ? document.stepDeadlineHours
+            : DEFAULT_STEP_DEADLINE_HOURS;
+
+        try {
+          await ctx.db.patch(next._id, {
+            status: "active",
+            activatedAt: now,
+            dueAt: now + stepHours * 3600 * 1000,
+          });
+        } catch (e) {
+          console.error("[setStatus] patch next step with dueAt", e);
+          // Fallback sans champs optionnels
+          await ctx.db.patch(next._id, { status: "active" });
+        }
+
+        const nextUser = await ctx.db.get(next.assigneeId);
         await ctx.db.patch(args.documentId, {
-          status: "traite",
-          currentStepIndex: myStep.stepIndex,
+          recipientId: next.assigneeId,
+          recipientName: next.assigneeName || displayName(nextUser ?? {}),
+          recipientDepartmentId: nextUser?.departmentId,
+          currentStepIndex: next.stepIndex,
+          status: "en_cours",
           updatedAt: now,
           viewedAt: document.viewedAt ?? now,
         });
+
         try {
           await writeAudit(ctx, {
-            action: "document.circuit_complete",
+            action: "document.step_done",
             actorId: userId,
-            actorName: displayName(user ?? {}),
+            actorName: actorLabel,
             documentId: args.documentId,
-            details: "Dernière étape validée — document traité",
+            details: `Étape ${myStep.stepIndex + 1} terminée → ${next.assigneeName}`,
           });
         } catch {}
         try {
           await pushNotification(ctx, {
             userId: document.senderId,
             type: "document.status",
-            title: "Document entièrement traité",
-            body: `« ${document.objet} » (${document.publicRef ?? "—"}) — clôturé par ${displayName(user ?? {})}`,
+            title: "Circuit avancé",
+            body: `« ${document.objet} » — ${actorLabel} a terminé ; en cours chez ${next.assigneeName}`,
             documentId: args.documentId,
           });
         } catch {}
-        return { outcome: "circuit_complete" as const };
+        try {
+          const after = steps.find((s) => s.stepIndex === next.stepIndex + 1);
+          await pushNotification(ctx, {
+            userId: next.assigneeId,
+            type: "document.received",
+            title: "Document à traiter",
+            body: after
+              ? `De la part de ${actorLabel} — « ${document.objet} ». Puis transmettre à ${after.assigneeName}.`
+              : `De la part de ${actorLabel} — « ${document.objet} ». Dernière étape : marquez Traité pour clôturer.`,
+            documentId: args.documentId,
+          });
+        } catch {}
+
+        return {
+          outcome: "step_advanced" as const,
+          nextAssignee: next.assigneeName,
+        };
       }
 
-      // Activer l'étape suivante
-      const stepHours =
-        document.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
-      await ctx.db.patch(next._id, {
-        status: "active",
-        activatedAt: now,
-        dueAt: now + stepHours * 3600 * 1000,
-      });
-      const nextUser = await ctx.db.get(next.assigneeId);
+      // --- Consulté / En cours / Traité sans étapes circuit ---
       await ctx.db.patch(args.documentId, {
-        recipientId: next.assigneeId,
-        recipientName: next.assigneeName,
-        recipientDepartmentId: nextUser?.departmentId,
-        currentStepIndex: next.stepIndex,
-        status: "en_cours",
+        status: args.status,
         updatedAt: now,
         viewedAt: document.viewedAt ?? now,
       });
+
       try {
         await writeAudit(ctx, {
-          action: "document.step_done",
+          action: "document.status_changed",
           actorId: userId,
-          actorName: displayName(user ?? {}),
+          actorName: actorLabel,
           documentId: args.documentId,
-          details: `Étape ${myStep.stepIndex + 1} terminée → ${next.assigneeName}`,
+          details: `Statut → ${args.status}`,
         });
       } catch {}
+
       try {
-        await pushNotification(ctx, {
-          userId: document.senderId,
-          type: "document.status",
-          title: "Circuit avancé",
-          body: `« ${document.objet} » — ${displayName(user ?? {})} a terminé ; en cours chez ${next.assigneeName}`,
-          documentId: args.documentId,
-        });
+        if (document.senderId !== userId) {
+          await pushNotification(ctx, {
+            userId: document.senderId,
+            type: "document.status",
+            title: "Statut mis à jour",
+            body: `« ${document.objet} » — ${actorLabel} a passé le statut à « ${args.status} »`,
+            documentId: args.documentId,
+          });
+        }
       } catch {}
-      try {
-        const after = steps.find((s) => s.stepIndex === next.stepIndex + 1);
-        await pushNotification(ctx, {
-          userId: next.assigneeId,
-          type: "document.received",
-          title: "Document à traiter",
-          body: after
-            ? `De la part de ${displayName(user ?? {})} — « ${document.objet} ». Puis transmettre à ${after.assigneeName}.`
-            : `De la part de ${displayName(user ?? {})} — « ${document.objet} ». Dernière étape : marquez Traité pour clôturer.`,
-          documentId: args.documentId,
-        });
-      } catch {}
-      return {
-        outcome: "step_advanced" as const,
-        nextAssignee: next.assigneeName,
-      };
+
+      return { outcome: "status_updated" as const };
+    } catch (e) {
+      const msg =
+        e instanceof Error ? e.message : "Erreur lors de la mise à jour du statut.";
+      console.error("[setStatus]", e);
+      throw new Error(msg);
     }
-
-    // --- Consulté / En cours (tout intervenant) ou Traité sans circuit ---
-    await ctx.db.patch(args.documentId, {
-      status: args.status,
-      updatedAt: now,
-      viewedAt: document.viewedAt ?? now,
-    });
-
-    // Si circuit et mon étape active : rester active, juste note le progrès global
-    try {
-      await writeAudit(ctx, {
-        action: "document.status_changed",
-        actorId: userId,
-        actorName: displayName(user ?? {}),
-        documentId: args.documentId,
-        details: `Statut → ${args.status}`,
-        metadata: { from: document.status, to: args.status },
-      });
-    } catch {}
-
-    try {
-      await pushNotification(ctx, {
-        userId: document.senderId,
-        type: "document.status",
-        title: "Statut mis à jour",
-        body: `« ${document.objet} » → ${statusLabels[args.status] ?? args.status} (par ${displayName(user ?? {})})`,
-        documentId: args.documentId,
-      });
-    } catch {}
-
-    try {
-      const sender = await ctx.db.get(document.senderId);
-      if (sender?.email) {
-        await ctx.scheduler.runAfter(
-          0,
-          internal.notifications.sendStatusChangedEmail,
-          {
-            toEmail: sender.email,
-            toName: displayName(sender),
-            documentObjet: document.objet,
-            newStatus: args.status,
-            changedByName: displayName(user ?? {}),
-          },
-        );
-      }
-    } catch {}
-
-    return { outcome: "status_updated" as const };
   },
 });
 
