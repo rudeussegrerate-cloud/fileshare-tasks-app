@@ -149,6 +149,25 @@ export function CircuitTrackingView({
                 </p>
               )}
 
+              {doc.status !== "traite" && doc.dueAt != null ? (
+                <p
+                  className={
+                    doc.isOverdue
+                      ? "mt-1 flex items-center gap-1.5 text-xs font-medium text-red-700"
+                      : doc.hoursLeft != null && doc.hoursLeft <= 12
+                        ? "mt-1 flex items-center gap-1.5 text-xs font-medium text-amber-800"
+                        : "mt-1 flex items-center gap-1.5 text-xs text-muted-foreground"
+                  }
+                >
+                  <Clock className="size-3.5 shrink-0" />
+                  {doc.isOverdue
+                    ? `En retard · échéance étape dépassée (${formatDateTime(doc.dueAt)})`
+                    : doc.hoursLeft != null
+                      ? `Échéance étape · ${formatDateTime(doc.dueAt)} · reste ~${doc.hoursLeft} h (SLA ${doc.stepDeadlineHours ?? 48} h)`
+                      : `Échéance · ${formatDateTime(doc.dueAt)}`}
+                </p>
+              ) : null}
+
               <p className="mt-1 text-[11px] text-muted-foreground">
                 Mis à jour · {formatDateTime(doc.updatedAt)}
               </p>

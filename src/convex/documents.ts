@@ -23,6 +23,10 @@ const ROLES = {
 
 /** Limite serveur des fichiers (10 Mo) */
 export const MAX_FILE_BYTES_SERVER = 10 * 1024 * 1024;
+/** SLA par défaut par étape de circuit (heures). */
+export const DEFAULT_STEP_DEADLINE_HOURS = 48;
+/** Délai minimum entre deux relances (ms). */
+export const ALERT_COOLDOWN_MS = 4 * 60 * 60 * 1000;
 
 /** Types MIME autorisés côté serveur */
 const ALLOWED_CONTENT_TYPES = new Set([
@@ -342,6 +346,8 @@ export const send = mutation({
     circuitAssigneeIds: v.optional(v.array(v.id("users"))),
     /** Identifiant manuel du dossier (nouveau ou continuation de circuit). */
     publicRef: v.optional(v.string()),
+    /** Délai max par étape (heures), défaut 48. */
+    stepDeadlineHours: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -479,7 +485,13 @@ export const send = mutation({
               assigneeDepartmentName: nextDepName,
             });
           }
-          await ctx.db.patch(next._id, { status: "active" });
+          const stepHours =
+            existing.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
+          await ctx.db.patch(next._id, {
+            status: "active",
+            activatedAt: now,
+            dueAt: now + stepHours * 3600 * 1000,
+          });
           const nextUser = await ctx.db.get(nextAssigneeId);
           await ctx.db.patch(existing._id, {
             storageId: args.storageId,
@@ -618,10 +630,27 @@ export const send = mutation({
       hasCircuit: circuitUsers.length > 1,
       currentStepIndex: 0,
       circuitTotalSteps: circuitUsers.length,
+      stepDeadlineHours: Math.min(
+        168,
+        Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
+      ),
+      dueAt:
+        now +
+        circuitUsers.length *
+          Math.min(
+            168,
+            Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
+          ) *
+          3600 *
+          1000,
       createdAt: now,
       updatedAt: now,
     });
 
+    const stepHours = Math.min(
+      168,
+      Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
+    );
     // Créer les étapes du circuit (personne + département)
     for (let i = 0; i < circuitUsers.length; i++) {
       const u = circuitUsers[i]!;
@@ -630,6 +659,7 @@ export const send = mutation({
         const dep = await ctx.db.get(u.departmentId);
         depName = dep?.name;
       }
+      const isFirst = i === 0;
       await ctx.db.insert("documentSteps", {
         documentId,
         stepIndex: i,
@@ -637,7 +667,9 @@ export const send = mutation({
         assigneeName: displayName(u),
         assigneeDepartmentName: depName,
         taskLabel: tasks[0],
-        status: i === 0 ? "active" : "waiting",
+        status: isFirst ? "active" : "waiting",
+        activatedAt: isFirst ? now : undefined,
+        dueAt: isFirst ? now + stepHours * 3600 * 1000 : undefined,
         createdAt: now,
       });
     }
@@ -2016,6 +2048,17 @@ export const alertActiveStep = mutation({
     if (!isSender && !isAdmin) {
       throw new Error("Seul l'émetteur ou le DG peut envoyer une alerte.");
     }
+    if (
+      doc.lastAlertAt &&
+      Date.now() - doc.lastAlertAt < ALERT_COOLDOWN_MS
+    ) {
+      const waitH = Math.ceil(
+        (ALERT_COOLDOWN_MS - (Date.now() - doc.lastAlertAt)) / 3600000,
+      );
+      throw new Error(
+        `Relance déjà envoyée récemment. Réessayez dans environ ${waitH} h.`,
+      );
+    }
     const steps = (
       await ctx.db
         .query("documentSteps")
@@ -2043,6 +2086,7 @@ export const alertActiveStep = mutation({
         details: `Alerte → ${active.assigneeName}`,
       });
     } catch {}
+    await ctx.db.patch(args.documentId, { lastAlertAt: Date.now() });
     return { ok: true as const, to: active.assigneeName };
   },
 });
@@ -2093,8 +2137,22 @@ export const circuitTracking = query({
           steps = [];
         }
         const active = steps.find((s) => s.status === "active") ?? null;
+        const stepHours = d.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
+        const stepDueAt =
+          active?.dueAt ??
+          (active?.activatedAt
+            ? active.activatedAt + stepHours * 3600 * 1000
+            : null) ??
+          d.dueAt ??
+          null;
         const age = now - (d.createdAt ?? d._creationTime);
-        const overdue = d.status !== "traite" && age > 48 * 3600 * 1000;
+        const stepOverdue =
+          d.status !== "traite" && stepDueAt != null && now > stepDueAt;
+        const globalOverdue =
+          d.status !== "traite" &&
+          ((d.dueAt != null && now > d.dueAt) ||
+            age > stepHours * 3600 * 1000 * Math.max(1, steps.length || 1));
+        const overdue = stepOverdue || globalOverdue;
         let category: "en_attente" | "en_cours" | "en_retard" | "termines" =
           "en_cours";
         if (d.status === "traite") category = "termines";
@@ -2103,6 +2161,7 @@ export const circuitTracking = query({
           category = "en_attente";
         else category = "en_cours";
 
+        const msLeft = stepDueAt != null ? stepDueAt - now : null;
         items.push({
           _id: d._id,
           publicRef: d.publicRef ?? null,
@@ -2124,6 +2183,14 @@ export const circuitTracking = query({
             d.status !== "traite" &&
             Boolean(active),
           category,
+          dueAt: stepDueAt,
+          globalDueAt: d.dueAt ?? null,
+          stepDeadlineHours: stepHours,
+          hoursLeft:
+            msLeft == null
+              ? null
+              : Math.round((msLeft / 3600000) * 10) / 10,
+          isOverdue: overdue,
           createdAt: d.createdAt ?? d._creationTime,
           updatedAt: d.updatedAt ?? d.createdAt,
         });

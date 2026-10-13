@@ -148,6 +148,12 @@ const schema = defineSchema(
       hasCircuit: v.optional(v.boolean()),
       currentStepIndex: v.optional(v.number()),
       circuitTotalSteps: v.optional(v.number()),
+      /** Échéance globale du dossier (ms) */
+      dueAt: v.optional(v.number()),
+      /** Délai max par étape en heures (SLA circuit) */
+      stepDeadlineHours: v.optional(v.number()),
+      /** Dernière relance émetteur (anti-spam) */
+      lastAlertAt: v.optional(v.number()),
       createdAt: v.number(),
       updatedAt: v.number(),
       viewedAt: v.optional(v.number()),
@@ -192,6 +198,10 @@ const schema = defineSchema(
       ),
       note: v.optional(v.string()),
       actedAt: v.optional(v.number()),
+      /** Quand l'étape est devenue active */
+      activatedAt: v.optional(v.number()),
+      /** Échéance de cette étape */
+      dueAt: v.optional(v.number()),
       createdAt: v.number(),
     })
       .index("by_document", ["documentId", "stepIndex"])

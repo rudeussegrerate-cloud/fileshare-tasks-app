@@ -98,6 +98,8 @@ export function SendDocument({
   const [publicRef, setPublicRef] = useState(
     (initialPublicRef ?? "").toUpperCase(),
   );
+  /** SLA par étape (heures) pour un nouveau circuit */
+  const [stepDeadlineHours, setStepDeadlineHours] = useState(48);
   const refLookup = useQuery(
     api.documents.lookupByPublicRef,
     publicRef.trim().length >= 3 ? { publicRef: publicRef.trim() } : "skip",
@@ -270,6 +272,7 @@ export function SendDocument({
         extractedText: extractedText || undefined,
         recipientId,
         publicRef: publicRef.trim() || undefined,
+        stepDeadlineHours: stepDeadlineHours,
         circuitAssigneeIds:
           circuitExtra.length > 0
             ? circuitExtra.map((c) => c.userId)
@@ -744,6 +747,25 @@ export function SendDocument({
                     Ce dossier est déjà clôturé. Choisissez un autre identifiant.
                   </p>
                 ) : null}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="sla">Délai max par étape (heures)</Label>
+                <Input
+                  id="sla"
+                  type="number"
+                  min={1}
+                  max={168}
+                  value={stepDeadlineHours}
+                  onChange={(e) =>
+                    setStepDeadlineHours(
+                      Math.min(168, Math.max(1, Number(e.target.value) || 48)),
+                    )
+                  }
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Au-delà, le dossier apparaît en retard (défaut 48 h). Max 7
+                  jours par étape.
+                </p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="objet">Objet de l&apos;envoi</Label>
