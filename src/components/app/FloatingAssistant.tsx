@@ -705,14 +705,14 @@ export function FloatingAssistant() {
 
       {/* Personnalisation */}
       <Dialog open={settings} onOpenChange={setSettings}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[min(90vh,640px)] max-w-md flex-col gap-0 overflow-hidden p-0">
+          <DialogHeader className="shrink-0 space-y-1 border-b border-border px-6 py-4 pr-12">
             <DialogTitle>Personnaliser votre assistant</DialogTitle>
             <DialogDescription>
               Choisissez son nom, son humeur et la façon dont il vous parle.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 py-4">
             <div className="flex justify-center py-2">
               <BotAvatar color={color} mood={mood} size="lg" bounce photoUrl={bot && "avatarUrl" in bot ? bot.avatarUrl : null} />
             </div>
@@ -924,9 +924,11 @@ export function FloatingAssistant() {
                 placeholder="Ex : Sois patient, explique étape par étape, utilise des exemples simples…"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2 border-t border-border bg-card px-6 py-3">
               <Button
                 type="button"
+                className="flex-1 sm:flex-none"
                 onClick={async () => {
                   try {
                     await saveBot({ name, mood, personality, color, gender });
@@ -949,7 +951,6 @@ export function FloatingAssistant() {
               >
                 Effacer l&apos;historique
               </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>

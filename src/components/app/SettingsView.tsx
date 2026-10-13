@@ -14,7 +14,7 @@ import { Switch } from "@/components/ui/switch";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
-import { useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   Bell,
   Building2,
@@ -27,6 +27,7 @@ import {
   Crown,
   FileText,
   HelpCircle,
+  AlertTriangle,
   Inbox,
   KeyRound,
   Loader2,
@@ -137,13 +138,16 @@ const stats = useQuery(api.documents.stats);
   const [notif, setNotif] = useState(getNotifPref);
   const [anim, setAnim] = useState(getAnimPref);
   const [section, setSection] = useState<
-    "profil" | "preferences" | "securite" | "navigation" | "aide"
+    "profil" | "preferences" | "securite" | "navigation" | "aide" | "danger"
   >("profil");
   const [pwdStep, setPwdStep] = useState<"idle" | "code-sent">("idle");
   const [pwdBusy, setPwdBusy] = useState(false);
   const [pwdCode, setPwdCode] = useState("");
   const [pwdNew, setPwdNew] = useState("");
   const [pwdConfirm, setPwdConfirm] = useState("");
+  const [wipeConfirm, setWipeConfirm] = useState("");
+  const [wipeBusy, setWipeBusy] = useState(false);
+  const wipeSite = useMutation(api.workspace.wipeSiteData);
 
   useEffect(() => {
     applyTheme(theme);
@@ -190,6 +194,15 @@ const stats = useQuery(api.documents.stats);
     { id: "securite", label: "Sécurité & mot de passe", icon: KeyRound },
     { id: "navigation", label: "Raccourcis & organisation", icon: FileText },
     { id: "aide", label: "Aide & guide d'utilisation", icon: HelpCircle },
+    ...(me.isAdmin || me.isRoot
+      ? ([
+          {
+            id: "danger" as const,
+            label: "Zone dangereuse",
+            icon: AlertTriangle,
+          },
+        ] as const)
+      : []),
   ];
 
   return (
@@ -956,6 +969,75 @@ const stats = useQuery(api.documents.stats);
         </CardContent>
       </Card>
       </>
+      ) : null}
+
+      {section === "danger" && (me.isAdmin || me.isRoot) ? (
+        <>
+          <SectionHeading
+            title="Zone dangereuse"
+            description="Actions irréversibles réservées au DG"
+          />
+          <Card className="border-red-200">
+            <CardContent className="space-y-4 p-4">
+              <div>
+                <p className="text-sm font-medium text-red-800">
+                  Réinitialiser le site (données vierges)
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Supprime documents, départements, annonces, messages,
+                  notifications et tous les comptes sauf le vôtre. Le site
+                  redevient comme neuf. Cette action est irréversible.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="wipe-confirm">
+                  Tapez <span className="font-mono font-semibold">REINITIALISER</span> pour confirmer
+                </Label>
+                <Input
+                  id="wipe-confirm"
+                  value={wipeConfirm}
+                  onChange={(e) => setWipeConfirm(e.target.value)}
+                  placeholder="REINITIALISER"
+                  className="font-mono"
+                  autoComplete="off"
+                />
+              </div>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={wipeBusy || wipeConfirm !== "REINITIALISER"}
+                onClick={async () => {
+                  if (
+                    !confirm(
+                      "Confirmer la remise à zéro complète du site ? Seul votre compte DG sera conservé.",
+                    )
+                  )
+                    return;
+                  setWipeBusy(true);
+                  try {
+                    const res = await wipeSite({ confirm: "REINITIALISER" });
+                    toast.success("Site réinitialisé — données effacées");
+                    console.info("[wipeSite]", res);
+                    setWipeConfirm("");
+                  } catch (e) {
+                    toast.error(
+                      e instanceof Error ? e.message : "Échec de la réinitialisation",
+                    );
+                  } finally {
+                    setWipeBusy(false);
+                  }
+                }}
+              >
+                {wipeBusy ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <AlertTriangle className="size-4" />
+                )}
+                Effacer toutes les données
+              </Button>
+            </CardContent>
+          </Card>
+        </>
       ) : null}
     </div>
   );

@@ -790,3 +790,201 @@ export const clearDepartmentLogo = mutation({
     return null;
   },
 });
+
+/**
+ * Réinitialise toutes les données métier → site vierge.
+ * Conserve uniquement le compte DG/root qui lance l'action.
+ * Confirmation obligatoire : confirm === "REINITIALISER"
+ */
+export const wipeSiteData = mutation({
+  args: { confirm: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const me = await ctx.db.get(userId);
+    if (!me) throw new Error("Utilisateur introuvable.");
+    if (!isAdminRole(me.role)) {
+      throw new Error("Seul le DG peut réinitialiser le site.");
+    }
+    if (args.confirm !== "REINITIALISER") {
+      throw new Error(
+        'Tapez exactement REINITIALISER pour confirmer la remise à zéro.',
+      );
+    }
+
+    const counts: Record<string, number> = {};
+
+    async function delAll(
+      label: string,
+      rows: Array<{ _id: Id<any> }>,
+      skipId?: string,
+    ) {
+      let n = 0;
+      for (const row of rows) {
+        if (skipId && String(row._id) === skipId) continue;
+        try {
+          await ctx.db.delete(row._id);
+          n += 1;
+        } catch {
+          /* ignore */
+        }
+      }
+      counts[label] = n;
+    }
+
+    try {
+      await delAll(
+        "documentSteps",
+        await ctx.db.query("documentSteps").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "documentRevisions",
+        await ctx.db.query("documentRevisions").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      const docs = await ctx.db.query("documents").collect();
+      for (const d of docs) {
+        try {
+          if (d.storageId) await ctx.storage.delete(d.storageId);
+        } catch {
+          /* ignore */
+        }
+      }
+      await delAll("documents", docs);
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "announcementReactions",
+        await ctx.db.query("announcementReactions").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "announcementComments",
+        await ctx.db.query("announcementComments").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "announcements",
+        await ctx.db.query("announcements").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "chatMessages",
+        await ctx.db.query("chatMessages").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "conversations",
+        await ctx.db.query("conversations").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "notifications",
+        await ctx.db.query("notifications").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll("auditLogs", await ctx.db.query("auditLogs").collect());
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "departmentJoinRequests",
+        await ctx.db.query("departmentJoinRequests").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "departmentInvitations",
+        await ctx.db.query("departmentInvitations").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "botMessages",
+        await ctx.db.query("botMessages").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll("botSkills", await ctx.db.query("botSkills").collect());
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "botProfiles",
+        await ctx.db.query("botProfiles").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll("rateLimits", await ctx.db.query("rateLimits").collect());
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "departments",
+        await ctx.db.query("departments").collect(),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    try {
+      await delAll(
+        "users",
+        await ctx.db.query("users").collect(),
+        String(userId),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+
+    try {
+      await ctx.db.patch(userId, {
+        departmentId: undefined,
+        departmentRole: undefined,
+        accountStatus: "valide",
+        role: me.role === "root" ? "root" : "admin",
+      });
+    } catch {
+      /* ignore */
+    }
+
+    return { ok: true as const, counts };
+  },
+});
