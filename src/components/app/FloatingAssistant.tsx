@@ -16,6 +16,50 @@ import { Loader2, Settings2, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+const VOICE_KEY = "scandoc-bot-voice";
+
+/** Nettoie le texte pour la synthèse vocale */
+function plainForSpeech(raw: string): string {
+  return raw
+    .replace(/[*_#`]/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/😊|💪|😄|🤖|⚡|💭|💧|👋/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 500);
+}
+
+function speakBotReply(text: string, enabled: boolean) {
+  if (!enabled || typeof window === "undefined") return;
+  const synth = window.speechSynthesis;
+  if (!synth) return;
+  try {
+    synth.cancel();
+    const u = new SpeechSynthesisUtterance(plainForSpeech(text));
+    u.lang = "fr-FR";
+    u.rate = 1.02;
+    u.pitch = 1.05;
+    // Préférer une voix française
+    const voices = synth.getVoices();
+    const fr =
+      voices.find((v) => v.lang.startsWith("fr") && /google|thomas|julie|hortense|marie/i.test(v.name)) ||
+      voices.find((v) => v.lang.startsWith("fr"));
+    if (fr) u.voice = fr;
+    synth.speak(u);
+  } catch (e) {
+    console.warn("[bot voice]", e);
+  }
+}
+
+function stopSpeaking() {
+  try {
+    window.speechSynthesis?.cancel();
+  } catch {
+    /* ignore */
+  }
+}
+
+
 const MOODS = [
   { id: "joyeux", label: "Joyeux" },
   { id: "calme", label: "Calme" },
@@ -137,6 +181,19 @@ function BotAvatar({
           ? "M52 58 Q60 62 70 56"
           : "M50 58 Q60 64 70 58";
 
+  const gestureClass =
+    emotion === "wave"
+      ? "bot-gesture-wave"
+      : emotion === "happy" || emotion === "excited"
+        ? "bot-gesture-celebrate"
+        : emotion === "sad"
+          ? "bot-gesture-shake"
+          : emotion === "think" || emotion === "curious"
+            ? "bot-gesture-think"
+            : emotion === "look"
+              ? "bot-gesture-nod"
+              : "";
+
   return (
     <div
       className={cn(
@@ -144,6 +201,7 @@ function BotAvatar({
         dim,
         bounce && "animate-bounce",
         emotion === "wave" && "animate-soft-pulse",
+        gestureClass,
       )}
       style={{
         filter: "drop-shadow(0 6px 10px rgba(0,0,0,0.35))",
@@ -427,6 +485,16 @@ export function FloatingAssistant() {
   } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [idleEmotion, setIdleEmotion] = useState<IdleEmotion>("idle");
+  const [voiceOn, setVoiceOn] = useState(() => {
+    try {
+      return localStorage.getItem(VOICE_KEY) !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const [speaking, setSpeaking] = useState(false);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<{ stop?: () => void } | null>(null);
 
   useEffect(() => {
     try {
@@ -498,6 +566,51 @@ export function FloatingAssistant() {
     return () => window.clearInterval(id);
   }, [open, dragging]);
 
+
+  const startListening = () => {
+    const w = window as unknown as {
+      SpeechRecognition?: new () => any;
+      webkitSpeechRecognition?: new () => any;
+    };
+    const SR = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SR) {
+      toast.error(
+        "La reconnaissance vocale n'est pas disponible sur ce navigateur.",
+      );
+      return;
+    }
+    try {
+      stopSpeaking();
+      const rec = new SR();
+      rec.lang = "fr-FR";
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      recognitionRef.current = rec;
+      rec.onstart = () => {
+        setListening(true);
+        setIdleEmotion("curious");
+      };
+      rec.onend = () => setListening(false);
+      rec.onerror = () => {
+        setListening(false);
+        toast.message("Micro interrompu");
+      };
+      rec.onresult = (ev: {
+        results?: ArrayLike<ArrayLike<{ transcript?: string }>>;
+      }) => {
+        const said = ev.results?.[0]?.[0]?.transcript?.trim();
+        if (said) {
+          setText(said);
+          setOpen(true);
+          toast.message(`Vous : ${said.slice(0, 60)}`);
+        }
+      };
+      rec.start();
+    } catch {
+      toast.error("Impossible d'accéder au micro.");
+    }
+  };
+
   if (!me || me.accountStatus !== "valide") return null;
 
   const botName = bot?.name ?? "Aide";
@@ -556,7 +669,7 @@ export function FloatingAssistant() {
         <button
           type="button"
           className={`fixed z-40 flex touch-none flex-col items-center gap-1 rounded-full focus:outline-none ${
-            dragging ? "cursor-grabbing" : "cursor-grab animate-soft-pulse bot-alive"
+            dragging ? "cursor-grabbing" : cn("cursor-grab animate-soft-pulse bot-alive", speaking && "bot-speaking", listening && "bot-speaking")
           }`}
           style={{ left: pos.x, top: pos.y }}
           title={`${botName} — glisser pour déplacer, cliquer pour parler`}
@@ -733,10 +846,18 @@ export function FloatingAssistant() {
                 if (res?.emotion) {
                   const e = res.emotion as IdleEmotion;
                   setIdleEmotion(e);
-                  // garder l'expression un moment
                   window.setTimeout(() => {
                     if (!open) setIdleEmotion("idle");
-                  }, 4000);
+                  }, 4500);
+                }
+                const spoken = res?.reply ?? "";
+                if (spoken && voiceOn) {
+                  setSpeaking(true);
+                  setIdleEmotion((prev) =>
+                    prev === "idle" || prev === "sleep" ? "happy" : prev,
+                  );
+                  speakBotReply(spoken, true);
+                  window.setTimeout(() => setSpeaking(false), Math.min(12000, 800 + spoken.length * 45));
                 }
                 const action = res?.action;
                 if (action && action !== "reply") {
@@ -783,7 +904,22 @@ export function FloatingAssistant() {
               className="h-9 text-sm"
               disabled={busy}
             />
-            <Button type="submit" size="sm" disabled={busy || !text.trim()}>
+            <Button type="button"
+                  title="Parler au robot"
+                  variant="outline"
+                  size="icon"
+                  disabled={busy || listening}
+                  onClick={startListening}
+                  className={cn(listening && "border-cyan-400 text-cyan-600")}
+                >
+                  {listening ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <span className="text-base" aria-hidden>🎤</span>
+                  )}
+                </Button>
+                <Button
+                  type="submit" size="sm" disabled={busy || !text.trim()}>
               {busy ? (
                 <Loader2 className="size-4 animate-spin" />
               ) : (
@@ -878,6 +1014,33 @@ export function FloatingAssistant() {
                   (écran robot).
                 </p>
               </div>
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
+                <div>
+                  <p className="text-sm font-medium">Réponses vocales</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Le robot lit ses réponses à voix haute (français).
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={voiceOn ? "default" : "outline"}
+                  onClick={() => {
+                    const next = !voiceOn;
+                    setVoiceOn(next);
+                    try {
+                      localStorage.setItem(VOICE_KEY, next ? "1" : "0");
+                    } catch {
+                      /* ignore */
+                    }
+                    if (!next) stopSpeaking();
+                    else speakBotReply("Réponses vocales activées.", true);
+                  }}
+                >
+                  {voiceOn ? "Activé" : "Coupé"}
+                </Button>
+              </div>
+
               <Label>Photo de l&apos;assistant (avatar)</Label>
               <p className="text-[11px] text-muted-foreground">
                 Importez une photo : elle s'affiche sur l'écran du robot 3D.
