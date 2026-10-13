@@ -1169,8 +1169,8 @@ export const setStatus = mutation({
     };
 
     // --- Circuit : Traité ---
-    // Intermédiaire : doit transmettre via Envoyer + même identifiant
-    // Dernière étape : clôture directe
+    // Intermédiaire : valide son étape et passe au suivant automatiquement
+    // Dernière étape : clôture le dossier
     if (args.status === "traite" && steps.length > 0) {
       const myStep =
         steps.find((s) => s.assigneeId === userId && s.status === "active") ??
@@ -1186,43 +1186,92 @@ export const setStatus = mutation({
         );
       }
 
-      const next = steps.find((s) => s.stepIndex === myStep.stepIndex + 1);
-      if (next) {
-        throw new Error(
-          `Pour transmettre à l'étape suivante (${next.assigneeName}), utilisez Envoyer un document avec l'identifiant « ${document.publicRef ?? "…"} ».`,
-        );
-      }
-
-      // Dernière personne : clôturer
       await ctx.db.patch(myStep._id, {
         status: "done",
         actedAt: now,
       });
+
+      const next = steps.find((s) => s.stepIndex === myStep.stepIndex + 1);
+      if (!next) {
+        await ctx.db.patch(args.documentId, {
+          status: "traite",
+          currentStepIndex: myStep.stepIndex,
+          updatedAt: now,
+          viewedAt: document.viewedAt ?? now,
+        });
+        try {
+          await writeAudit(ctx, {
+            action: "document.circuit_complete",
+            actorId: userId,
+            actorName: displayName(user ?? {}),
+            documentId: args.documentId,
+            details: "Dernière étape validée — document traité",
+          });
+        } catch {}
+        try {
+          await pushNotification(ctx, {
+            userId: document.senderId,
+            type: "document.status",
+            title: "Document entièrement traité",
+            body: `« ${document.objet} » (${document.publicRef ?? "—"}) — clôturé par ${displayName(user ?? {})}`,
+            documentId: args.documentId,
+          });
+        } catch {}
+        return { outcome: "circuit_complete" as const };
+      }
+
+      // Activer l'étape suivante
+      const stepHours =
+        document.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
+      await ctx.db.patch(next._id, {
+        status: "active",
+        activatedAt: now,
+        dueAt: now + stepHours * 3600 * 1000,
+      });
+      const nextUser = await ctx.db.get(next.assigneeId);
       await ctx.db.patch(args.documentId, {
-        status: "traite",
-        currentStepIndex: myStep.stepIndex,
+        recipientId: next.assigneeId,
+        recipientName: next.assigneeName,
+        recipientDepartmentId: nextUser?.departmentId,
+        currentStepIndex: next.stepIndex,
+        status: "en_cours",
         updatedAt: now,
         viewedAt: document.viewedAt ?? now,
       });
       try {
         await writeAudit(ctx, {
-          action: "document.circuit_complete",
+          action: "document.step_done",
           actorId: userId,
           actorName: displayName(user ?? {}),
           documentId: args.documentId,
-          details: "Dernière étape validée — document traité",
+          details: `Étape ${myStep.stepIndex + 1} terminée → ${next.assigneeName}`,
         });
       } catch {}
       try {
         await pushNotification(ctx, {
           userId: document.senderId,
           type: "document.status",
-          title: "Document entièrement traité",
-          body: `« ${document.objet} » (${document.publicRef ?? "—"}) — clôturé par ${displayName(user ?? {})}`,
+          title: "Circuit avancé",
+          body: `« ${document.objet} » — ${displayName(user ?? {})} a terminé ; en cours chez ${next.assigneeName}`,
           documentId: args.documentId,
         });
       } catch {}
-      return { outcome: "circuit_complete" as const };
+      try {
+        const after = steps.find((s) => s.stepIndex === next.stepIndex + 1);
+        await pushNotification(ctx, {
+          userId: next.assigneeId,
+          type: "document.received",
+          title: "Document à traiter",
+          body: after
+            ? `De la part de ${displayName(user ?? {})} — « ${document.objet} ». Puis transmettre à ${after.assigneeName}.`
+            : `De la part de ${displayName(user ?? {})} — « ${document.objet} ». Dernière étape : marquez Traité pour clôturer.`,
+          documentId: args.documentId,
+        });
+      } catch {}
+      return {
+        outcome: "step_advanced" as const,
+        nextAssignee: next.assigneeName,
+      };
     }
 
     // --- Consulté / En cours (tout intervenant) ou Traité sans circuit ---

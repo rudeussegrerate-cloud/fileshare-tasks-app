@@ -111,10 +111,11 @@ function ActualitesViewInner() {
         </div>
       ) : list.length === 0 ? (
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
-          <p className="font-medium text-foreground">Aucune annonce visible</p>
+          <p className="font-medium text-foreground">Aucune annonce pour le moment</p>
           <p className="mt-2">
-            Publiez depuis le menu <strong>Publier une annonce</strong>{" "}
-            (visibilité <strong>Publique</strong>).
+            Pour publier : menu <strong>Publier une annonce</strong>, choisissez
+            la visibilité <strong>Publique</strong> (tout le monde) ou
+            <strong> Privée</strong> (votre département).
           </p>
         </div>
       ) : (

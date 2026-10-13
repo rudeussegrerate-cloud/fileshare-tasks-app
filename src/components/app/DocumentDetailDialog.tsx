@@ -119,7 +119,7 @@ export function DocumentDetailDialog({
     try {
       const res = await setStatus({ documentId, status });
       if (res && typeof res === "object" && "outcome" in res) {
-        if (res.outcome === "fully_treated") {
+        if (res.outcome === "fully_treated" || res.outcome === "circuit_complete") {
           toast.success("Document entièrement traité — l'émetteur est notifié");
         } else if (res.outcome === "step_advanced") {
           toast.success(
@@ -641,8 +641,9 @@ export function DocumentDetailDialog({
                       Joindre ma version modifiée
                     </Button>
                     <p className="text-[11px] text-muted-foreground">
-                      Ensuite, marquez <strong>Traité</strong> pour confirmer
-                      que vous avez fini et transmettre à l&apos;étape suivante.
+                      Ensuite, cliquez <strong>Traité (mon étape)</strong> pour
+                      passer au suivant (ou renvoyez le fichier avec le même
+                      identifiant).
                     </p>
                   </div>
                 ) : null}
@@ -653,8 +654,8 @@ export function DocumentDetailDialog({
                 <p className="mt-1 text-xs text-muted-foreground">
                   {documentOrNull.hasCircuit
                     ? documentOrNull.isLastInCircuit
-                      ? "Vous êtes la dernière étape : « Traité » clôture le dossier pour l'émetteur."
-                      : "Marquez Consulté, En cours, ou Traité quand vous avez fait votre part. « Traité » valide votre étape et envoie le dossier au suivant. L'émetteur voit chaque étape ; le dossier n'est clos que quand tout le circuit a terminé."
+                      ? "Dernière étape : « Traité » clôture le dossier."
+                      : "« Traité (mon étape) » valide votre part et envoie automatiquement le dossier à la personne suivante. Vous pouvez aussi renvoyer un fichier modifié avec le même identifiant."
                     : "L'émetteur voit ce statut en temps réel."}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">

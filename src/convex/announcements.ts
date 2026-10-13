@@ -45,9 +45,17 @@ export const list = query({
 
       let rows: Doc<"announcements">[] = [];
       try {
-        rows = await ctx.db.query("announcements").collect();
+        rows = await ctx.db
+          .query("announcements")
+          .withIndex("by_created")
+          .order("desc")
+          .take(80);
       } catch {
-        return [];
+        try {
+          rows = await ctx.db.query("announcements").collect();
+        } catch {
+          return [];
+        }
       }
 
       rows.sort(
@@ -56,6 +64,7 @@ export const list = query({
           Number(a.createdAt ?? a._creationTime ?? 0),
       );
 
+      // Reactions / comments : best-effort (ne bloque pas le fil)
       let reactions: Doc<"announcementReactions">[] = [];
       let comments: Doc<"announcementComments">[] = [];
       try {
@@ -69,14 +78,15 @@ export const list = query({
         comments = [];
       }
 
-      const out = [];
+      const out: Array<Record<string, unknown>> = [];
       for (const a of rows) {
         if (out.length >= limit) break;
         try {
           const isAuthor = String(a.authorId) === String(me._id);
           const admin = isAdmin(me.role);
-          const vis = (a as { visibility?: string }).visibility ?? "public";
-          let ok = isAuthor || admin || vis === "public" || !(a as any).visibility;
+          const vis = (a.visibility as string | undefined) ?? "public";
+
+          let ok = admin || isAuthor || vis === "public" || !a.visibility;
           if (!ok && vis === "private") {
             ok = Boolean(
               a.departmentId &&
@@ -85,9 +95,8 @@ export const list = query({
             );
           }
           if (!ok && vis === "custom") {
-            ok = ((a as any).viewerIds ?? []).some(
-              (id: Id<"users">) => String(id) === String(me._id),
-            );
+            const ids = a.viewerIds ?? [];
+            ok = ids.some((id) => String(id) === String(me._id));
           }
           if (!ok) continue;
 
@@ -106,9 +115,13 @@ export const list = query({
           let total = 0;
           let mine: string | null = null;
           for (const r of rs) {
-            counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
-            total += 1;
-            if (String(r.userId) === String(userId)) mine = r.emoji;
+            try {
+              counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
+              total += 1;
+              if (String(r.userId) === String(userId)) mine = r.emoji;
+            } catch {
+              /* skip reaction */
+            }
           }
           const cs = comments
             .filter((c) => String(c.announcementId) === aid)
@@ -143,8 +156,8 @@ export const list = query({
             })),
             commentCount: cs.length,
           });
-        } catch {
-          /* skip row */
+        } catch (rowErr) {
+          console.error("[announcements.list] row", a._id, rowErr);
         }
       }
       return out;
