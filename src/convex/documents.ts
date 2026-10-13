@@ -1510,6 +1510,121 @@ export const remove = mutation({
 });
 
 /** Historique d'audit d'un document */
+
+/**
+ * Supprime TOUS les documents et données liées (étapes, révisions, fichiers storage).
+ * Ne touche pas : utilisateurs, départements, annonces, chat, bot, présence.
+ * Réservé admin / root.
+ */
+export const purgeAllDocuments = mutation({
+  args: {
+    confirm: v.literal("SUPPRIMER_TOUS_LES_DOCUMENTS"),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const me = await ctx.db.get(userId);
+    if (!me || !isAdminRole(me.role)) {
+      throw new Error("Seul le DG ou le super utilisateur peut purger les documents.");
+    }
+
+    let documentsDeleted = 0;
+    let stepsDeleted = 0;
+    let revisionsDeleted = 0;
+    let storageDeleted = 0;
+    let notifsDeleted = 0;
+    let auditsDeleted = 0;
+
+    // 1) Étapes de circuit
+    try {
+      const steps = await ctx.db.query("documentSteps").collect();
+      for (const s of steps) {
+        await ctx.db.delete(s._id);
+        stepsDeleted += 1;
+      }
+    } catch (e) {
+      console.error("[purge] steps", e);
+    }
+
+    // 2) Révisions
+    try {
+      const revs = await ctx.db.query("documentRevisions").collect();
+      for (const r of revs) {
+        await ctx.db.delete(r._id);
+        revisionsDeleted += 1;
+      }
+    } catch (e) {
+      console.error("[purge] revisions", e);
+    }
+
+    // 3) Documents + fichiers storage
+    const docs = await ctx.db.query("documents").collect();
+    for (const d of docs) {
+      if (d.storageId) {
+        try {
+          await ctx.storage.delete(d.storageId);
+          storageDeleted += 1;
+        } catch {
+          /* fichier déjà absent */
+        }
+      }
+      await ctx.db.delete(d._id);
+      documentsDeleted += 1;
+    }
+
+    // 4) Notifications liées aux documents
+    try {
+      const notifs = await ctx.db.query("notifications").collect();
+      for (const n of notifs) {
+        if (n.documentId) {
+          await ctx.db.delete(n._id);
+          notifsDeleted += 1;
+        }
+      }
+    } catch (e) {
+      console.error("[purge] notifs", e);
+    }
+
+    // 5) Journaux d'audit liés aux documents
+    try {
+      const logs = await ctx.db.query("auditLogs").collect();
+      for (const l of logs) {
+        if (l.documentId) {
+          await ctx.db.delete(l._id);
+          auditsDeleted += 1;
+        }
+      }
+    } catch (e) {
+      console.error("[purge] audit", e);
+    }
+
+    try {
+      await writeAudit(ctx, {
+        action: "documents.purged",
+        actorId: userId,
+        actorName: displayName(me),
+        details: `Purge globale : ${documentsDeleted} document(s)`,
+        metadata: {
+          documentsDeleted,
+          stepsDeleted,
+          revisionsDeleted,
+          storageDeleted,
+        },
+      });
+    } catch {
+      /* audit sans documentId ok */
+    }
+
+    return {
+      documentsDeleted,
+      stepsDeleted,
+      revisionsDeleted,
+      storageDeleted,
+      notifsDeleted,
+      auditsDeleted,
+    };
+  },
+});
+
 export const auditTrail = query({
   args: { documentId: v.id("documents") },
   handler: async (ctx, args) => {

@@ -48,6 +48,8 @@ function statusLabel(status: string) {
 export function AccountsView() {
 
   const seedDepts = useMutation(api.workspace.seedMndptDepartments);
+  const purgeDocs = useMutation(api.documents.purgeAllDocuments);
+  const [purging, setPurging] = useState(false);
   const me = useQuery(api.workspace.me);
   const accounts = useQuery(api.workspace.listAccounts);
   const validateAccount = useMutation(api.workspace.validateAccount);
@@ -143,6 +145,49 @@ export function AccountsView() {
         >
           Initialiser les directions MNDPT
         </Button>
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="text-sm font-medium text-destructive">
+            Zone sensible — documents uniquement
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Supprime tous les dossiers, circuits, fichiers et historiques liés.
+            Ne touche pas aux comptes, départements, annonces ni messages.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="destructive"
+            className="mt-2"
+            disabled={purging}
+            onClick={async () => {
+              const ok = window.confirm(
+                "Confirmer la suppression de TOUS les documents ?\n\nCette action est irréversible. Comptes et départements restent intacts.",
+              );
+              if (!ok) return;
+              const ok2 = window.confirm(
+                "Dernière confirmation : vider entièrement la base documentaire ?",
+              );
+              if (!ok2) return;
+              setPurging(true);
+              try {
+                const res = await purgeDocs({
+                  confirm: "SUPPRIMER_TOUS_LES_DOCUMENTS",
+                });
+                toast.success(
+                  `${res.documentsDeleted} document(s) supprimé(s)`,
+                );
+              } catch (e) {
+                toast.error(
+                  e instanceof Error ? e.message : "Échec de la purge",
+                );
+              } finally {
+                setPurging(false);
+              }
+            }}
+          >
+            {purging ? "Suppression…" : "Supprimer tous les documents"}
+          </Button>
+        </div>
       </div>
       <div className="space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">Comptes utilisateurs</h2>
