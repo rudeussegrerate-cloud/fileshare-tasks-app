@@ -17,6 +17,7 @@ import type * as auth_emailOtp from "../auth/emailOtp.js";
 import type * as auth_passwordReset from "../auth/passwordReset.js";
 import type * as bot from "../bot.js";
 import type * as chat from "../chat.js";
+import type * as crons from "../crons.js";
 import type * as departmentMembership from "../departmentMembership.js";
 import type * as documents from "../documents.js";
 import type * as http from "../http.js";
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   "auth/passwordReset": typeof auth_passwordReset;
   bot: typeof bot;
   chat: typeof chat;
+  crons: typeof crons;
   departmentMembership: typeof departmentMembership;
   documents: typeof documents;
   http: typeof http;
