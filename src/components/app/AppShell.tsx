@@ -29,6 +29,7 @@ import {
   MessageCircle,
   Send,
   Route,
+  FolderOpen,
   Settings,
   Upload,
   UserCheck,
@@ -48,6 +49,7 @@ export type AppView =
   | "inbox"
   | "sent"
   | "suivi"
+  | "fichiers"
   | "messages"
   | "actualites"
   | "announcements"
@@ -72,6 +74,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       { key: "inbox", label: "Documents reçus", icon: Inbox },
       { key: "sent", label: "Documents envoyés", icon: Send },
       { key: "suivi", label: "Suivi des envois", icon: Route },
+      { key: "fichiers", label: "Gestionnaire fichiers", icon: FolderOpen },
       { key: "messages", label: "Messagerie", icon: MessageCircle },
     ],
   },

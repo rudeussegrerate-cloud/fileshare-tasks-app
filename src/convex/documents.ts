@@ -2394,3 +2394,113 @@ export const runDeadlineAlerts = internalMutation({
     return { checked: docs.length, alertsSent: sent };
   },
 });
+
+/**
+ * Gestionnaire de fichiers : recherche (identifiant, objet, nom), filtres.
+ * Chacun voit ses documents (envoyé/reçu/circuit) ; le DG voit tout.
+ */
+export const fileManager = query({
+  args: {
+    search: v.optional(v.string()),
+    scope: v.optional(
+      v.union(
+        v.literal("all"),
+        v.literal("sent"),
+        v.literal("received"),
+        v.literal("archived"),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    try {
+      const userId = await getAuthUserId(ctx);
+      if (!userId) return [];
+      const me = await ctx.db.get(userId);
+      if (!me) return [];
+      const isAdmin = isAdminRole(me.role);
+      const scope = args.scope ?? "all";
+      const q = (args.search ?? "").trim().toUpperCase();
+
+      let docs = await ctx.db.query("documents").collect();
+
+      // Accès
+      if (!isAdmin) {
+        const stepDocIds = new Set<string>();
+        try {
+          const allSteps = await ctx.db.query("documentSteps").collect();
+          for (const s of allSteps) {
+            if (s.assigneeId === userId) stepDocIds.add(String(s.documentId));
+          }
+        } catch {
+          /* ignore */
+        }
+        docs = docs.filter(
+          (d) =>
+            d.senderId === userId ||
+            d.recipientId === userId ||
+            stepDocIds.has(String(d._id)),
+        );
+      }
+
+      // Scope
+      if (scope === "sent") {
+        docs = docs.filter((d) => d.senderId === userId && !d.archivedAt);
+      } else if (scope === "received") {
+        docs = docs.filter((d) => d.recipientId === userId && !d.archivedAt);
+      } else if (scope === "archived") {
+        docs = docs.filter((d) => Boolean(d.archivedAt));
+      } else {
+        docs = docs.filter((d) => !d.archivedAt);
+      }
+
+      // Recherche
+      if (q.length >= 1) {
+        docs = docs.filter((d) => {
+          const ref = (d.publicRef ?? "").toUpperCase();
+          const objet = (d.objet ?? "").toUpperCase();
+          const file = (d.fileName ?? "").toUpperCase();
+          const sender = (d.senderName ?? "").toUpperCase();
+          const recip = (d.recipientName ?? "").toUpperCase();
+          return (
+            ref.includes(q) ||
+            objet.includes(q) ||
+            file.includes(q) ||
+            sender.includes(q) ||
+            recip.includes(q)
+          );
+        });
+      }
+
+      docs.sort(
+        (a, b) =>
+          Number(b.updatedAt ?? b.createdAt ?? 0) -
+          Number(a.updatedAt ?? a.createdAt ?? 0),
+      );
+
+      return docs.slice(0, 100).map((d) => ({
+        _id: d._id,
+        publicRef: d.publicRef ?? null,
+        objet: d.objet,
+        fileName: d.fileName,
+        status: d.status,
+        senderName: d.senderName,
+        recipientName: d.recipientName,
+        hasCircuit: Boolean(d.hasCircuit),
+        isSender: d.senderId === userId,
+        isRecipient: d.recipientId === userId,
+        archivedAt: d.archivedAt ?? null,
+        createdAt: d.createdAt ?? d._creationTime,
+        updatedAt: d.updatedAt ?? d.createdAt,
+        canArchive:
+          (d.senderId === userId || d.recipientId === userId) && !d.archivedAt,
+        canDelete:
+          (d.senderId === userId || isAdmin) && Boolean(d.archivedAt),
+        canUnarchive: Boolean(d.archivedAt) &&
+          (d.senderId === userId || d.recipientId === userId || isAdmin),
+      }));
+    } catch (e) {
+      console.error("[fileManager]", e);
+      return [];
+    }
+  },
+});

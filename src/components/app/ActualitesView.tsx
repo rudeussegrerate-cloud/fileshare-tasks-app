@@ -4,11 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMutation, useQuery } from "convex/react";
 import {
+  Globe2,
+  Lock,
   MessageCircle,
   ThumbsUp,
   Trash2,
-  Globe2,
-  Lock,
   Users,
 } from "lucide-react";
 import React, { useState } from "react";
@@ -17,32 +17,23 @@ import { toast } from "sonner";
 const REACTIONS = ["👍", "❤️", "👏", "🎉", "😮"] as const;
 
 function initials(name: string) {
-  try {
-    const p = (name || "?").trim().split(/\s+/).filter(Boolean);
-    if (p.length === 0) return "?";
-    if (p.length === 1) return p[0]!.slice(0, 2).toUpperCase();
-    return (p[0]![0]! + p[p.length - 1]![0]!).toUpperCase();
-  } catch {
-    return "?";
-  }
+  const p = (name || "?").trim().split(/\s+/).filter(Boolean);
+  if (p.length === 0) return "?";
+  if (p.length === 1) return (p[0] ?? "?").slice(0, 2).toUpperCase();
+  return ((p[0]?.[0] ?? "") + (p[p.length - 1]?.[0] ?? "")).toUpperCase();
 }
 
 function relativeTime(ts: number) {
-  try {
-    if (!ts || !Number.isFinite(ts)) return "";
-    const d = Date.now() - ts;
-    if (d < 0) return "À l'instant";
-    const m = Math.floor(d / 60000);
-    if (m < 1) return "À l'instant";
-    if (m < 60) return `${m} min`;
-    const h = Math.floor(m / 60);
-    if (h < 24) return `${h} h`;
-    const days = Math.floor(h / 24);
-    if (days < 7) return `${days} j`;
-    return new Date(ts).toLocaleDateString("fr-FR");
-  } catch {
-    return "";
-  }
+  if (!ts || !Number.isFinite(ts)) return "";
+  const d = Date.now() - ts;
+  if (d < 60000) return "À l'instant";
+  const m = Math.floor(d / 60000);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} h`;
+  const days = Math.floor(h / 24);
+  if (days < 7) return `${days} j`;
+  return new Date(ts).toLocaleDateString("fr-FR");
 }
 
 class ActualitesSafe extends React.Component<
@@ -53,14 +44,15 @@ class ActualitesSafe extends React.Component<
   static getDerivedStateFromError(err: Error) {
     return { error: err.message || "Erreur" };
   }
+  componentDidCatch(err: Error) {
+    console.error("[ActualitesView]", err);
+  }
   render() {
     if (this.state.error) {
       return (
         <div className="mx-auto max-w-[680px] rounded-xl border bg-card p-6 text-center">
           <p className="font-medium">Actualités indisponibles</p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Réessayez dans un instant.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{this.state.error}</p>
           <button
             type="button"
             className="mt-3 rounded-md bg-brand px-4 py-2 text-sm text-primary-foreground"
@@ -76,37 +68,7 @@ class ActualitesSafe extends React.Component<
 }
 
 function ActualitesViewInner() {
-
-  const listRaw = useQuery(api.announcements.list, { limit: 50 });
-  const list = Array.isArray(listRaw)
-    ? (listRaw as Array<{
-        _id: string;
-        title?: string;
-        body?: string;
-        origin?: string;
-        authorName?: string;
-        authorFonction?: string | null;
-        authorDepartmentName?: string | null;
-        priority?: string;
-        visibility?: string;
-        mediaUrl?: string | null;
-        mediaType?: string | null;
-        createdAt?: number;
-        canDelete?: boolean;
-        myReaction?: string | null;
-        reactionTotal?: number;
-        commentCount?: number;
-        reactionCounts?: Record<string, number>;
-        comments?: Array<{
-          _id: string;
-          authorName: string;
-          body: string;
-          createdAt: number;
-          isMine?: boolean;
-        }>;
-      }>)
-    : undefined;
-
+  const list = useQuery(api.announcements.list, { limit: 50 });
   const react = useMutation(api.announcements.react);
   const addComment = useMutation(api.announcements.addComment);
   const remove = useMutation(api.announcements.remove);
@@ -116,58 +78,80 @@ function ActualitesViewInner() {
   const [commentDraft, setCommentDraft] = useState<Record<string, string>>({});
   const [showReacts, setShowReacts] = useState<string | null>(null);
 
+  if (list === undefined) {
+    return (
+      <div className="mx-auto max-w-[680px] space-y-3">
+        <h1 className="text-2xl font-semibold">Actualités</h1>
+        {[1, 2].map((i) => (
+          <div
+            key={i}
+            className="h-28 animate-pulse rounded-xl border bg-muted/40"
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-[680px] space-y-4">
       <div className="px-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-          Actualités
-        </h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Actualités</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Fil des annonces de l&apos;entreprise
+          Fil des annonces de l&apos;entreprise. Publiez via le menu{" "}
+          <strong>Publier une annonce</strong> (visibilité Publique recommandée).
         </p>
       </div>
 
-      {list === undefined ? (
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-32 animate-pulse rounded-xl border bg-muted/40"
-            />
-          ))}
-        </div>
-      ) : list.length === 0 ? (
+      {list.length === 0 ? (
         <div className="rounded-xl border bg-card px-6 py-12 text-center text-sm text-muted-foreground">
           <p className="font-medium text-foreground">Aucune annonce pour le moment</p>
           <p className="mt-2">
-            Pour publier : menu <strong>Publier une annonce</strong>, choisissez
-            la visibilité <strong>Publique</strong> (tout le monde) ou
-            <strong> Privée</strong> (votre département).
+            Menu <strong>Publier une annonce</strong> → visibilité{" "}
+            <strong>Publique</strong> pour que tout le monde la voie.
           </p>
         </div>
       ) : (
         <ul className="space-y-3">
-          {list.map((a) => {
-            if (!a || !a._id) return null;
-            const id = String(a._id);
-            const myReaction = (a as { myReaction?: string | null }).myReaction ?? null;
-            const totalReactions = (a as { reactionTotal?: number }).reactionTotal ?? 0;
-            const commentCount = (a as { commentCount?: number }).commentCount ?? 0;
-            const comments = (a as { comments?: Array<{
-              _id: string;
-              authorName: string;
+          {list.map((raw) => {
+            const a = raw as {
+              _id: Id<"announcements">;
+              title: string;
               body: string;
+              origin: string;
+              authorName: string;
+              authorFonction?: string | null;
+              authorDepartmentName?: string | null;
+              priority?: string;
+              visibility?: string;
+              mediaUrl?: string | null;
+              mediaType?: string | null;
               createdAt: number;
-              isMine?: boolean;
-            }> }).comments ?? [];
-            const reactionCounts = (a as { reactionCounts?: Record<string, number> }).reactionCounts ?? {};
+              canDelete?: boolean;
+              myReaction?: string | null;
+              reactionTotal?: number;
+              commentCount?: number;
+              reactionCounts?: Record<string, number>;
+              comments?: Array<{
+                _id: string;
+                authorName: string;
+                body: string;
+                createdAt: number;
+                isMine?: boolean;
+              }>;
+            };
+            if (!a?._id) return null;
+            const id = String(a._id);
+            const myReaction = a.myReaction ?? null;
+            const totalReactions = a.reactionTotal ?? 0;
+            const commentCount = a.commentCount ?? 0;
+            const comments = a.comments ?? [];
+            const reactionCounts = a.reactionCounts ?? {};
             const VisIcon =
               a.visibility === "private"
                 ? Lock
                 : a.visibility === "custom"
                   ? Users
                   : Globe2;
-            const commentsOpen = openComments[id];
 
             return (
               <li
@@ -176,15 +160,16 @@ function ActualitesViewInner() {
               >
                 <div className="flex items-start gap-3 px-4 pt-3">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand">
-                    {initials(a.authorName || "?")}
+                    {initials(String(a.authorName || "?"))}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      {a.authorName || "Utilisateur"}
+                    <p className="truncate text-sm font-semibold">
+                      {String(a.authorName || "Utilisateur")}
                     </p>
                     <p className="truncate text-[11px] text-muted-foreground">
                       {[a.authorFonction, a.authorDepartmentName, a.origin]
                         .filter(Boolean)
+                        .map(String)
                         .join(" · ") || "Organisation"}
                       {" · "}
                       {relativeTime(Number(a.createdAt) || 0)}
@@ -197,15 +182,13 @@ function ActualitesViewInner() {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="size-8 shrink-0 text-muted-foreground"
+                      className="size-8 shrink-0"
                       disabled={busyId === id}
                       onClick={async () => {
                         if (!confirm("Supprimer cette annonce ?")) return;
                         setBusyId(id);
                         try {
-                          await remove({
-                            announcementId: a._id as Id<"announcements">,
-                          });
+                          await remove({ announcementId: a._id });
                           toast.success("Annonce supprimée");
                         } catch (err) {
                           toast.error(
@@ -231,22 +214,22 @@ function ActualitesViewInner() {
                       Important
                     </span>
                   ) : null}
-                  <h2 className="text-base font-semibold leading-snug text-foreground">
-                    {a.title || "Sans titre"}
+                  <h2 className="text-base font-semibold leading-snug">
+                    {String(a.title || "Sans titre")}
                   </h2>
                   <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
-                    {a.body || ""}
+                    {String(a.body || "")}
                   </p>
                   {a.mediaUrl && a.mediaType === "image" ? (
                     <img
-                      src={a.mediaUrl}
+                      src={String(a.mediaUrl)}
                       alt=""
                       className="mt-2 max-h-80 w-full rounded-lg object-cover"
                     />
                   ) : null}
                   {a.mediaUrl && a.mediaType === "video" ? (
                     <video
-                      src={a.mediaUrl}
+                      src={String(a.mediaUrl)}
                       controls
                       className="mt-2 max-h-80 w-full rounded-lg"
                     />
@@ -256,10 +239,7 @@ function ActualitesViewInner() {
                 {(totalReactions > 0 || commentCount > 0) && (
                   <div className="flex items-center justify-between px-4 pb-2 text-xs text-muted-foreground">
                     <span>
-                      {Object.entries(reactionCounts)
-                        .filter(([, n]) => (n as number) > 0)
-                        .map(([emoji]) => emoji)
-                        .join(" ")}{" "}
+                      {Object.keys(reactionCounts).join(" ")}{" "}
                       {totalReactions > 0 ? totalReactions : ""}
                     </span>
                     {commentCount > 0 ? (
@@ -270,8 +250,7 @@ function ActualitesViewInner() {
                           setOpenComments((o) => ({ ...o, [id]: !o[id] }))
                         }
                       >
-                        {commentCount} commentaire
-                        {commentCount > 1 ? "s" : ""}
+                        {commentCount} commentaire{commentCount > 1 ? "s" : ""}
                       </button>
                     ) : null}
                   </div>
@@ -282,14 +261,17 @@ function ActualitesViewInner() {
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-9 w-full gap-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                      className="h-9 w-full gap-2 text-sm font-medium text-muted-foreground"
                       disabled={busyId === id}
-                      onClick={async () => {
+                      onClick={() =>
+                        setShowReacts((s) => (s === id ? null : id))
+                      }
+                      onDoubleClick={async () => {
                         setBusyId(id);
                         try {
                           await react({
-                            announcementId: a._id as Id<"announcements">,
-                            emoji: myReaction || "👍",
+                            announcementId: a._id,
+                            emoji: "👍",
                           });
                         } catch (err) {
                           toast.error(
@@ -303,7 +285,7 @@ function ActualitesViewInner() {
                       <ThumbsUp
                         className={`size-4 ${myReaction ? "fill-brand text-brand" : ""}`}
                       />
-                      {myReaction || "J'aime"}
+                      {myReaction || "Réagir"}
                     </Button>
                     {showReacts === id ? (
                       <div className="absolute bottom-full left-2 z-20 mb-1 flex gap-1 rounded-full border bg-card px-2 py-1.5 shadow-lg">
@@ -311,14 +293,13 @@ function ActualitesViewInner() {
                           <button
                             key={emoji}
                             type="button"
-                            className="rounded-full p-1 text-xl transition hover:scale-125"
+                            className="rounded-full px-1.5 text-lg hover:bg-muted"
                             onClick={async () => {
                               setShowReacts(null);
                               setBusyId(id);
                               try {
                                 await react({
-                                  announcementId:
-                                    a._id as Id<"announcements">,
+                                  announcementId: a._id,
                                   emoji,
                                 });
                               } catch (err) {
@@ -341,18 +322,7 @@ function ActualitesViewInner() {
                   <Button
                     type="button"
                     variant="ghost"
-                    className="h-9 px-2 text-sm text-muted-foreground"
-                    title="Choisir une réaction"
-                    onClick={() =>
-                      setShowReacts((s) => (s === id ? null : id))
-                    }
-                  >
-                    🙂
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-9 flex-1 gap-2 text-sm font-medium text-muted-foreground hover:bg-muted"
+                    className="h-9 flex-1 gap-2 text-sm font-medium text-muted-foreground"
                     onClick={() =>
                       setOpenComments((o) => ({ ...o, [id]: !o[id] }))
                     }
@@ -362,29 +332,28 @@ function ActualitesViewInner() {
                   </Button>
                 </div>
 
-                {commentsOpen ? (
+                {openComments[id] ? (
                   <div className="space-y-2 border-t border-border/70 bg-muted/20 px-4 py-3">
                     {comments.map((c) => (
                       <div key={c._id} className="text-sm">
                         <span className="font-medium">{c.authorName}</span>
-                        <span className="ml-2 text-muted-foreground">
-                          {relativeTime(c.createdAt)}
+                        <span className="text-muted-foreground">
+                          {" "}
+                          · {relativeTime(c.createdAt)}
                         </span>
-                        <p className="mt-0.5 whitespace-pre-wrap text-foreground/90">
-                          {c.body}
-                        </p>
+                        <p className="mt-0.5 whitespace-pre-wrap">{c.body}</p>
                       </div>
                     ))}
                     <form
                       className="flex gap-2"
-                      onSubmit={async (ev) => {
-                        ev.preventDefault();
+                      onSubmit={async (e) => {
+                        e.preventDefault();
                         const body = (commentDraft[id] ?? "").trim();
                         if (!body) return;
                         setBusyId(id);
                         try {
                           await addComment({
-                            announcementId: a._id as Id<"announcements">,
+                            announcementId: a._id,
                             body,
                           });
                           setCommentDraft((d) => ({ ...d, [id]: "" }));
@@ -398,15 +367,15 @@ function ActualitesViewInner() {
                       }}
                     >
                       <Input
-                        className="h-9 rounded-full text-sm"
-                        placeholder="Écrire un commentaire…"
                         value={commentDraft[id] ?? ""}
-                        onChange={(ev) =>
+                        onChange={(e) =>
                           setCommentDraft((d) => ({
                             ...d,
-                            [id]: ev.target.value,
+                            [id]: e.target.value,
                           }))
                         }
+                        placeholder="Écrire un commentaire…"
+                        className="h-9"
                       />
                       <Button
                         type="submit"
@@ -427,7 +396,6 @@ function ActualitesViewInner() {
     </div>
   );
 }
-
 
 export function ActualitesView() {
   return (

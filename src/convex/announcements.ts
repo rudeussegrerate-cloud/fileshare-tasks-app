@@ -31,140 +31,137 @@ function canPost(user: Doc<"users">) {
   return false;
 }
 
-/** Fil Actualités : annonces + likes/commentaires, jamais d'exception. */
+/** Fil Actualités — version stabilisée */
 export const list = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const me = await ctx.db.get(userId);
+    if (!me) return [];
+
+    const limit = Math.min(Math.max(args.limit ?? 40, 1), 50);
+    let rows: Doc<"announcements">[] = [];
     try {
-      const userId = await getAuthUserId(ctx);
-      if (!userId) return [];
-      const me = await ctx.db.get(userId);
-      if (!me) return [];
+      rows = await ctx.db.query("announcements").collect();
+    } catch (e) {
+      console.error("[announcements.list] collect", e);
+      return [];
+    }
 
-      const limit = Math.min(Math.max(args.limit ?? 40, 1), 50);
+    rows.sort(
+      (a, b) =>
+        Number(b.createdAt ?? b._creationTime ?? 0) -
+        Number(a.createdAt ?? a._creationTime ?? 0),
+    );
 
-      let rows: Doc<"announcements">[] = [];
+    const out = [];
+    for (const a of rows) {
+      if (out.length >= limit) break;
       try {
-        rows = await ctx.db
-          .query("announcements")
-          .withIndex("by_created")
-          .order("desc")
-          .take(80);
-      } catch {
-        try {
-          rows = await ctx.db.query("announcements").collect();
-        } catch {
-          return [];
+        const isAuthor = String(a.authorId) === String(me._id);
+        const admin = isAdmin(me.role);
+        const vis = a.visibility ?? "public";
+
+        let visible = admin || isAuthor || vis === "public";
+        if (!visible && vis === "private") {
+          visible = Boolean(
+            a.departmentId &&
+              me.departmentId &&
+              String(a.departmentId) === String(me.departmentId),
+          );
         }
-      }
+        if (!visible && vis === "custom") {
+          visible = (a.viewerIds ?? []).some(
+            (id) => String(id) === String(me._id),
+          );
+        }
+        if (!visible) continue;
 
-      rows.sort(
-        (a, b) =>
-          Number(b.createdAt ?? b._creationTime ?? 0) -
-          Number(a.createdAt ?? a._creationTime ?? 0),
-      );
+        let mediaUrl: string | null = null;
+        if (a.mediaStorageId) {
+          try {
+            mediaUrl = await ctx.storage.getUrl(a.mediaStorageId);
+          } catch {
+            mediaUrl = null;
+          }
+        }
 
-      // Reactions / comments : best-effort (ne bloque pas le fil)
-      let reactions: Doc<"announcementReactions">[] = [];
-      let comments: Doc<"announcementComments">[] = [];
-      try {
-        reactions = await ctx.db.query("announcementReactions").collect();
-      } catch {
-        reactions = [];
-      }
-      try {
-        comments = await ctx.db.query("announcementComments").collect();
-      } catch {
-        comments = [];
-      }
-
-      const out: any[] = [];
-      for (const a of rows) {
-        if (out.length >= limit) break;
+        // Reactions / comments via index (limité)
+        let reactionCounts: Record<string, number> = {};
+        let reactionTotal = 0;
+        let myReaction: string | null = null;
         try {
-          const isAuthor = String(a.authorId) === String(me._id);
-          const admin = isAdmin(me.role);
-          const vis = (a.visibility as string | undefined) ?? "public";
-
-          let ok = admin || isAuthor || vis === "public" || !a.visibility;
-          if (!ok && vis === "private") {
-            ok = Boolean(
-              a.departmentId &&
-                me.departmentId &&
-                String(a.departmentId) === String(me.departmentId),
-            );
-          }
-          if (!ok && vis === "custom") {
-            const ids = a.viewerIds ?? [];
-            ok = ids.some((id) => String(id) === String(me._id));
-          }
-          if (!ok) continue;
-
-          let mediaUrl: string | null = null;
-          if (a.mediaStorageId) {
-            try {
-              mediaUrl = await ctx.storage.getUrl(a.mediaStorageId);
-            } catch {
-              mediaUrl = null;
-            }
-          }
-
-          const aid = String(a._id);
-          const rs = reactions.filter((r) => String(r.announcementId) === aid);
-          const counts: Record<string, number> = {};
-          let total = 0;
-          let mine: string | null = null;
+          const rs = await ctx.db
+            .query("announcementReactions")
+            .withIndex("by_announcement", (q) =>
+              q.eq("announcementId", a._id),
+            )
+            .collect();
           for (const r of rs) {
-            try {
-              counts[r.emoji] = (counts[r.emoji] ?? 0) + 1;
-              total += 1;
-              if (String(r.userId) === String(userId)) mine = r.emoji;
-            } catch {
-              /* skip reaction */
-            }
+            reactionCounts[r.emoji] = (reactionCounts[r.emoji] ?? 0) + 1;
+            reactionTotal += 1;
+            if (String(r.userId) === String(userId)) myReaction = r.emoji;
           }
-          const cs = comments
-            .filter((c) => String(c.announcementId) === aid)
-            .sort((x, y) => Number(x.createdAt) - Number(y.createdAt))
-            .slice(-40);
+        } catch {
+          /* ignore */
+        }
 
-          out.push({
-            _id: a._id,
-            title: a.title ?? "",
-            body: a.body ?? "",
-            origin: a.origin ?? "",
-            authorName: a.authorName ?? "Utilisateur",
-            authorFonction: a.authorFonction ?? null,
-            authorDepartmentName: a.authorDepartmentName ?? null,
-            authorRoleLabel: a.authorRoleLabel ?? null,
-            priority: a.priority ?? "normal",
-            pinned: Boolean(a.pinned),
-            visibility: vis,
-            mediaType: a.mediaType ?? null,
-            mediaUrl,
-            createdAt: Number(a.createdAt ?? a._creationTime ?? 0),
-            canDelete: isAuthor || admin,
-            reactionCounts: counts,
-            reactionTotal: total,
-            myReaction: mine,
-            comments: cs.map((c) => ({
+        let comments: Array<{
+          _id: string;
+          authorName: string;
+          body: string;
+          createdAt: number;
+          isMine: boolean;
+        }> = [];
+        try {
+          const cs = await ctx.db
+            .query("announcementComments")
+            .withIndex("by_announcement", (q) =>
+              q.eq("announcementId", a._id),
+            )
+            .collect();
+          comments = cs
+            .sort((x, y) => Number(x.createdAt) - Number(y.createdAt))
+            .slice(-30)
+            .map((c) => ({
               _id: String(c._id),
               authorName: c.authorName ?? "Utilisateur",
               body: c.body ?? "",
               createdAt: Number(c.createdAt ?? 0),
               isMine: String(c.authorId) === String(userId),
-            })),
-            commentCount: cs.length,
-          });
-        } catch (rowErr) {
-          console.error("[announcements.list] row", a._id, rowErr);
+            }));
+        } catch {
+          comments = [];
         }
+
+        out.push({
+          _id: a._id,
+          title: a.title ?? "",
+          body: a.body ?? "",
+          origin: a.origin ?? "",
+          authorName: a.authorName ?? "Utilisateur",
+          authorFonction: a.authorFonction ?? null,
+          authorDepartmentName: a.authorDepartmentName ?? null,
+          authorRoleLabel: a.authorRoleLabel ?? null,
+          priority: a.priority ?? "normal",
+          pinned: Boolean(a.pinned),
+          visibility: vis,
+          mediaType: a.mediaType ?? null,
+          mediaUrl,
+          createdAt: Number(a.createdAt ?? a._creationTime ?? 0),
+          canDelete: isAuthor || admin,
+          reactionCounts,
+          reactionTotal,
+          myReaction,
+          comments,
+          commentCount: comments.length,
+        });
+      } catch (rowErr) {
+        console.error("[announcements.list] row", a._id, rowErr);
       }
-      return out;
-    } catch (e) {
-      console.error("[announcements.list]", e);
-      return [];
     }
+    return out;
   },
 });
 

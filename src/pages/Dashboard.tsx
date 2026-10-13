@@ -9,6 +9,7 @@ import { DocumentsList } from "@/components/app/DocumentsList";
 import { ProfileSetup } from "@/components/app/ProfileSetup";
 import { SendDocument } from "@/components/app/SendDocument";
 import { CircuitTrackingView } from "@/components/app/CircuitTrackingView";
+import { FileManagerView } from "@/components/app/FileManagerView";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { ActualitesView } from "@/components/app/ActualitesView";
@@ -175,6 +176,15 @@ export default function Dashboard() {
               setContinueRef(ref);
               setView("send");
             }}
+          />
+        </ViewErrorBoundary>
+      ) : null}
+
+      {view === "fichiers" ? (
+        <ViewErrorBoundary label="le gestionnaire de fichiers">
+          <FileManagerView
+            onOpen={setOpenDocumentId}
+            onSend={() => setView("send")}
           />
         </ViewErrorBoundary>
       ) : null}
