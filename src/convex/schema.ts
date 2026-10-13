@@ -154,6 +154,11 @@ const schema = defineSchema(
       stepDeadlineHours: v.optional(v.number()),
       /** Dernière relance émetteur (anti-spam) */
       lastAlertAt: v.optional(v.number()),
+      /** Dernière alerte automatique (cron) */
+      lastAutoAlertAt: v.optional(v.number()),
+      lastAutoAlertKind: v.optional(
+        v.union(v.literal("approaching"), v.literal("overdue")),
+      ),
       createdAt: v.number(),
       updatedAt: v.number(),
       viewedAt: v.optional(v.number()),

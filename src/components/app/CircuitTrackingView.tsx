@@ -236,7 +236,9 @@ export function CircuitTrackingView({
       <p className="flex items-start gap-2 text-[11px] text-muted-foreground">
         <Clock className="mt-0.5 size-3.5 shrink-0" />
         Un dossier en circuit avance quand l&apos;intervenant envoie le fichier
-        avec le <em>même identifiant</em> vers l&apos;étape suivante.
+        avec le <em>même identifiant</em> vers l&apos;étape suivante. Des
+        alertes automatiques sont envoyées ~12 h avant l&apos;échéance et en
+        cas de retard (intervenant + émetteur).
       </p>
     </div>
   );

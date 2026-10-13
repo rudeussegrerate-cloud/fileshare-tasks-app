@@ -2211,3 +2211,108 @@ export const circuitTracking = query({
     }
   },
 });
+
+/**
+ * Alertes automatiques : échéance proche (< 12 h) ou dépassée.
+ * Appelé par le cron horaire. Anti-spam via lastAutoAlertAt.
+ */
+export const runDeadlineAlerts = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const APPROACHING_MS = 12 * 3600 * 1000;
+    const COOLDOWN_APPROACHING = 12 * 3600 * 1000;
+    const COOLDOWN_OVERDUE = 24 * 3600 * 1000;
+
+    const docs = await ctx.db.query("documents").collect();
+    let sent = 0;
+
+    for (const doc of docs) {
+      if (doc.archivedAt || doc.status === "traite") continue;
+
+      let steps: Doc<"documentSteps">[] = [];
+      try {
+        steps = await ctx.db
+          .query("documentSteps")
+          .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+          .collect();
+      } catch {
+        continue;
+      }
+      const active = steps.find((s) => s.status === "active");
+      if (!active) continue;
+
+      const stepHours = doc.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
+      const dueAt =
+        active.dueAt ??
+        (active.activatedAt
+          ? active.activatedAt + stepHours * 3600 * 1000
+          : doc.dueAt);
+      if (dueAt == null) continue;
+
+      const isOverdue = now > dueAt;
+      const isApproaching = !isOverdue && dueAt - now <= APPROACHING_MS;
+      if (!isOverdue && !isApproaching) continue;
+
+      const kind = isOverdue ? ("overdue" as const) : ("approaching" as const);
+      const cooldown = isOverdue ? COOLDOWN_OVERDUE : COOLDOWN_APPROACHING;
+      if (
+        doc.lastAutoAlertAt &&
+        doc.lastAutoAlertKind === kind &&
+        now - doc.lastAutoAlertAt < cooldown
+      ) {
+        continue;
+      }
+
+      const ref = doc.publicRef ?? "dossier";
+      const hoursLeft = Math.max(0, Math.round((dueAt - now) / 3600000));
+
+      try {
+        if (isOverdue) {
+          await pushNotification(ctx, {
+            userId: active.assigneeId,
+            type: "document.deadline_overdue",
+            title: "Dossier en retard",
+            body: `« ${doc.objet} » (${ref}) — votre étape a dépassé l'échéance. Merci de traiter et transmettre.`,
+            documentId: doc._id,
+          });
+          if (doc.senderId !== active.assigneeId) {
+            await pushNotification(ctx, {
+              userId: doc.senderId,
+              type: "document.deadline_overdue",
+              title: "Circuit en retard",
+              body: `« ${doc.objet} » (${ref}) est en retard chez ${active.assigneeName}${active.assigneeDepartmentName ? ` (${active.assigneeDepartmentName})` : ""}.`,
+              documentId: doc._id,
+            });
+          }
+        } else {
+          await pushNotification(ctx, {
+            userId: active.assigneeId,
+            type: "document.deadline_soon",
+            title: "Échéance proche",
+            body: `« ${doc.objet} » (${ref}) — environ ${hoursLeft} h restantes pour votre étape.`,
+            documentId: doc._id,
+          });
+          if (doc.senderId !== active.assigneeId) {
+            await pushNotification(ctx, {
+              userId: doc.senderId,
+              type: "document.deadline_soon",
+              title: "Échéance de circuit proche",
+              body: `« ${doc.objet} » (${ref}) — ~${hoursLeft} h chez ${active.assigneeName}.`,
+              documentId: doc._id,
+            });
+          }
+        }
+        await ctx.db.patch(doc._id, {
+          lastAutoAlertAt: now,
+          lastAutoAlertKind: kind,
+        });
+        sent += 1;
+      } catch (e) {
+        console.error("[runDeadlineAlerts]", doc._id, e);
+      }
+    }
+
+    return { checked: docs.length, alertsSent: sent };
+  },
+});
