@@ -68,9 +68,12 @@ export const PREDEFINED_TASKS = [
 export function SendDocument({
   onSent,
   onManageDepartments,
+  initialPublicRef,
 }: {
   onSent: (documentId?: Id<"documents">) => void;
   onManageDepartments: () => void;
+  /** Préremplir l'identifiant (continuation de circuit). */
+  initialPublicRef?: string;
 }) {
   const me = useQuery(api.workspace.me);
   const departments = useQuery(api.workspace.listDepartments);
@@ -92,6 +95,13 @@ export function SendDocument({
 
   // Objet de l'envoi
   const [objet, setObjet] = useState("");
+  const [publicRef, setPublicRef] = useState(
+    (initialPublicRef ?? "").toUpperCase(),
+  );
+  const refLookup = useQuery(
+    api.documents.lookupByPublicRef,
+    publicRef.trim().length >= 3 ? { publicRef: publicRef.trim() } : "skip",
+  );
 
   // Tâches (multi-sélection)
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
@@ -178,6 +188,7 @@ export function SendDocument({
     setRecipientId(null);
     setCircuitExtra([]);
     setObjet("");
+    setPublicRef("");
     setSelectedTasks([]);
     setCustomTask("");
     setOnBehalfType("internal");
@@ -258,6 +269,7 @@ export function SendDocument({
         tasks: effectiveTasks,
         extractedText: extractedText || undefined,
         recipientId,
+        publicRef: publicRef.trim() || undefined,
         circuitAssigneeIds:
           circuitExtra.length > 0
             ? circuitExtra.map((c) => c.userId)
@@ -682,6 +694,57 @@ export function SendDocument({
 
           {step === 3 ? (
             <div className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="publicRef">Identifiant du dossier</Label>
+                <Input
+                  id="publicRef"
+                  value={publicRef}
+                  onChange={(e) =>
+                    setPublicRef(e.target.value.toUpperCase().trim())
+                  }
+                  placeholder="Ex. SD-2026-BUDGET-01"
+                  className="font-mono"
+                  autoComplete="off"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Nouvel envoi : choisissez un identifiant unique. Continuation
+                  de circuit : saisissez l&apos;identifiant existant (le système
+                  propose le prochain destinataire).
+                </p>
+                {refLookup?.found && !refLookup.isClosed ? (
+                  <div
+                    className={
+                      refLookup.isMyTurn
+                        ? "rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
+                        : "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+                    }
+                  >
+                    {refLookup.isMyTurn ? (
+                      <>
+                        Circuit reconnu — « {refLookup.objet} ».{" "}
+                        {refLookup.isLastStep
+                          ? "Vous êtes la dernière étape : l'envoi clôturera le dossier."
+                          : refLookup.suggestedNext
+                            ? `Prochain suggéré : ${refLookup.suggestedNext.name}${refLookup.suggestedNext.department ? ` (${refLookup.suggestedNext.department})` : ""}.`
+                            : "Transmettez à l'étape suivante."}
+                      </>
+                    ) : (
+                      <>
+                        Identifiant trouvé, mais ce n&apos;est pas votre tour
+                        {refLookup.activeAssigneeName
+                          ? ` (chez ${refLookup.activeAssigneeName})`
+                          : ""}
+                        . L&apos;envoi sera refusé.
+                      </>
+                    )}
+                  </div>
+                ) : null}
+                {refLookup?.found && refLookup.isClosed ? (
+                  <p className="text-xs text-red-700">
+                    Ce dossier est déjà clôturé. Choisissez un autre identifiant.
+                  </p>
+                ) : null}
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="objet">Objet de l&apos;envoi</Label>
                 <Textarea

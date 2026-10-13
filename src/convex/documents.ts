@@ -340,6 +340,8 @@ export const send = mutation({
     onBehalfOfDepartment: v.optional(v.string()),
     /** Circuit séquentiel optionnel (après le 1er destinataire). */
     circuitAssigneeIds: v.optional(v.array(v.id("users"))),
+    /** Identifiant manuel du dossier (nouveau ou continuation de circuit). */
+    publicRef: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -360,6 +362,175 @@ export const send = mutation({
       contentType: args.contentType,
       size: args.size,
     });
+
+    const manualRef = (args.publicRef ?? "").trim().toUpperCase();
+
+    // ——— CONTINUER un circuit existant via identifiant ———
+    if (manualRef) {
+      const existing = await ctx.db
+        .query("documents")
+        .withIndex("by_publicRef", (q) => q.eq("publicRef", manualRef))
+        .first();
+      if (existing && existing.status !== "traite") {
+        // Si le doc existe et n'est pas clôturé : tenter continuation circuit
+        const steps = (
+          await ctx.db
+            .query("documentSteps")
+            .withIndex("by_document", (q) => q.eq("documentId", existing._id))
+            .collect()
+        ).sort((a, b) => a.stepIndex - b.stepIndex);
+
+        if (steps.length > 0) {
+          const active =
+            steps.find((s) => s.status === "active") ??
+            steps.find((s) => s.assigneeId === userId && s.status !== "done");
+          if (!active) {
+            throw new Error(
+              "Ce dossier n'a plus d'étape active. Contactez l'émetteur ou le DG.",
+            );
+          }
+          if (active.assigneeId !== userId) {
+            throw new Error(
+              `Ce n'est pas encore votre tour dans le circuit. L'étape active est chez ${active.assigneeName}${active.assigneeDepartmentName ? ` (${active.assigneeDepartmentName})` : ""}.`,
+            );
+          }
+
+          const recipient = await ctx.db.get(args.recipientId);
+          if (!recipient) throw new Error("Destinataire introuvable.");
+          if (recipient._id === userId) {
+            throw new Error("Choisissez le prochain intervenant, pas vous-même.");
+          }
+
+          const now = Date.now();
+          // Archive version précédente + applique le nouveau fichier
+          await ctx.db.insert("documentRevisions", {
+            documentId: existing._id,
+            storageId: existing.storageId,
+            fileName: existing.fileName,
+            contentType: existing.contentType,
+            size: existing.size,
+            uploadedBy: userId,
+            uploadedByName: displayName(sender),
+            stepIndex: active.stepIndex,
+            note: "Version avant transmission",
+            createdAt: now,
+          });
+          await ctx.db.insert("documentRevisions", {
+            documentId: existing._id,
+            storageId: args.storageId,
+            fileName: args.fileName,
+            contentType: args.contentType,
+            size: args.size,
+            uploadedBy: userId,
+            uploadedByName: displayName(sender),
+            stepIndex: active.stepIndex,
+            note: "Transmission avec fichier (même identifiant)",
+            createdAt: now + 1,
+          });
+
+          await ctx.db.patch(active._id, {
+            status: "done",
+            actedAt: now,
+            note: args.objet?.trim().slice(0, 200) || undefined,
+          });
+
+          const next = steps.find((s) => s.stepIndex === active.stepIndex + 1);
+          if (!next) {
+            // Dernière étape : clôturer
+            await ctx.db.patch(existing._id, {
+              storageId: args.storageId,
+              fileName: args.fileName,
+              contentType: args.contentType,
+              size: args.size,
+              revisionCount: (existing.revisionCount ?? 0) + 1,
+              lastRevisedAt: now,
+              lastRevisedByName: displayName(sender),
+              status: "traite",
+              currentStepIndex: active.stepIndex,
+              updatedAt: now,
+            });
+            try {
+              await pushNotification(ctx, {
+                userId: existing.senderId,
+                type: "document.status",
+                title: "Circuit terminé",
+                body: `« ${existing.objet} » (${manualRef}) — clôturé par ${displayName(sender)}`,
+                documentId: existing._id,
+              });
+            } catch {}
+            return existing._id;
+          }
+
+          // Avancer vers le suivant (destinataire choisi, de préférence l'étape suivante)
+          let nextAssigneeId = next.assigneeId;
+          let nextAssigneeName = next.assigneeName;
+          let nextDepName = next.assigneeDepartmentName;
+          if (args.recipientId !== next.assigneeId) {
+            // Destinataire modifié : mettre à jour l'étape suivante
+            nextAssigneeId = args.recipientId;
+            nextAssigneeName = displayName(recipient);
+            if (recipient.departmentId) {
+              const dep = await ctx.db.get(recipient.departmentId);
+              nextDepName = dep?.name;
+            }
+            await ctx.db.patch(next._id, {
+              assigneeId: nextAssigneeId,
+              assigneeName: nextAssigneeName,
+              assigneeDepartmentName: nextDepName,
+            });
+          }
+          await ctx.db.patch(next._id, { status: "active" });
+          const nextUser = await ctx.db.get(nextAssigneeId);
+          await ctx.db.patch(existing._id, {
+            storageId: args.storageId,
+            fileName: args.fileName,
+            contentType: args.contentType,
+            size: args.size,
+            revisionCount: (existing.revisionCount ?? 0) + 1,
+            lastRevisedAt: now,
+            lastRevisedByName: displayName(sender),
+            recipientId: nextAssigneeId,
+            recipientName: nextAssigneeName,
+            recipientDepartmentId: nextUser?.departmentId,
+            currentStepIndex: next.stepIndex,
+            status: "en_cours",
+            updatedAt: now,
+          });
+          try {
+            await pushNotification(ctx, {
+              userId: nextAssigneeId,
+              type: "document.received",
+              title: "Document à traiter (circuit)",
+              body: `Identifiant ${manualRef} — transmis par ${displayName(sender)}. « ${existing.objet} »`,
+              documentId: existing._id,
+            });
+          } catch {}
+          try {
+            await pushNotification(ctx, {
+              userId: existing.senderId,
+              type: "document.status",
+              title: "Circuit avancé",
+              body: `« ${existing.objet} » (${manualRef}) → maintenant chez ${nextAssigneeName}`,
+              documentId: existing._id,
+            });
+          } catch {}
+          return existing._id;
+        }
+        throw new Error(
+          `L'identifiant « ${manualRef} » est déjà utilisé. Choisissez un autre identifiant pour un nouvel envoi.`,
+        );
+      }
+      if (existing && existing.status === "traite") {
+        throw new Error(
+          `Le dossier « ${manualRef} » est déjà clôturé. Utilisez un nouvel identifiant pour un nouvel envoi.`,
+        );
+      }
+      if (existing) {
+        throw new Error(
+          `L'identifiant « ${manualRef} » est déjà utilisé. Choisissez un autre identifiant pour un nouvel envoi.`,
+        );
+      }
+    }
 
     const objet = args.objet.trim();
     if (!objet) throw new Error("Précisez l'objet de l'envoi.");
@@ -443,7 +614,7 @@ export const send = mutation({
       recipientName: displayName(recipient),
       recipientDepartmentId: recipient.departmentId,
       status: "envoye",
-      publicRef: generatePublicRef(),
+      publicRef: manualRef || generatePublicRef(),
       hasCircuit: circuitUsers.length > 1,
       currentStepIndex: 0,
       circuitTotalSteps: circuitUsers.length,
@@ -965,7 +1136,9 @@ export const setStatus = mutation({
       traite: "Traité",
     };
 
-    // --- Circuit : « Traité » par un intermédiaire = fin de SON étape ---
+    // --- Circuit : Traité ---
+    // Intermédiaire : doit transmettre via Envoyer + même identifiant
+    // Dernière étape : clôture directe
     if (args.status === "traite" && steps.length > 0) {
       const myStep =
         steps.find((s) => s.assigneeId === userId && s.status === "active") ??
@@ -981,87 +1154,43 @@ export const setStatus = mutation({
         );
       }
 
+      const next = steps.find((s) => s.stepIndex === myStep.stepIndex + 1);
+      if (next) {
+        throw new Error(
+          `Pour transmettre à l'étape suivante (${next.assigneeName}), utilisez Envoyer un document avec l'identifiant « ${document.publicRef ?? "…"} ».`,
+        );
+      }
+
+      // Dernière personne : clôturer
       await ctx.db.patch(myStep._id, {
         status: "done",
         actedAt: now,
       });
-
-      const next = steps.find((s) => s.stepIndex === myStep.stepIndex + 1);
-      if (!next) {
-        // Dernière personne : le document est enfin traité pour l'émetteur
-        await ctx.db.patch(args.documentId, {
-          status: "traite",
-          currentStepIndex: myStep.stepIndex,
-          updatedAt: now,
-          viewedAt: document.viewedAt ?? now,
-        });
-        try {
-          await writeAudit(ctx, {
-            action: "document.circuit_complete",
-            actorId: userId,
-            actorName: displayName(user ?? {}),
-            documentId: args.documentId,
-            details: "Dernière étape validée — document traité",
-          });
-        } catch {}
-        try {
-          await pushNotification(ctx, {
-            userId: document.senderId,
-            type: "document.status",
-            title: "Document entièrement traité",
-            body: `« ${document.objet} » — clôturé par ${displayName(user ?? {})}`,
-            documentId: args.documentId,
-          });
-        } catch {}
-        return { outcome: "fully_treated" as const };
-      }
-
-      // Intermédiaire : on avance le circuit, statut global = en_cours
-      await ctx.db.patch(next._id, { status: "active" });
-      const nextUser = await ctx.db.get(next.assigneeId);
       await ctx.db.patch(args.documentId, {
-        recipientId: next.assigneeId,
-        recipientName: next.assigneeName,
-        recipientDepartmentId: nextUser?.departmentId,
-        currentStepIndex: next.stepIndex,
-        status: "en_cours",
+        status: "traite",
+        currentStepIndex: myStep.stepIndex,
         updatedAt: now,
         viewedAt: document.viewedAt ?? now,
       });
       try {
         await writeAudit(ctx, {
-          action: "document.step_done",
+          action: "document.circuit_complete",
           actorId: userId,
           actorName: displayName(user ?? {}),
           documentId: args.documentId,
-          details: `Étape ${myStep.stepIndex + 1} terminée → ${next.assigneeName}`,
+          details: "Dernière étape validée — document traité",
         });
       } catch {}
       try {
         await pushNotification(ctx, {
           userId: document.senderId,
           type: "document.status",
-          title: "Circuit avancé",
-          body: `« ${document.objet} » — ${displayName(user ?? {})} a terminé ; en cours chez ${next.assigneeName}`,
+          title: "Document entièrement traité",
+          body: `« ${document.objet} » (${document.publicRef ?? "—"}) — clôturé par ${displayName(user ?? {})}`,
           documentId: args.documentId,
         });
       } catch {}
-      try {
-        const after = steps.find((s) => s.stepIndex === next.stepIndex + 1);
-        await pushNotification(ctx, {
-          userId: next.assigneeId,
-          type: "document.received",
-          title: "Document à traiter",
-          body: after
-            ? `De la part de ${displayName(user ?? {})} — « ${document.objet} ». Puis transmettre à ${after.assigneeName}.`
-            : `De la part de ${displayName(user ?? {})} — « ${document.objet} ». Dernière étape : marquez Traité pour clôturer.`,
-          documentId: args.documentId,
-        });
-      } catch {}
-      return {
-        outcome: "step_advanced" as const,
-        nextAssignee: next.assigneeName,
-      };
+      return { outcome: "circuit_complete" as const };
     }
 
     // --- Consulté / En cours (tout intervenant) ou Traité sans circuit ---
@@ -1812,3 +1941,206 @@ export const departmentOverview = query({
   },
 });
 
+
+
+/** Recherche d'un dossier par identifiant public (continuation de circuit). */
+export const lookupByPublicRef = query({
+  args: { publicRef: v.string() },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const ref = args.publicRef.trim().toUpperCase();
+    if (ref.length < 3) return null;
+    const doc = await ctx.db
+      .query("documents")
+      .withIndex("by_publicRef", (q) => q.eq("publicRef", ref))
+      .first();
+    if (!doc) return { found: false as const, publicRef: ref };
+    const steps = (
+      await ctx.db
+        .query("documentSteps")
+        .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+        .collect()
+    ).sort((a, b) => a.stepIndex - b.stepIndex);
+    const active = steps.find((s) => s.status === "active") ?? null;
+    const myStep = steps.find((s) => s.assigneeId === userId) ?? null;
+    const next =
+      active != null
+        ? steps.find((s) => s.stepIndex === active.stepIndex + 1) ?? null
+        : null;
+    return {
+      found: true as const,
+      publicRef: ref,
+      documentId: doc._id,
+      objet: doc.objet,
+      status: doc.status,
+      isClosed: doc.status === "traite",
+      hasCircuit: steps.length > 0,
+      isMyTurn: active?.assigneeId === userId,
+      activeAssigneeName: active?.assigneeName ?? null,
+      activeDepartment: active?.assigneeDepartmentName ?? null,
+      activeStepIndex: active?.stepIndex ?? null,
+      myStepStatus: myStep?.status ?? null,
+      suggestedNext: next
+        ? {
+            userId: next.assigneeId,
+            name: next.assigneeName,
+            department: next.assigneeDepartmentName ?? null,
+            stepIndex: next.stepIndex,
+          }
+        : null,
+      isLastStep: Boolean(active && !next),
+      circuitTotalSteps: steps.length || doc.circuitTotalSteps || 0,
+      senderName: doc.senderName,
+    };
+  },
+});
+
+/** Relancer la personne dont c'est le tour dans le circuit. */
+export const alertActiveStep = mutation({
+  args: {
+    documentId: v.id("documents"),
+    message: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const me = await ctx.db.get(userId);
+    if (!me) throw new Error("Compte introuvable.");
+    const doc = await ctx.db.get(args.documentId);
+    if (!doc) throw new Error("Document introuvable.");
+    if (doc.status === "traite") {
+      throw new Error("Ce dossier est déjà clôturé.");
+    }
+    const isSender = doc.senderId === userId;
+    const isAdmin = isAdminRole(me.role);
+    if (!isSender && !isAdmin) {
+      throw new Error("Seul l'émetteur ou le DG peut envoyer une alerte.");
+    }
+    const steps = (
+      await ctx.db
+        .query("documentSteps")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect()
+    ).sort((a, b) => a.stepIndex - b.stepIndex);
+    const active = steps.find((s) => s.status === "active");
+    if (!active) throw new Error("Aucune étape active à relancer.");
+    const msg =
+      args.message?.trim().slice(0, 300) ||
+      `Rappel : merci de traiter le dossier « ${doc.objet} » (${doc.publicRef ?? "—"})`;
+    await pushNotification(ctx, {
+      userId: active.assigneeId,
+      type: "document.status",
+      title: "Relance — dossier en attente",
+      body: `${displayName(me)} : ${msg}`,
+      documentId: args.documentId,
+    });
+    try {
+      await writeAudit(ctx, {
+        action: "document.alert",
+        actorId: userId,
+        actorName: displayName(me),
+        documentId: args.documentId,
+        details: `Alerte → ${active.assigneeName}`,
+      });
+    } catch {}
+    return { ok: true as const, to: active.assigneeName };
+  },
+});
+
+/**
+ * Suivi des dossiers (circuit + envois concernés).
+ * Chacun voit ce qui le concerne ; le DG voit tout.
+ */
+export const circuitTracking = query({
+  args: {},
+  handler: async (ctx) => {
+    try {
+      const userId = await getAuthUserId(ctx);
+      if (!userId) return null;
+      const me = await ctx.db.get(userId);
+      if (!me) return null;
+      const isAdmin = isAdminRole(me.role);
+
+      let docs = await ctx.db.query("documents").collect();
+      docs = docs.filter((d) => !d.archivedAt);
+
+      if (!isAdmin) {
+        const myStepDocIds = new Set<string>();
+        const allSteps = await ctx.db.query("documentSteps").collect();
+        for (const s of allSteps) {
+          if (s.assigneeId === userId) myStepDocIds.add(String(s.documentId));
+        }
+        docs = docs.filter(
+          (d) =>
+            d.senderId === userId ||
+            d.recipientId === userId ||
+            myStepDocIds.has(String(d._id)),
+        );
+      }
+
+      const now = Date.now();
+      const items = [];
+      for (const d of docs) {
+        let steps = [];
+        try {
+          steps = (
+            await ctx.db
+              .query("documentSteps")
+              .withIndex("by_document", (q) => q.eq("documentId", d._id))
+              .collect()
+          ).sort((a, b) => a.stepIndex - b.stepIndex);
+        } catch {
+          steps = [];
+        }
+        const active = steps.find((s) => s.status === "active") ?? null;
+        const age = now - (d.createdAt ?? d._creationTime);
+        const overdue = d.status !== "traite" && age > 48 * 3600 * 1000;
+        let category: "en_attente" | "en_cours" | "en_retard" | "termines" =
+          "en_cours";
+        if (d.status === "traite") category = "termines";
+        else if (overdue) category = "en_retard";
+        else if (d.status === "envoye" || (active && active.stepIndex === 0))
+          category = "en_attente";
+        else category = "en_cours";
+
+        items.push({
+          _id: d._id,
+          publicRef: d.publicRef ?? null,
+          objet: d.objet,
+          fileName: d.fileName,
+          status: d.status,
+          senderId: d.senderId,
+          senderName: d.senderName,
+          recipientName: d.recipientName,
+          hasCircuit: Boolean(d.hasCircuit) || steps.length > 1,
+          currentStepIndex: d.currentStepIndex ?? active?.stepIndex ?? 0,
+          circuitTotalSteps: d.circuitTotalSteps ?? steps.length,
+          activeAssigneeName: active?.assigneeName ?? d.recipientName,
+          activeDepartment: active?.assigneeDepartmentName ?? null,
+          isSender: d.senderId === userId,
+          isMyTurn: active?.assigneeId === userId,
+          canAlert:
+            (d.senderId === userId || isAdmin) &&
+            d.status !== "traite" &&
+            Boolean(active),
+          category,
+          createdAt: d.createdAt ?? d._creationTime,
+          updatedAt: d.updatedAt ?? d.createdAt,
+        });
+      }
+
+      items.sort((a, b) => b.updatedAt - a.updatedAt);
+
+      return {
+        en_attente: items.filter((i) => i.category === "en_attente"),
+        en_cours: items.filter((i) => i.category === "en_cours"),
+        en_retard: items.filter((i) => i.category === "en_retard"),
+        termines: items.filter((i) => i.category === "termines"),
+        all: items,
+      };
+    } catch (e) {
+      console.error("[circuitTracking]", e);
+      return null;
+    }
+  },
+});

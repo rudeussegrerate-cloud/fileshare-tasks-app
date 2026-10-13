@@ -8,6 +8,7 @@ import { DocumentDetailDialog } from "@/components/app/DocumentDetailDialog";
 import { DocumentsList } from "@/components/app/DocumentsList";
 import { ProfileSetup } from "@/components/app/ProfileSetup";
 import { SendDocument } from "@/components/app/SendDocument";
+import { CircuitTrackingView } from "@/components/app/CircuitTrackingView";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { ActualitesView } from "@/components/app/ActualitesView";
@@ -63,6 +64,7 @@ export default function Dashboard() {
   const [openDocumentId, setOpenDocumentId] = useState<Id<"documents"> | null>(
     null,
   );
+  const [continueRef, setContinueRef] = useState<string | undefined>(undefined);
   const syncedRef = useRef(false);
 
   // On first load: promote the very first account to DG and give this account
@@ -140,10 +142,10 @@ export default function Dashboard() {
 
       {view === "send" ? (
         <SendDocument
+          initialPublicRef={continueRef}
           onSent={() => {
-            // Ne pas ouvrir le détail immédiatement (évite un crash UI) :
-            // on bascule simplement vers la liste des envoyés.
-            setView("sent");
+            setContinueRef(undefined);
+            setView("suivi");
           }}
           onManageDepartments={() => setView("departments")}
         />
@@ -163,6 +165,18 @@ export default function Dashboard() {
           onOpen={setOpenDocumentId}
           onCreate={() => setView("send")}
         />
+      ) : null}
+
+      {view === "suivi" ? (
+        <ViewErrorBoundary label="le suivi des envois">
+          <CircuitTrackingView
+            onOpen={setOpenDocumentId}
+            onContinue={(ref) => {
+              setContinueRef(ref);
+              setView("send");
+            }}
+          />
+        </ViewErrorBoundary>
       ) : null}
 
       {view === "departments" ? <DepartmentsView /> : null}
