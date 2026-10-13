@@ -189,9 +189,17 @@ export default function Dashboard() {
         </ViewErrorBoundary>
       ) : null}
 
-      {view === "departments" ? <DepartmentsView /> : null}
+      {view === "departments" ? (
+        <ViewErrorBoundary label="les départements">
+          <DepartmentsView />
+        </ViewErrorBoundary>
+      ) : null}
 
-      {view === "accounts" ? <AccountsView /> : null}
+      {view === "accounts" ? (
+        <ViewErrorBoundary label="les comptes">
+          <AccountsView />
+        </ViewErrorBoundary>
+      ) : null}
 
       {view === "actualites" ? (
         <ViewErrorBoundary label="les actualités">

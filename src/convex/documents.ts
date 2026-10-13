@@ -2249,9 +2249,13 @@ export const circuitTracking = query({
 
       if (!isAdmin) {
         const myStepDocIds = new Set<string>();
-        const allSteps = await ctx.db.query("documentSteps").collect();
-        for (const s of allSteps) {
-          if (s.assigneeId === userId) myStepDocIds.add(String(s.documentId));
+        try {
+          const allSteps = await ctx.db.query("documentSteps").collect();
+          for (const s of allSteps) {
+            if (s.assigneeId === userId) myStepDocIds.add(String(s.documentId));
+          }
+        } catch {
+          /* ignore */
         }
         docs = docs.filter(
           (d) =>

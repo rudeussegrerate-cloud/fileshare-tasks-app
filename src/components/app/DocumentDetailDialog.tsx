@@ -647,6 +647,7 @@ export function DocumentDetailDialog({
                           const { storageId } = (await response.json()) as {
                             storageId: Id<"_storage">;
                           };
+                          const tasksSnapshot = [...revisionTasks];
                           await attachRevision({
                             documentId,
                             storageId,
@@ -654,13 +655,13 @@ export function DocumentDetailDialog({
                             contentType: file.type || undefined,
                             size: file.size,
                             tasksForNext:
-                              revisionTasks.length > 0
-                                ? revisionTasks
+                              tasksSnapshot.length > 0
+                                ? tasksSnapshot
                                 : undefined,
                           });
                           setRevisionTasks([]);
                           toast.success(
-                            revisionTasks.length > 0
+                            tasksSnapshot.length > 0
                               ? "Version renvoyée avec tâches pour le suivant"
                               : "Version renvoyée — le suivi reste sur le même identifiant",
                           );
