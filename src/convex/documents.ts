@@ -149,12 +149,18 @@ function validateFile(args: {
 }
 
 
-/** Documents visibles en « reçus » : destinataire actuel OU intervenant du circuit. */
+/**
+ * Documents visibles en « reçus » :
+ * - destinataire nommé
+ * - intervenant du circuit
+ * - membre de la structure destinataire (direction/service) ou d'un service enfant
+ */
 async function collectInboxDocuments(
   ctx: DbCtx,
   userId: Id<"users">,
   includeArchived: boolean,
 ) {
+  const me = await ctx.db.get(userId);
   const byRecipient = await ctx.db
     .query("documents")
     .withIndex("by_recipient", (q) => q.eq("recipientId", userId))
@@ -177,6 +183,45 @@ async function collectInboxDocuments(
   } catch {
     /* table absente ou index : ignorer */
   }
+
+  // Envoi structurel : tous les membres de la direction/service destinataire
+  if (me?.departmentId) {
+    const myDeptId = String(me.departmentId);
+    const allDepts = await ctx.db.query("departments").collect();
+    // Structures dont je suis membre direct OU parent de mon service
+    const relevant = new Set<string>([myDeptId]);
+    const mine = allDepts.find((d) => String(d._id) === myDeptId);
+    if (mine?.parentId) relevant.add(String(mine.parentId));
+    // Si j'appartiens à une direction, les envois à mes services enfants me concernent aussi? Non — l'inverse :
+    // envoi à une direction → membres des services enfants reçoivent.
+    for (const d of allDepts) {
+      if (d.parentId && String(d.parentId) === myDeptId) {
+        // mon dept est parent : les docs adressés à un enfant ne me concernent pas auto
+      }
+      // si mon service a pour parent P, docs adressés à P me concernent (déjà via parentId)
+    }
+
+    // Documents adressés à mon dept ou à mon parent (direction)
+    for (const rid of relevant) {
+      try {
+        const structural = await ctx.db
+          .query("documents")
+          .withIndex("by_recipient_department", (q) =>
+            q.eq(
+              "recipientDepartmentId",
+              rid as Id<"departments">,
+            ),
+          )
+          .collect();
+        for (const d of structural) {
+          map.set(String(d._id), d);
+        }
+      } catch {
+        /* index / schéma : ignorer */
+      }
+    }
+  }
+
   return [...map.values()].filter((d) =>
     includeArchived ? true : !d.archivedAt,
   );
@@ -379,7 +424,12 @@ export const send = mutation({
     observations: v.optional(v.string()),
     tasks: v.array(v.string()),
     extractedText: v.optional(v.string()),
-    recipientId: v.id("users"),
+    /** Destinataire nommé (optionnel si envoi structurel) */
+    recipientId: v.optional(v.id("users")),
+    /** Destination principale : direction ou service MNDPT */
+    recipientDepartmentId: v.optional(v.id("departments")),
+    /** Circuit de structures (après la 1re), optionnel */
+    circuitDepartmentIds: v.optional(v.array(v.id("departments"))),
     onBehalfOfType: v.union(v.literal("internal"), v.literal("external")),
     onBehalfOfUserId: v.optional(v.id("users")),
     onBehalfOfName: v.optional(v.string()),
@@ -444,7 +494,9 @@ export const send = mutation({
             );
           }
 
-          const recipient = await ctx.db.get(args.recipientId);
+          const recipient = args.recipientId
+            ? await ctx.db.get(args.recipientId)
+            : null;
           if (!recipient) throw new Error("Destinataire introuvable.");
           if (recipient._id === userId) {
             throw new Error("Choisissez le prochain intervenant, pas vous-même.");
@@ -514,8 +566,11 @@ export const send = mutation({
           let nextAssigneeId = next.assigneeId;
           let nextAssigneeName = next.assigneeName;
           let nextDepName = next.assigneeDepartmentName;
-          if (args.recipientId !== next.assigneeId) {
-            // Destinataire modifié : mettre à jour l'étape suivante
+          if (
+            args.recipientId &&
+            recipient &&
+            args.recipientId !== next.assigneeId
+          ) {
             nextAssigneeId = args.recipientId;
             nextAssigneeName = displayName(recipient);
             if (recipient.departmentId) {
@@ -595,26 +650,107 @@ export const send = mutation({
       throw new Error("Sélectionnez au moins une tâche à réaliser.");
     }
 
-    const recipient = await ctx.db.get(args.recipientId);
-    if (!recipient) throw new Error("Destinataire introuvable.");
-    if (recipient._id === userId) {
-      throw new Error("Vous ne pouvez pas vous envoyer un document à vous-même.");
+    // ——— Résolution destinataire : STRUCTURE (prioritaire) ou personne ———
+    const allUsers = await ctx.db.query("users").collect();
+    const membersOfDept = (deptId: Id<"departments">) =>
+      allUsers.filter(
+        (u) =>
+          u.departmentId &&
+          String(u.departmentId) === String(deptId) &&
+          (u.accountStatus === "valide" ||
+            !u.accountStatus ||
+            u.role === "admin" ||
+            u.role === "root"),
+      );
+
+    let recipientDeptId = args.recipientDepartmentId;
+    let recipientDept = recipientDeptId
+      ? await ctx.db.get(recipientDeptId)
+      : null;
+
+    let recipient: Doc<"users"> | null = null;
+    if (args.recipientId) {
+      recipient = await ctx.db.get(args.recipientId);
+      if (!recipient) throw new Error("Destinataire introuvable.");
+      if (recipient._id === userId) {
+        throw new Error(
+          "Vous ne pouvez pas vous envoyer un document à vous-même.",
+        );
+      }
+      // Si pas de structure choisie, prendre le département de la personne
+      if (!recipientDeptId && recipient.departmentId) {
+        recipientDeptId = recipient.departmentId;
+        recipientDept = await ctx.db.get(recipient.departmentId);
+      }
+    } else if (recipientDeptId && recipientDept) {
+      // Envoi structurel : chef en priorité, sinon premier membre, sinon émetteur (porteur technique)
+      const members = membersOfDept(recipientDeptId);
+      const chef = members.find((m) => m.departmentRole === "chef");
+      recipient = chef ?? members[0] ?? sender;
+    } else {
+      throw new Error(
+        "Choisissez une direction ou un service destinataire (ou une personne).",
+      );
     }
 
-    // Circuit : destinataire principal + suivants (sans doublons, max 8)
-    const circuitIds: Id<"users">[] = [args.recipientId];
+    if (!recipient) throw new Error("Destinataire introuvable.");
+
+    // Circuit personnes (compat) + circuit structures
+    const circuitIds: Id<"users">[] = [recipient._id];
     for (const id of args.circuitAssigneeIds ?? []) {
       if (circuitIds.some((x) => x === id)) continue;
       if (id === userId) continue;
       circuitIds.push(id);
       if (circuitIds.length >= 8) break;
     }
-    const circuitUsers = [];
-    for (const id of circuitIds) {
-      const u = await ctx.db.get(id);
-      if (!u) throw new Error("Un intervenant du circuit est introuvable.");
-      circuitUsers.push(u);
+
+    // Circuit de structures → un représentant (chef/membre) par structure
+    const circuitDeptIds: Id<"departments">[] = [];
+    if (recipientDeptId) circuitDeptIds.push(recipientDeptId);
+    for (const did of args.circuitDepartmentIds ?? []) {
+      if (circuitDeptIds.some((x) => String(x) === String(did))) continue;
+      circuitDeptIds.push(did);
+      if (circuitDeptIds.length >= 8) break;
     }
+
+    type CircuitNode = {
+      user: Doc<"users">;
+      departmentId?: Id<"departments">;
+      departmentName?: string;
+    };
+    const circuitNodes: CircuitNode[] = [];
+
+    if (circuitDeptIds.length > 0 && !args.circuitAssigneeIds?.length) {
+      // Mode structure pur
+      for (const did of circuitDeptIds) {
+        const dep = await ctx.db.get(did);
+        const members = membersOfDept(did);
+        const chef = members.find((m) => m.departmentRole === "chef");
+        const rep = chef ?? members[0] ?? sender;
+        circuitNodes.push({
+          user: rep,
+          departmentId: did,
+          departmentName: dep?.name ?? dep?.code,
+        });
+      }
+    } else {
+      for (const id of circuitIds) {
+        const u = await ctx.db.get(id);
+        if (!u) throw new Error("Un intervenant du circuit est introuvable.");
+        let depName: string | undefined;
+        if (u.departmentId) {
+          const dep = await ctx.db.get(u.departmentId);
+          depName = dep?.name;
+        }
+        circuitNodes.push({
+          user: u,
+          departmentId: u.departmentId,
+          departmentName: depName,
+        });
+      }
+    }
+
+    const circuitUsers = circuitNodes.map((n) => n.user);
 
     // Resolve "de la part de"
     let onBehalfOfName = args.onBehalfOfName?.trim() || undefined;
@@ -667,8 +803,10 @@ export const send = mutation({
       senderName: displayName(sender),
       senderDepartmentId: sender.departmentId,
       recipientId: recipient._id,
-      recipientName: displayName(recipient),
-      recipientDepartmentId: recipient.departmentId,
+      recipientName: recipientDept
+        ? `${recipientDept.code ? recipientDept.code + " — " : ""}${recipientDept.name}`
+        : displayName(recipient),
+      recipientDepartmentId: recipientDeptId ?? recipient.departmentId,
       status: "envoye",
       publicRef: manualRef || generatePublicRef(),
       hasCircuit: circuitUsers.length > 1,
@@ -695,21 +833,20 @@ export const send = mutation({
       168,
       Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
     );
-    // Créer les étapes du circuit (personne + département)
-    for (let i = 0; i < circuitUsers.length; i++) {
-      const u = circuitUsers[i]!;
-      let depName: string | undefined;
-      if (u.departmentId) {
-        const dep = await ctx.db.get(u.departmentId);
-        depName = dep?.name;
-      }
+    // Créer les étapes du circuit (structure et/ou personne)
+    for (let i = 0; i < circuitNodes.length; i++) {
+      const node = circuitNodes[i]!;
+      const u = node.user;
       const isFirst = i === 0;
       await ctx.db.insert("documentSteps", {
         documentId,
         stepIndex: i,
         assigneeId: u._id,
-        assigneeName: displayName(u),
-        assigneeDepartmentName: depName,
+        assigneeName: node.departmentName
+          ? `${node.departmentName}`
+          : displayName(u),
+        assigneeDepartmentName: node.departmentName,
+        assigneeDepartmentId: node.departmentId,
         taskLabel: tasks[0],
         status: isFirst ? "active" : "waiting",
         activatedAt: isFirst ? now : undefined,
@@ -732,7 +869,26 @@ export const send = mutation({
       console.error("[send] audit log échoué:", e);
     }
 
-    // Notifications relatives pour chaque intervenant du circuit
+        // Notifier tous les membres de la structure destinataire (étape 0)
+    try {
+      if (recipientDeptId) {
+        const members = membersOfDept(recipientDeptId);
+        for (const m of members) {
+          if (m._id === userId) continue;
+          await pushNotification(ctx, {
+            userId: m._id,
+            type: "document.received",
+            title: "Nouveau document pour votre structure",
+            body: `${displayName(sender)} → ${recipientDept?.code ?? recipientDept?.name ?? "structure"} — « ${objet} »`,
+            documentId,
+          });
+        }
+      }
+    } catch (e) {
+      console.error("[send] notif structure échouée:", e);
+    }
+
+// Notifications relatives pour chaque intervenant du circuit
     try {
       for (let i = 0; i < circuitUsers.length; i++) {
         const u = circuitUsers[i]!;

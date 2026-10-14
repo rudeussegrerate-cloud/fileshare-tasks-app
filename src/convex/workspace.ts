@@ -369,54 +369,207 @@ export const seedMndptDepartments = mutation({
     if (!me || (me.role !== "admin" && me.role !== "root")) {
       throw new Error("Réservé au DG / super utilisateur.");
     }
-    // Uniquement les cases du tableau de la fiche de transmission SG
-    const names = [
-      "MINISTRE",
-      "DIRCAB",
-      "DGDN",
-      "DGOVT",
-      "DG PAOMA",
-      "DG ARTEC",
-      "PCA PAOMA",
-      "PCA ARTEC",
-      "PRMP",
-      "DCP",
-      "DCAC",
-      "DAF",
-      "DSI",
-      "DRH",
-      "DLP",
-      "DAJ",
-      "DRSP",
-      "DEG",
-      "DTD",
-      "DCC",
-      "DIN",
-      "DP",
-      "SAI",
-      "SCE",
-      "SAG",
-      "SSP",
+
+    /**
+     * Arborescence officielle MNDPT (directions + services).
+     * parentCode null = racine sous le ministère.
+     */
+    type Node = {
+      code: string;
+      name: string;
+      kind:
+        | "direction"
+        | "service"
+        | "organisme"
+        | "cabinet"
+        | "sg"
+        | "interregion"
+        | "cellule"
+        | "autre";
+      parentCode: string | null;
+    };
+
+    const nodes: Node[] = [
+      // Rattachement Ministre
+      { code: "CABINET", name: "Cabinet du Ministre", kind: "cabinet", parentCode: null },
+      { code: "DCP", name: "Direction de la Communication et du Partenariat", kind: "direction", parentCode: null },
+      { code: "DCP-SICM", name: "Service de l'Information, Communication et Multimédia", kind: "service", parentCode: "DCP" },
+      { code: "DCP-SCIRP", name: "Service de la Communication Interne et des Relations Publiques", kind: "service", parentCode: "DCP" },
+      { code: "DCP-SP", name: "Service du Partenariat", kind: "service", parentCode: "DCP" },
+      { code: "PRMP", name: "Personne Responsable des Marchés Publics", kind: "direction", parentCode: null },
+      { code: "CAC", name: "Cellule Anti-Corruption", kind: "cellule", parentCode: null },
+      { code: "SAI", name: "Service de l'Audit Interne", kind: "service", parentCode: null },
+
+      // Organismes sous tutelle
+      { code: "PAOMA", name: "Paositra Malagasy (PAOMA)", kind: "organisme", parentCode: null },
+      { code: "ARTEC", name: "Autorité de Régulation des Technologies de Communication", kind: "organisme", parentCode: null },
+      { code: "ARSP", name: "Autorité de Régulation du Secteur Postal", kind: "organisme", parentCode: null },
+      { code: "INDP", name: "Institut National de Digitalisation et des Postes", kind: "organisme", parentCode: null },
+
+      // SG
+      { code: "SG", name: "Secrétariat Général", kind: "sg", parentCode: null },
+      { code: "SSP", name: "Service de Secrétariat Particulier", kind: "service", parentCode: "SG" },
+      { code: "SAG", name: "Service des Affaires Générales", kind: "service", parentCode: "SG" },
+      { code: "SCE", name: "Service de la Conservation de l'Environnement", kind: "service", parentCode: "SG" },
+
+      // DGDN
+      { code: "DGDN", name: "Direction Générale du Développement Numérique", kind: "direction", parentCode: "SG" },
+      { code: "DTD", name: "Direction de la Transformation Digitale", kind: "direction", parentCode: "DGDN" },
+      { code: "DTD-SCTD", name: "Service de la Coordination de la Transformation Digitale", kind: "service", parentCode: "DTD" },
+      { code: "DTD-SAUN", name: "Service de l'Appropriation et de l'Usage du Numérique", kind: "service", parentCode: "DTD" },
+      { code: "DEG", name: "Direction de l'E-Gouvernance", kind: "direction", parentCode: "DGDN" },
+      { code: "DEG-SOS", name: "Service des Orientations Stratégiques", kind: "service", parentCode: "DEG" },
+      { code: "DEG-SPC", name: "Service de la Planification et de la Coordination", kind: "service", parentCode: "DEG" },
+
+      // DGOVT
+      { code: "DGOVT", name: "Direction Générale des Opérations et de la Vulgarisation des TICs", kind: "direction", parentCode: "SG" },
+      { code: "DIN", name: "Direction de l'Intégration du Numérique", kind: "direction", parentCode: "DGOVT" },
+      { code: "DIN-SAIT", name: "Service d'Appui à l'Intégration des TICs", kind: "service", parentCode: "DIN" },
+      { code: "DIN-STAT", name: "Service de la Statistique", kind: "service", parentCode: "DIN" },
+      { code: "DIN-SNSF", name: "Service des Normes et Standards de Formation des TICs", kind: "service", parentCode: "DIN" },
+      { code: "DCC", name: "Direction de la Conduite du Changement", kind: "direction", parentCode: "DGOVT" },
+      { code: "DCC-SCCC", name: "Service de la Coordination de la Conduite de Changement", kind: "service", parentCode: "DCC" },
+      { code: "DCC-SAI", name: "Service d'Appui Institutionnel", kind: "service", parentCode: "DCC" },
+      { code: "DP", name: "Direction des Projets", kind: "direction", parentCode: "DGOVT" },
+      { code: "DP-SEC", name: "Service d'Étude et de Conception", kind: "service", parentCode: "DP" },
+      { code: "DP-SCSE", name: "Service de Coordination et de Suivi-Évaluation", kind: "service", parentCode: "DP" },
+
+      // Directions transversales SG
+      { code: "DRSP", name: "Direction de la Régulation du Secteur Postal", kind: "direction", parentCode: "SG" },
+      { code: "DRSP-SRSOP", name: "Service Régulation et Suivi des Opérateurs Postaux", kind: "service", parentCode: "DRSP" },
+      { code: "DRSP-SDRF", name: "Service Détection et Répression des Fraudes", kind: "service", parentCode: "DRSP" },
+      { code: "DRSP-SPCESP", name: "Service Promotion, Coordination, Études du Secteur Postal", kind: "service", parentCode: "DRSP" },
+      { code: "DSI", name: "Direction des Systèmes d'Information", kind: "direction", parentCode: "SG" },
+      { code: "DSI-SDAGBD", name: "Service de Développement des Applicatifs et de Gestion des bases de données", kind: "service", parentCode: "DSI" },
+      { code: "DSI-SARM", name: "Service de l'Administration des Réseaux et de Maintenance", kind: "service", parentCode: "DSI" },
+      { code: "DAJ", name: "Direction des Affaires Juridiques", kind: "direction", parentCode: "SG" },
+      { code: "DAJ-SL", name: "Service de la Législation", kind: "service", parentCode: "DAJ" },
+      { code: "DAJ-SC", name: "Service du Contentieux", kind: "service", parentCode: "DAJ" },
+      { code: "DAF", name: "Direction Administrative et Financière", kind: "direction", parentCode: "SG" },
+      { code: "DAF-SPSE", name: "Service de la Programmation et de Suivi-Évaluation", kind: "service", parentCode: "DAF" },
+      { code: "DAF-SAEB", name: "Service d'Appui à l'Exécution Budgétaire", kind: "service", parentCode: "DAF" },
+      { code: "DAF-SCPT", name: "Service de la Comptabilité", kind: "service", parentCode: "DAF" },
+      { code: "DRH", name: "Direction des Ressources Humaines", kind: "direction", parentCode: "SG" },
+      { code: "DRH-SAS", name: "Service des Affaires Sociales", kind: "service", parentCode: "DRH" },
+      { code: "DRH-SFGC", name: "Service de la Formation et de la Gestion des Carrières", kind: "service", parentCode: "DRH" },
+      { code: "DRH-SMS", name: "Service Médico-Sanitaire", kind: "service", parentCode: "DRH" },
+      { code: "DLP", name: "Direction de la Logistique et des Patrimoines", kind: "direction", parentCode: "SG" },
+      { code: "DLP-SPAT", name: "Service du Patrimoine", kind: "service", parentCode: "DLP" },
+      { code: "DLP-SCM", name: "Service de la Comptabilité Matière", kind: "service", parentCode: "DLP" },
+      { code: "DLP-SLOG", name: "Service de la Logistique", kind: "service", parentCode: "DLP" },
+
+      // DIR INTER
+      { code: "DIR-ANT", name: "Direction Interrégionale Antsiranana", kind: "interregion", parentCode: "SG" },
+      { code: "DIR-TOA", name: "Direction Interrégionale Toamasina", kind: "interregion", parentCode: "SG" },
+      { code: "DIR-MAH", name: "Direction Interrégionale Mahajanga", kind: "interregion", parentCode: "SG" },
+      { code: "DIR-TANA", name: "Direction Interrégionale Antananarivo", kind: "interregion", parentCode: "SG" },
+      { code: "DIR-FIA", name: "Direction Interrégionale Fianarantsoa", kind: "interregion", parentCode: "SG" },
+      { code: "DIR-TOL", name: "Direction Interrégionale Toliara", kind: "interregion", parentCode: "SG" },
     ];
-    const existing = await ctx.db.query("departments").collect();
-    const byName = new Map(
-      existing.map((d) => [d.name.trim().toUpperCase(), d] as const),
-    );
-    let created = 0;
-    const now = Date.now();
-    for (const name of names) {
-      const key = name.toUpperCase();
-      if (byName.has(key)) continue;
-      await ctx.db.insert("departments", {
-        name,
-        createdAt: now,
-        createdBy: userId,
-      });
-      created += 1;
+
+    // Ajouter 3 services standards sous chaque DIR
+    for (const dir of [
+      "DIR-ANT",
+      "DIR-TOA",
+      "DIR-MAH",
+      "DIR-TANA",
+      "DIR-FIA",
+      "DIR-TOL",
+    ]) {
+      nodes.push(
+        {
+          code: `${dir}-ST`,
+          name: "Service Technique",
+          kind: "service",
+          parentCode: dir,
+        },
+        {
+          code: `${dir}-SRDC`,
+          name: "Service des Relations avec les Directions Centrales",
+          kind: "service",
+          parentCode: dir,
+        },
+        {
+          code: `${dir}-SBR`,
+          name: "Service du Bureau Régional",
+          kind: "service",
+          parentCode: dir,
+        },
+      );
     }
-    return { created, total: names.length };
+
+    const existing = await ctx.db.query("departments").collect();
+    const byCode = new Map<string, (typeof existing)[0]>();
+    const byName = new Map<string, (typeof existing)[0]>();
+    for (const d of existing) {
+      if (d.code) byCode.set(d.code.toUpperCase(), d);
+      byName.set(d.name.trim().toUpperCase(), d);
+    }
+
+    const idByCode = new Map<string, typeof existing[0]["_id"]>();
+    let created = 0;
+    let updated = 0;
+    const now = Date.now();
+
+    // Plusieurs passes pour résoudre les parents
+    for (let pass = 0; pass < 4; pass++) {
+      for (const n of nodes) {
+        const code = n.code.toUpperCase();
+        let row = byCode.get(code) ?? byName.get(n.name.trim().toUpperCase());
+        let parentId: typeof existing[0]["_id"] | undefined;
+        if (n.parentCode) {
+          const p =
+            idByCode.get(n.parentCode.toUpperCase()) ??
+            byCode.get(n.parentCode.toUpperCase())?._id;
+          if (!p) continue; // parent pas encore créé
+          parentId = p;
+        }
+
+        if (row) {
+          idByCode.set(code, row._id);
+          byCode.set(code, row);
+          const patch: Record<string, unknown> = {};
+          if (row.code !== code) patch.code = code;
+          if (row.kind !== n.kind) patch.kind = n.kind;
+          if (parentId && row.parentId !== parentId) patch.parentId = parentId;
+          if (row.name !== n.name) patch.name = n.name;
+          if (Object.keys(patch).length) {
+            await ctx.db.patch(row._id, patch);
+            updated += 1;
+            row = { ...row, ...patch } as typeof row;
+            byCode.set(code, row);
+          }
+          continue;
+        }
+
+        const id = await ctx.db.insert("departments", {
+          name: n.name,
+          code,
+          kind: n.kind,
+          parentId,
+          createdBy: userId,
+          createdAt: now,
+        });
+        idByCode.set(code, id);
+        created += 1;
+        const fake = {
+          _id: id,
+          name: n.name,
+          code,
+          kind: n.kind,
+          parentId,
+          createdBy: userId,
+          createdAt: now,
+        } as (typeof existing)[0];
+        byCode.set(code, fake);
+        byName.set(n.name.trim().toUpperCase(), fake);
+      }
+    }
+
+    return { created, updated, total: nodes.length };
   },
 });
+
 
 export const createDepartment = mutation({
   args: {

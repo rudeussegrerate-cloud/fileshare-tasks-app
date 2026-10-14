@@ -186,7 +186,7 @@ export function SendDocument({
       : step === 1
         ? Boolean(departmentId)
         : step === 2
-          ? Boolean(recipientId)
+          ? Boolean(departmentId) // structure suffit ; personne optionnelle
           : (() => {
               if (!objet.trim()) return false;
               if (selectedTasks.length === 0 && !customTask.trim()) return false;
@@ -197,8 +197,8 @@ export function SendDocument({
             })();
 
   const handleSend = async () => {
-    // Envoi vers n'importe quel département autorisé.
-    if (!file || !recipientId) return;
+    // Envoi structurel (direction/service) — personne optionnelle.
+    if (!file || !departmentId) return;
     if (!objet.trim()) {
       toast.error("Précisez l'objet de l'envoi.");
       return;
@@ -248,7 +248,8 @@ export function SendDocument({
         observations: observations.trim() || undefined,
         tasks: effectiveTasks,
         extractedText: extractedText || undefined,
-        recipientId,
+        recipientDepartmentId: departmentId,
+        recipientId: recipientId ?? undefined,
         publicRef: publicRef.trim() || undefined,
         stepDeadlineHours: stepDeadlineHours,
         circuitAssigneeIds:
@@ -490,19 +491,45 @@ export function SendDocument({
           ) : null}
 
           {step === 2 ? (
-            <div className="space-y-3">
+            <div className="space-y-3" data-scandoc-tour="send-recipient">
               <p className="text-xs text-muted-foreground">
-                Département :{" "}
+                Destination :{" "}
                 <span className="font-medium text-foreground">
                   {selectedDepartment?.name}
                 </span>
               </p>
+              <button
+                type="button"
+                onClick={() => setRecipientId(null)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-sm border p-3 text-left transition-all",
+                  !recipientId
+                    ? "border-brand bg-brand-soft"
+                    : "border-border bg-card hover:border-brand-sky/50",
+                )}
+              >
+                <span className="flex size-9 items-center justify-center rounded-full bg-brand text-xs font-semibold text-primary-foreground">
+                  ∑
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium">
+                    Toute la structure
+                  </span>
+                  <span className="block text-xs text-muted-foreground">
+                    Tous les membres de cette direction ou de ce service
+                    recevront le document.
+                  </span>
+                </span>
+              </button>
+              <p className="text-[11px] text-muted-foreground">
+                Optionnel — restreindre à une personne (confidentiel) :
+              </p>
               {selectableMembers.length === 0 ? (
-                <EmptyState
-                  icon={UserRound}
-                  title="Aucun membre dans ce département"
-                  description="Choisissez un autre département ou demandez au chef d'ajouter des membres."
-                />
+                <p className="text-xs text-muted-foreground">
+                  Aucun membre inscrit pour l&apos;instant : l&apos;envoi
+                  structurel reste possible ; les futurs membres verront le
+                  dossier selon les règles d&apos;appartenance.
+                </p>
               ) : (
                 <ul className="space-y-2">
                   {selectableMembers.map((member) => {

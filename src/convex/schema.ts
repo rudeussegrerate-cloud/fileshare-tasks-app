@@ -98,12 +98,32 @@ const schema = defineSchema(
     // Un chef peut créer des sous-départements (parentId).
     departments: defineTable({
       name: v.string(),
+      /** Sigle officiel (DTD, DAF, SG…) */
+      code: v.optional(v.string()),
+      /**
+       * direction | service | organisme | cabinet | sg | interregion | cellule
+       * Utilisé pour l'envoi structurel (pas personne).
+       */
+      kind: v.optional(
+        v.union(
+          v.literal("direction"),
+          v.literal("service"),
+          v.literal("organisme"),
+          v.literal("cabinet"),
+          v.literal("sg"),
+          v.literal("interregion"),
+          v.literal("cellule"),
+          v.literal("autre"),
+        ),
+      ),
       description: v.optional(v.string()),
       createdBy: v.id("users"),
       createdAt: v.number(),
       parentId: v.optional(v.id("departments")),
       logoStorageId: v.optional(v.id("_storage")),
-    }).index("by_parent", ["parentId"]),
+    })
+      .index("by_parent", ["parentId"])
+      .index("by_code", ["code"]),
 
     // A document (file) sent from one person to another, with the task the
     // receiver must perform and the automatic summary of its content.
@@ -173,7 +193,8 @@ const schema = defineSchema(
       .index("by_recipient_status", ["recipientId", "status"])
       .index("by_recipient_archived", ["recipientId", "archivedAt"])
       .index("by_sender_archived", ["senderId", "archivedAt"])
-      .index("by_publicRef", ["publicRef"]),
+      .index("by_publicRef", ["publicRef"])
+      .index("by_recipient_department", ["recipientDepartmentId"]),
 
     // Versions renvoyées par les intermédiaires (même identifiant / dossier)
     documentRevisions: defineTable({
@@ -196,6 +217,8 @@ const schema = defineSchema(
       assigneeId: v.id("users"),
       assigneeName: v.string(),
       assigneeDepartmentName: v.optional(v.string()),
+      /** Envoi structurel : étape adressée à une direction/service */
+      assigneeDepartmentId: v.optional(v.id("departments")),
       taskLabel: v.optional(v.string()), // ex. « Pour visa »
       status: v.union(
         v.literal("waiting"),
