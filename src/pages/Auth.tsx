@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tabs";
 
 import { useAuth } from "@/hooks/use-auth";
+import mndptLoginBg from "@/assets/mndpt-login-bg.jpg";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -318,20 +319,29 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#f3efe6] px-4 py-12">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eef4f9] px-4 py-12">
+      {/* Fond logo MNDPT */}
       <div
-        className="absolute inset-0 opacity-[0.07]"
+        className="pointer-events-none absolute inset-0"
+        aria-hidden
         style={{
-          backgroundImage:
-            "radial-gradient(circle at 1px 1px, white 1px, transparent 0)",
-          backgroundSize: "22px 22px",
+          backgroundImage: `url(${mndptLoginBg})`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center center",
+          backgroundSize: "min(72vw, 520px)",
+          opacity: 0.14,
         }}
       />
+      {/* Voile clair pour lisibilité du formulaire */}
+      <div
+        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/70 via-[#eef4f9]/80 to-[#eef4f9]/95"
+        aria-hidden
+      />
 
-      <div className="relative w-full max-w-md">
+      <div className="relative z-10 w-full max-w-md">
         {/* Accueil = page de connexion : pas de lien retour superflu */}
 
-        <Card className="border-0 shadow-lg rounded-xl">
+        <Card className="rounded-xl border border-border/60 bg-card/95 shadow-xl backdrop-blur-sm">
           <CardHeader className="text-center">
             <div className="flex justify-center">
               <BrandLogo />
