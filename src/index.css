@@ -56,86 +56,97 @@
 */
 :root {
   --radius: 10px;
-  /* Surfaces */
-  --background: #f5f1ea;
-  --foreground: #1f1a14;
-  --card: #fffcf7;
-  --card-foreground: #1f1a14;
-  --popover: #fffcf7;
-  --popover-foreground: #1f1a14;
-  /* Brand institutionnel */
-  --primary: #4a3429;
-  --primary-foreground: #fffcf7;
-  --secondary: #ebe3d6;
-  --secondary-foreground: #1f1a14;
-  --muted: #efe8dc;
-  --muted-foreground: #5c5348;
-  --accent: #f3ebe0;
-  --accent-foreground: #4a3429;
-  --destructive: #b42318;
-  --border: #d6cbb8;
-  --input: #cfc3b0;
-  --ring: #4a3429;
+  /*
+    Palette MNDPT (logo officiel) :
+    - Bleu #0066B3  → lettre D / numérique (couleur principale)
+    - Vert #007A3D  → lettre N / drapeau Madagascar
+    - Rouge #E31C23 → lettre M / drapeau
+    - Orange #F36C00 → lettre P
+    - Cyan #00A3E0  → lettre T
+    Fond clair neutre pour lisibilité institutionnelle.
+  */
+  --background: #f4f7fa;
+  --foreground: #1a2332;
+  --card: #ffffff;
+  --card-foreground: #1a2332;
+  --popover: #ffffff;
+  --popover-foreground: #1a2332;
+  --primary: #0066b3;
+  --primary-foreground: #ffffff;
+  --secondary: #e8f0f7;
+  --secondary-foreground: #1a2332;
+  --muted: #eef2f6;
+  --muted-foreground: #5a6a7a;
+  --accent: #e6f4ec;
+  --accent-foreground: #007a3d;
+  --destructive: #e31c23;
+  --border: #cfd9e3;
+  --input: #b8c5d4;
+  --ring: #0066b3;
 
-  --brand: #4a3429;
-  --brand-deep: #2f211a;
-  --brand-sky: #7a6554;
-  --brand-accent: #c26a4a;
-  --brand-soft: #f0e8dc;
+  --brand: #0066b3;
+  --brand-deep: #004d8c;
+  --brand-sky: #3d8fd1;
+  --brand-accent: #007a3d;
+  --brand-soft: #e8f1f8;
 
-  --chart-1: #4a3429;
-  --chart-2: #c26a4a;
-  --chart-3: #7a6554;
-  --chart-4: #b42318;
-  --chart-5: #5c5348;
+  --chart-1: #0066b3;
+  --chart-2: #007a3d;
+  --chart-3: #f36c00;
+  --chart-4: #e31c23;
+  --chart-5: #00a3e0;
 
-  --sidebar: #fffcf7;
-  --sidebar-foreground: #1f1a14;
-  --sidebar-primary: #4a3429;
-  --sidebar-primary-foreground: #fffcf7;
-  --sidebar-accent: #f0e8dc;
-  --sidebar-accent-foreground: #4a3429;
-  --sidebar-border: #e5dccf;
-  --sidebar-ring: #4a3429;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a2332;
+  --sidebar-primary: #0066b3;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8f1f8;
+  --sidebar-accent-foreground: #004d8c;
+  --sidebar-border: #dce4ec;
+  --sidebar-ring: #0066b3;
 
-  /* Espacement & ombres (Material-inspired depth) */
-  --shadow-sm: 0 1px 2px rgba(31, 26, 20, 0.05);
-  --shadow-md: 0 2px 8px rgba(31, 26, 20, 0.06), 0 0 0 1px rgba(31, 26, 20, 0.04);
-  --shadow-lg: 0 8px 24px rgba(31, 26, 20, 0.08), 0 0 0 1px rgba(31, 26, 20, 0.04);
+  --shadow-sm: 0 1px 2px rgba(0, 51, 102, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 51, 102, 0.07), 0 0 0 1px rgba(0, 51, 102, 0.04);
+  --shadow-lg: 0 8px 24px rgba(0, 51, 102, 0.09), 0 0 0 1px rgba(0, 51, 102, 0.04);
 }
 
 .dark {
-  --background: #161310;
-  --foreground: #f3ebe0;
-  --card: #211c17;
-  --card-foreground: #f3ebe0;
-  --popover: #211c17;
-  --popover-foreground: #f3ebe0;
-  --primary: #e0c9a8;
-  --primary-foreground: #1a1510;
-  --secondary: #322b24;
-  --secondary-foreground: #f3ebe0;
-  --muted: #322b24;
-  --muted-foreground: #b5a794;
-  --accent: #322b24;
-  --accent-foreground: #e0c9a8;
+  --background: #0c1520;
+  --foreground: #e8eef5;
+  --card: #132033;
+  --card-foreground: #e8eef5;
+  --popover: #132033;
+  --popover-foreground: #e8eef5;
+  --primary: #4da3e8;
+  --primary-foreground: #0c1520;
+  --secondary: #1a2d42;
+  --secondary-foreground: #e8eef5;
+  --muted: #1a2d42;
+  --muted-foreground: #9aafc2;
+  --accent: #153528;
+  --accent-foreground: #5dce8a;
   --destructive: #f04438;
-  --border: #3a322a;
-  --input: #3a322a;
-  --ring: #e0c9a8;
-  --brand: #e0c9a8;
-  --brand-deep: #d4b896;
-  --brand-sky: #b8a088;
-  --brand-accent: #d4846a;
-  --brand-soft: #2a241e;
-  --sidebar: #211c17;
-  --sidebar-foreground: #f3ebe0;
-  --sidebar-primary: #e0c9a8;
-  --sidebar-primary-foreground: #1a1510;
-  --sidebar-accent: #322b24;
-  --sidebar-accent-foreground: #f3ebe0;
-  --sidebar-border: #3a322a;
-  --sidebar-ring: #e0c9a8;
+  --border: #243447;
+  --input: #243447;
+  --ring: #4da3e8;
+  --brand: #4da3e8;
+  --brand-deep: #7eb8eb;
+  --brand-sky: #6bb0e8;
+  --brand-accent: #3dba6e;
+  --brand-soft: #1a2d42;
+  --chart-1: #4da3e8;
+  --chart-2: #3dba6e;
+  --chart-3: #f5a04a;
+  --chart-4: #f04438;
+  --chart-5: #3db8e0;
+  --sidebar: #132033;
+  --sidebar-foreground: #e8eef5;
+  --sidebar-primary: #4da3e8;
+  --sidebar-primary-foreground: #0c1520;
+  --sidebar-accent: #1a2d42;
+  --sidebar-accent-foreground: #e8eef5;
+  --sidebar-border: #243447;
+  --sidebar-ring: #4da3e8;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.35);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4);

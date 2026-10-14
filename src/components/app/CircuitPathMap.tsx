@@ -93,7 +93,7 @@ export function CircuitPathMap({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-[#f7f3ec] via-[#f0e8dc] to-[#e8dfd2] text-foreground shadow-md",
+        "overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-[#eef4f9] via-[#e8f1f8] to-[#dce8f2] text-foreground shadow-md",
         className,
       )}
     >
@@ -134,7 +134,7 @@ export function CircuitPathMap({
           className="pointer-events-none absolute inset-0 opacity-30"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(74,52,41,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(74,52,41,0.08) 1px, transparent 1px)",
+              "linear-gradient(rgba(0,102,179,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(0,102,179,0.08) 1px, transparent 1px)",
             backgroundSize: "24px 24px",
             transform: `rotateX(60deg) translateY(40px) scale(1.4)`,
             transformOrigin: "center top",
@@ -155,8 +155,8 @@ export function CircuitPathMap({
           >
             <defs>
               <linearGradient id={`pipe-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#7a6554" stopOpacity="0.3" />
-                <stop offset="50%" stopColor="#4a3429" stopOpacity="0.9" />
+                <stop offset="0%" stopColor="#3d8fd1" stopOpacity="0.3" />
+                <stop offset="50%" stopColor="#0066b3" stopOpacity="0.9" />
                 <stop offset="100%" stopColor="#5a8f6a" stopOpacity="0.5" />
               </linearGradient>
               <filter id={`glow-${uid}`}>
@@ -168,7 +168,7 @@ export function CircuitPathMap({
               </filter>
               <radialGradient id={`orb-${uid}`}>
                 <stop offset="0%" stopColor="#a89080" />
-                <stop offset="70%" stopColor="#4a3429" />
+                <stop offset="70%" stopColor="#0066b3" />
                 <stop offset="100%" stopColor="#312e81" />
               </radialGradient>
             </defs>
@@ -195,7 +195,7 @@ export function CircuitPathMap({
               ref={flowRef}
               d={pathD}
               fill="none"
-              stroke="#c26a4a"
+              stroke="#007a3d"
               strokeWidth="1.4"
               strokeLinecap="round"
               filter={`url(#glow-${uid})`}
@@ -205,7 +205,7 @@ export function CircuitPathMap({
             {/* Start pad */}
             <g transform="translate(4 42)">
               <ellipse cx="0" cy="4" rx="5" ry="2" fill="rgba(0,0,0,0.35)" />
-              <circle r="4.2" fill="#4a3429" stroke="#c4b5a0" strokeWidth="0.6" />
+              <circle r="4.2" fill="#0066b3" stroke="#8eb8d9" strokeWidth="0.6" />
               <Play
                 x={-1.5}
                 y={-1.5}
@@ -226,15 +226,15 @@ export function CircuitPathMap({
                 : rejected
                   ? "#b54a4a"
                   : active
-                    ? "#4a3429"
-                    : "#8a7a6a";
+                    ? "#0066b3"
+                    : "#6a8aaa";
               const stroke = done
                 ? "#8fbc9a"
                 : rejected
                   ? "#e8a0a0"
                   : active
                     ? "#a89080"
-                    : "#9a8b7a";
+                    : "#7a9ab0";
               return (
                 <g
                   key={nd.stepIndex}
@@ -251,7 +251,7 @@ export function CircuitPathMap({
                     <circle
                       r="7.5"
                       fill="none"
-                      stroke="#4a3429"
+                      stroke="#0066b3"
                       strokeWidth="0.5"
                       opacity="0.7"
                     >
@@ -289,7 +289,7 @@ export function CircuitPathMap({
                     textAnchor="middle"
                     y="11"
                     fontSize="2.6"
-                    fill="#5c4e42"
+                    fill="#3a5068"
                     className="pointer-events-none"
                   >
                     {(nd.assigneeName || "?").slice(0, 12)}

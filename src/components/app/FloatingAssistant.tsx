@@ -83,18 +83,18 @@ const ROBOT: Record<
   { body: string; bodyDark: string; accent: string; led: string; panel: string }
 > = {
   navy: {
-    body: "#3d5a80",
-    bodyDark: "#1b2838",
-    accent: "#60a5fa",
-    led: "#38bdf8",
-    panel: "#0f172a",
+    body: "#0066b3",
+    bodyDark: "#004d8c",
+    accent: "#3d8fd1",
+    led: "#00a3e0",
+    panel: "#0c2744",
   },
   teal: {
-    body: "#0f766e",
-    bodyDark: "#134e4a",
-    accent: "#2dd4bf",
-    led: "#5eead4",
-    panel: "#042f2e",
+    body: "#007a3d",
+    bodyDark: "#005c2e",
+    accent: "#3dba6e",
+    led: "#5dce8a",
+    panel: "#0a2e1a",
   },
   amber: {
     body: "#b45309",

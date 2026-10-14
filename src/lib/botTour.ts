@@ -255,7 +255,7 @@ function ensureOverlayEls() {
     btn.type = "button";
     stopBtn.textContent = "Arrêter le guidage";
     stopBtn.style.cssText =
-      "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10001;padding:10px 18px;border-radius:999px;border:1px solid rgba(74,52,41,0.35);background:#4a3429;color:#fffcf7;font:600 13px/1.2 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,0.25);cursor:pointer;";
+      "position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:10001;padding:10px 18px;border-radius:999px;border:1px solid rgba(0,102,179,0.35);background:#0066b3;color:#ffffff;font:600 13px/1.2 system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,0.25);cursor:pointer;";
     stopBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       stopTour();
@@ -270,7 +270,7 @@ function ensureOverlayEls() {
     ring.id = HIGHLIGHT_ID;
     ring.setAttribute("aria-hidden", "true");
     ring.style.cssText =
-      "position:fixed;z-index:9998;pointer-events:none;border:2.5px solid #4a3429;border-radius:12px;box-shadow:0 0 0 4px rgba(74,52,41,0.15),0 10px 28px rgba(0,0,0,0.18);opacity:0;";
+      "position:fixed;z-index:9998;pointer-events:none;border:2.5px solid #0066b3;border-radius:12px;box-shadow:0 0 0 4px rgba(0,102,179,0.15),0 10px 28px rgba(0,0,0,0.18);opacity:0;";
     document.body.appendChild(ring);
   }
   let pointer = document.getElementById(POINTER_ID);
