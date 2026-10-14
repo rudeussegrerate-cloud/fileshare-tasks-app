@@ -135,7 +135,7 @@ export function DocumentsList({
 
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-scandoc-tour="docs-list">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <div className="flex size-9 items-center justify-center rounded-sm bg-brand-soft text-brand">
@@ -164,6 +164,7 @@ export function DocumentsList({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Rechercher (objet, tâche, nom…)"
               className="pl-9"
+              data-scandoc-tour="docs-filters"
             />
           </div>
           <Button

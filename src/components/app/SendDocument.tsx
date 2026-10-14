@@ -388,7 +388,7 @@ export function SendDocument({
 
               <input
                 ref={fileInputRef}
-                type="file"
+                type="file" data-scandoc-tour="send-file"
                 accept={ACCEPT}
                 className="hidden"
                 onChange={(event) =>
@@ -748,7 +748,7 @@ export function SendDocument({
               <div className="space-y-2">
                 <Label htmlFor="objet">Objet de l&apos;envoi</Label>
                 <Textarea
-                  id="objet"
+                  id="objet" data-scandoc-tour="send-objet"
                   value={objet}
                   onChange={(e) => setObjet(e.target.value)}
                   placeholder="Ex : Transmission du rapport trimestriel pour validation et signature"
@@ -923,7 +923,7 @@ export function SendDocument({
               <div className="space-y-2">
                 <Label htmlFor="observations">Observations / instructions</Label>
                 <Textarea
-                  id="observations"
+                  id="observations" data-scandoc-tour="send-observations"
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
                   placeholder="Ex. DTD : M'en parler"
@@ -935,12 +935,13 @@ export function SendDocument({
                 </p>
               </div>
 
-                  Tâches à réaliser{" "}
+                  <span data-scandoc-tour="send-tasks">Tâches à réaliser{" "}</span>
                   <span className="font-normal text-muted-foreground">
                     (plusieurs choix possibles)
                   </span>
                 </Label>
                 <div className="grid max-h-56 gap-2 overflow-y-auto rounded-sm border border-border bg-card p-3 sm:grid-cols-2">
+                  {/* tour: send-tasks */}
                   {PREDEFINED_TASKS.map((task) => {
                     const checked = selectedTasks.includes(task);
                     return (
@@ -1003,7 +1004,7 @@ export function SendDocument({
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Destinataire</dt>
+                    <dt className="text-muted-foreground" data-scandoc-tour="send-recipient">Destinataire</dt>
                     <dd className="text-right font-medium">
                       {selectedRecipient?.name}
                     </dd>

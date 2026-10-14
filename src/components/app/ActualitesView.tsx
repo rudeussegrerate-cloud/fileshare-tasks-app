@@ -93,7 +93,7 @@ function ActualitesViewInner() {
   }
 
   return (
-    <div className="mx-auto max-w-[680px] space-y-4">
+    <div className="mx-auto max-w-[680px] space-y-4" data-scandoc-tour="actualites-feed">
       <div className="px-1">
         <h1 className="text-2xl font-semibold tracking-tight">Actualités</h1>
         <p className="mt-0.5 text-sm text-muted-foreground">

@@ -453,7 +453,7 @@ export function DepartmentsView() {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5" data-scandoc-tour="departments-panel">
       <div className="space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">
           Départements & groupes

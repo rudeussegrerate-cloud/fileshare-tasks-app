@@ -46,7 +46,7 @@ export function FileManagerView({
   const remove = useMutation(api.documents.remove);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="mx-auto max-w-4xl space-y-5" data-scandoc-tour="files-search">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">

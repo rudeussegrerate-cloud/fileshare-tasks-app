@@ -107,7 +107,7 @@ export function DashboardHome({
   const showDeptPanel = Boolean(selectedDeptId);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="mx-auto max-w-3xl space-y-8" data-scandoc-tour="home-stats">
       {/* —— En-tête —— */}
       <header className="space-y-1">
         <h2 className="text-2xl font-semibold tracking-tight">
@@ -117,7 +117,7 @@ export function DashboardHome({
       </header>
 
       {/* —— Action principale —— */}
-      <Button onClick={onSend} size="lg" className="h-11 w-full gap-2 sm:w-auto">
+      <Button onClick={onSend} size="lg" className="h-11 w-full gap-2 sm:w-auto" data-scandoc-tour="home-actions">
         <Send className="size-4" />
         Envoyer un document
       </Button>

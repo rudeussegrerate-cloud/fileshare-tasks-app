@@ -337,7 +337,7 @@ export function DocumentDetailDialog({
                   Objet
                 </p>
                 <p className="rounded-sm border border-border bg-card px-4 py-3 text-sm leading-relaxed">
-                  <span className="text-muted-foreground">Objet : </span>
+                  <span className="text-muted-foreground" data-scandoc-tour="doc-objet">Objet : </span>
                   {documentOrNull.objet}
                 </p>
               </section>
@@ -699,7 +699,7 @@ export function DocumentDetailDialog({
                 ) : null}
 
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Statut du traitement
+                  <span data-scandoc-tour="doc-status">Statut du traitement</span>
                 </h4>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {documentOrNull.hasCircuit
@@ -742,15 +742,17 @@ export function DocumentDetailDialog({
             ) : (
               <section className="space-y-3">
                 {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 0 ? (
-                  <CircuitPathMap
-                    steps={documentOrNull.steps}
-                    currentStepIndex={documentOrNull.currentStepIndex ?? 0}
-                    publicRef={documentOrNull.publicRef}
-                    isFullyTreated={
-                      Boolean(documentOrNull.isFullyTreated) ||
-                      documentOrNull.status === "traite"
-                    }
-                  />
+                  <div data-scandoc-tour="doc-circuit-map">
+                    <CircuitPathMap
+                      steps={documentOrNull.steps}
+                      currentStepIndex={documentOrNull.currentStepIndex ?? 0}
+                      publicRef={documentOrNull.publicRef}
+                      isFullyTreated={
+                        Boolean(documentOrNull.isFullyTreated) ||
+                        documentOrNull.status === "traite"
+                      }
+                    />
+                  </div>
                 ) : null}
 
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

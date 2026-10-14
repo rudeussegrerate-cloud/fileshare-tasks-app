@@ -350,3 +350,15 @@
 .circuit-node-active {
   animation: circuit-node-glow 1.8s ease-out infinite;
 }
+
+/* scandoc-polish */
+.sc-nav-item {
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
+}
+.sc-nav-item:hover {
+  transform: translateX(2px);
+}
+[data-scandoc-tour] {
+  scroll-margin-top: 5rem;
+  scroll-margin-bottom: 5rem;
+}

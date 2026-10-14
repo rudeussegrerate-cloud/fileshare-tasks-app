@@ -126,7 +126,7 @@ export function AnnouncementsView() {
   };
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col space-y-5 animate-in-up">
+    <div className="mx-auto flex max-w-2xl flex-col space-y-5 animate-in-up" data-scandoc-tour="announce-form">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">

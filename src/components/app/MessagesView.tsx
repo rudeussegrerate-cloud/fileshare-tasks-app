@@ -117,7 +117,7 @@ export function MessagesView({
   const showThread = Boolean(activeId);
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-7rem)] max-w-5xl overflow-hidden rounded-lg border border-border bg-card shadow-sm animate-in-up">
+    <div className="mx-auto flex h-[calc(100vh-7rem)] max-w-5xl overflow-hidden rounded-lg border border-border bg-card shadow-sm animate-in-up" data-scandoc-tour="messages-panel">
       {/* Liste conversations */}
       <div
         className={cn(

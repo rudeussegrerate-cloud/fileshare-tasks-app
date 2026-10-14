@@ -38,7 +38,7 @@ export function CircuitTrackingView({
 
   if (data === undefined) {
     return (
-      <div className="flex items-center justify-center py-20">
+      <div className="flex items-center justify-center py-20" data-scandoc-tour="suivi-list">
         <Loader2 className="size-5 animate-spin text-muted-foreground" />
       </div>
     );

@@ -15,7 +15,12 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2, Settings2, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { runBotTour, getTourScript, type TourView } from "@/lib/botTour";
+import {
+  runMultiStepTour,
+  getSequenceForAction,
+  DOC_TOUR_STEPS,
+  type TourView,
+} from "@/lib/botTour";
 import { animate } from "animejs";
 
 const VOICE_KEY = "scandoc-bot-voice";
@@ -861,38 +866,45 @@ export function FloatingAssistant() {
                     // Tour animé : déplacement + doigt + voix
                     window.setTimeout(async () => {
                       const el = botFloatRef.current;
-                      if (el) {
-                        try {
-                          await runBotTour({
-                            botEl: el,
-                            view,
-                            onBotMoved: (x, y) => {
-                              setPos({ x, y });
-                              try {
-                                localStorage.setItem(
-                                  POS_KEY,
-                                  JSON.stringify({ x, y }),
-                                );
-                              } catch {
-                                /* ignore */
-                              }
-                            },
-                          });
-                        } catch (err) {
-                          console.warn("[botTour]", err);
-                        }
-                      }
-                      const script = getTourScript(view);
-                      if (script && voiceOn) {
+                      const seq = getSequenceForAction(action) ?? {
+                        view,
+                        steps: [
+                          {
+                            target: view,
+                            script: `Voici la section concernée.`,
+                          },
+                        ],
+                      };
+                      if (!el) return;
+                      try {
                         setSpeaking(true);
-                        setIdleEmotion("wave");
-                        speakBotReply(script, true);
-                        window.setTimeout(
-                          () => setSpeaking(false),
-                          Math.min(14000, 900 + script.length * 50),
-                        );
+                        setIdleEmotion("curious");
+                        await runMultiStepTour({
+                          botEl: el,
+                          steps: seq.steps,
+                          onBotMoved: (x, y) => {
+                            setPos({ x, y });
+                            try {
+                              localStorage.setItem(
+                                POS_KEY,
+                                JSON.stringify({ x, y }),
+                              );
+                            } catch {
+                              /* ignore */
+                            }
+                          },
+                          speak: (text) => {
+                            if (voiceOn) speakBotReply(text, true);
+                          },
+                          onStep: () => setIdleEmotion("wave"),
+                        });
+                      } catch (err) {
+                        console.warn("[botTour]", err);
+                      } finally {
+                        setSpeaking(false);
+                        setIdleEmotion("happy");
                       }
-                    }, 350);
+                    }, 400);
                   }
                 }
               } catch (err) {
