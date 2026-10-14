@@ -95,7 +95,7 @@ export async function runBotTour(opts: TourOptions): Promise<void> {
 
   // Attendre rendu sidebar après navigation
   await new Promise((r) => requestAnimationFrame(() => r(null)));
-  await new Promise((r) => setTimeout(r, 180));
+  await new Promise((r) => setTimeout(r, 280));
 
   const tr = target.getBoundingClientRect();
   const br = botEl.getBoundingClientRect();
@@ -138,7 +138,7 @@ export async function runBotTour(opts: TourOptions): Promise<void> {
       left: `${destX}px`,
       top: `${destY}px`,
       duration: durationMs,
-      ease: "outExpo",
+      ease: "outBack(1.4)",
       onComplete: () => resolve(),
     });
   });
