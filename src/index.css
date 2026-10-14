@@ -362,3 +362,17 @@
   scroll-margin-top: 5rem;
   scroll-margin-bottom: 5rem;
 }
+
+/* charte-scandoc — homogénéité institutionnelle */
+.sc-nav-item {
+  border-radius: 0.5rem;
+}
+.sc-nav-item:hover {
+  transform: translateX(1px);
+}
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent);
+  outline-offset: 2px;
+}

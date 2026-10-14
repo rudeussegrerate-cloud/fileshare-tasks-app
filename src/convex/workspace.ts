@@ -721,6 +721,31 @@ export const rejectAccount = mutation({
 });
 
 /** SUPER UTILISATEUR ONLY — nominate an approved account as DG. */
+/** DG / root — valider tous les comptes en attente (anciens utilisateurs). */
+export const validateAllPendingAccounts = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const reviewer = await ctx.db.get(userId);
+    if (!reviewer || !isAdminRole(reviewer.role)) {
+      throw new Error("Réservé au DG ou super utilisateur.");
+    }
+    const users = await ctx.db.query("users").collect();
+    let count = 0;
+    for (const u of users) {
+      if (u._id === reviewer._id) continue;
+      if (isAdminRole(u.role)) continue;
+      const status = u.accountStatus ?? "en_attente";
+      if (status !== "en_attente") continue;
+      await reviewAccount(ctx, reviewer, u._id, "valide");
+      count += 1;
+    }
+    return { validated: count };
+  },
+});
+
+
 export const promoteToDirector = mutation({
   args: { userId: v.id("users") },
   handler: async (ctx, args) => {

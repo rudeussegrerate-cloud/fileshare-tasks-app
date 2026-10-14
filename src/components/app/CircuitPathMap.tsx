@@ -93,23 +93,23 @@ export function CircuitPathMap({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-2xl border border-slate-700/40 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-slate-100 shadow-xl",
+        "overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-[#f7f3ec] via-[#f0e8dc] to-[#e8dfd2] text-foreground shadow-md",
         className,
       )}
     >
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-2.5">
+      <div className="flex items-center justify-between gap-2 border-b border-border/80 px-4 py-2.5">
         <div className="flex items-center gap-2 text-sm font-semibold tracking-tight">
-          <span className="flex size-7 items-center justify-center rounded-lg bg-violet-500/30 text-violet-200 ring-1 ring-violet-400/40">
+          <span className="flex size-7 items-center justify-center rounded-lg bg-brand-soft text-brand ring-1 ring-brand/25">
             <MapPin className="size-3.5" />
           </span>
           Parcours 3D du dossier
           {publicRef ? (
-            <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-violet-200">
+            <span className="rounded bg-white/10 px-1.5 py-0.5 font-mono text-[10px] text-brand-sky">
               {publicRef}
             </span>
           ) : null}
         </div>
-        <span className="text-[11px] text-slate-400">
+        <span className="text-[11px] text-muted-foreground">
           {isFullyTreated
             ? "Circuit clos"
             : `Position · étape ${(currentStepIndex ?? 0) + 1}/${steps.length}`}
@@ -134,7 +134,7 @@ export function CircuitPathMap({
           className="pointer-events-none absolute inset-0 opacity-30"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(139,92,246,0.15) 1px, transparent 1px), linear-gradient(90deg, rgba(139,92,246,0.15) 1px, transparent 1px)",
+              "linear-gradient(rgba(74,52,41,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(74,52,41,0.08) 1px, transparent 1px)",
             backgroundSize: "24px 24px",
             transform: `rotateX(60deg) translateY(40px) scale(1.4)`,
             transformOrigin: "center top",
@@ -155,9 +155,9 @@ export function CircuitPathMap({
           >
             <defs>
               <linearGradient id={`pipe-${uid}`} x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#6366f1" stopOpacity="0.3" />
-                <stop offset="50%" stopColor="#a78bfa" stopOpacity="0.9" />
-                <stop offset="100%" stopColor="#34d399" stopOpacity="0.5" />
+                <stop offset="0%" stopColor="#7a6554" stopOpacity="0.3" />
+                <stop offset="50%" stopColor="#4a3429" stopOpacity="0.9" />
+                <stop offset="100%" stopColor="#5a8f6a" stopOpacity="0.5" />
               </linearGradient>
               <filter id={`glow-${uid}`}>
                 <feGaussianBlur stdDeviation="1.2" result="b" />
@@ -167,8 +167,8 @@ export function CircuitPathMap({
                 </feMerge>
               </filter>
               <radialGradient id={`orb-${uid}`}>
-                <stop offset="0%" stopColor="#c4b5fd" />
-                <stop offset="70%" stopColor="#7c3aed" />
+                <stop offset="0%" stopColor="#a89080" />
+                <stop offset="70%" stopColor="#4a3429" />
                 <stop offset="100%" stopColor="#312e81" />
               </radialGradient>
             </defs>
@@ -195,7 +195,7 @@ export function CircuitPathMap({
               ref={flowRef}
               d={pathD}
               fill="none"
-              stroke="#e0e7ff"
+              stroke="#c26a4a"
               strokeWidth="1.4"
               strokeLinecap="round"
               filter={`url(#glow-${uid})`}
@@ -205,7 +205,7 @@ export function CircuitPathMap({
             {/* Start pad */}
             <g transform="translate(4 42)">
               <ellipse cx="0" cy="4" rx="5" ry="2" fill="rgba(0,0,0,0.35)" />
-              <circle r="4.2" fill="#4f46e5" stroke="#a5b4fc" strokeWidth="0.6" />
+              <circle r="4.2" fill="#4a3429" stroke="#c4b5a0" strokeWidth="0.6" />
               <Play
                 x={-1.5}
                 y={-1.5}
@@ -222,19 +222,19 @@ export function CircuitPathMap({
               const rejected = nd.status === "rejected";
               const isSel = selected === nd.stepIndex;
               const fill = done
-                ? "#059669"
+                ? "#3d7a4a"
                 : rejected
-                  ? "#e11d48"
+                  ? "#b54a4a"
                   : active
-                    ? "#7c3aed"
-                    : "#334155";
+                    ? "#4a3429"
+                    : "#8a7a6a";
               const stroke = done
-                ? "#6ee7b7"
+                ? "#8fbc9a"
                 : rejected
-                  ? "#fda4af"
+                  ? "#e8a0a0"
                   : active
-                    ? "#c4b5fd"
-                    : "#64748b";
+                    ? "#a89080"
+                    : "#9a8b7a";
               return (
                 <g
                   key={nd.stepIndex}
@@ -251,7 +251,7 @@ export function CircuitPathMap({
                     <circle
                       r="7.5"
                       fill="none"
-                      stroke="#a78bfa"
+                      stroke="#4a3429"
                       strokeWidth="0.5"
                       opacity="0.7"
                     >
@@ -289,7 +289,7 @@ export function CircuitPathMap({
                     textAnchor="middle"
                     y="11"
                     fontSize="2.6"
-                    fill="#cbd5e1"
+                    fill="#5c4e42"
                     className="pointer-events-none"
                   >
                     {(nd.assigneeName || "?").slice(0, 12)}
@@ -300,7 +300,7 @@ export function CircuitPathMap({
 
             {isFullyTreated ? (
               <g transform={`translate(${Math.min(96, (nodes[nodes.length - 1]?.x ?? 90) + 8)} ${(nodes[nodes.length - 1]?.y ?? 40)})`}>
-                <circle r="4.5" fill="#059669" stroke="#6ee7b7" strokeWidth="0.8" />
+                <circle r="4.5" fill="#3d7a4a" stroke="#8fbc9a" strokeWidth="0.8" />
                 <text textAnchor="middle" y="1.2" fontSize="3" fill="white" fontWeight="700">
                   ✓
                 </text>
@@ -309,32 +309,32 @@ export function CircuitPathMap({
           </svg>
         </div>
 
-        <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-slate-500">
+        <p className="pointer-events-none absolute bottom-2 left-0 right-0 text-center text-[10px] text-muted-foreground">
           Faites glisser la souris pour pivoter · cliquez une étape
         </p>
       </div>
 
       {/* Détail */}
       {sel ? (
-        <div className="border-t border-white/10 bg-black/25 px-4 py-3 text-sm backdrop-blur-sm">
+        <div className="border-t border-border bg-card/90 px-4 py-3 text-sm">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="font-semibold text-white">
+              <p className="font-semibold text-foreground">
                 Étape {sel.stepIndex + 1}
                 <ChevronRight className="mx-0.5 inline size-3.5 opacity-50" />
                 {sel.assigneeName}
               </p>
               {sel.assigneeDepartmentName ? (
-                <p className="text-xs text-slate-400">{sel.assigneeDepartmentName}</p>
+                <p className="text-xs text-muted-foreground">{sel.assigneeDepartmentName}</p>
               ) : null}
             </div>
             <span
               className={cn(
                 "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                sel.status === "done" && "bg-emerald-500/20 text-emerald-300",
-                sel.status === "active" && "bg-violet-500/25 text-violet-200",
-                sel.status === "waiting" && "bg-slate-500/20 text-slate-400",
-                sel.status === "rejected" && "bg-rose-500/20 text-rose-300",
+                sel.status === "done" && "bg-emerald-100 text-emerald-800",
+                sel.status === "active" && "bg-brand-soft text-brand",
+                sel.status === "waiting" && "bg-slate-500/20 text-muted-foreground",
+                sel.status === "rejected" && "bg-red-100 text-red-800",
               )}
             >
               {sel.statusLabel ??
@@ -348,25 +348,25 @@ export function CircuitPathMap({
             </span>
           </div>
           {sel.taskLabel ? (
-            <p className="mt-1.5 text-xs text-slate-400">
-              Tâche : <span className="text-slate-200">{sel.taskLabel}</span>
+            <p className="mt-1.5 text-xs text-muted-foreground">
+              Tâche : <span className="text-foreground">{sel.taskLabel}</span>
             </p>
           ) : null}
           {sel.note ? (
-            <p className="mt-1 text-xs italic text-slate-500">Note : {sel.note}</p>
+            <p className="mt-1 text-xs italic text-muted-foreground">Note : {sel.note}</p>
           ) : null}
           {sel.status === "active" ? (
-            <p className="mt-2 text-xs text-violet-300">
+            <p className="mt-2 text-xs text-brand">
               Le dossier est physiquement / numériquement chez cette personne. Les
               nœuds suivants restent en attente jusqu’à validation de l’étape.
             </p>
           ) : sel.status === "waiting" ? (
-            <p className="mt-2 text-xs text-slate-500">
+            <p className="mt-2 text-xs text-muted-foreground">
               Pas encore commencé — le fichier doit d’abord passer par les
               intervenants précédents du circuit.
             </p>
           ) : sel.status === "done" ? (
-            <p className="mt-2 text-xs text-emerald-400/90">
+            <p className="mt-2 text-xs text-emerald-700">
               Étape validée
               {sel.actedAt
                 ? ` le ${new Date(sel.actedAt).toLocaleString("fr-FR")}`
@@ -376,7 +376,7 @@ export function CircuitPathMap({
           ) : null}
         </div>
       ) : (
-        <p className="border-t border-white/10 px-4 py-2 text-center text-[11px] text-slate-500">
+        <p className="border-t border-white/10 px-4 py-2 text-center text-[11px] text-muted-foreground">
           Cliquez un nœud pour le détail du chemin restant.
         </p>
       )}

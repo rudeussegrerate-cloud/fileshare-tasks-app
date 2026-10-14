@@ -53,6 +53,7 @@ export function AccountsView() {
   const me = useQuery(api.workspace.me);
   const accounts = useQuery(api.workspace.listAccounts);
   const validateAccount = useMutation(api.workspace.validateAccount);
+  const validateAllPending = useMutation(api.workspace.validateAllPendingAccounts);
   const rejectAccount = useMutation(api.workspace.rejectAccount);
   const promoteToDirector = useMutation(api.workspace.promoteToDirector);
   const revokeDirector = useMutation(api.workspace.revokeDirector);
@@ -66,6 +67,7 @@ export function AccountsView() {
     name: string;
   } | null>(null);
   const [busyId, setBusyId] = useState<Id<"users"> | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const counts = useMemo(() => {
     const base: Record<StatusFilter, number> = {
@@ -260,7 +262,46 @@ export function AccountsView() {
         ))}
       </div>
 
-      {visible.length === 0 ? (
+      
+      {(counts.en_attente ?? 0) > 0 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-brand-soft/50 px-3 py-2.5">
+          <p className="flex-1 text-sm text-muted-foreground">
+            {counts.en_attente} compte(s) en attente (anciens utilisateurs inclus).
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            disabled={bulkBusy}
+            className="gap-1.5"
+            onClick={async () => {
+              setBulkBusy(true);
+              try {
+                const res = await validateAllPending({});
+                toast.success(
+                  res?.validated
+                    ? `${res.validated} compte(s) validé(s)`
+                    : "Aucun compte à valider",
+                );
+              } catch (e) {
+                toast.error(
+                  e instanceof Error ? e.message : "Échec de la validation groupée",
+                );
+              } finally {
+                setBulkBusy(false);
+              }
+            }}
+          >
+            {bulkBusy ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Check className="size-3.5" />
+            )}
+            Valider tous les comptes en attente
+          </Button>
+        </div>
+      ) : null}
+
+{visible.length === 0 ? (
         <EmptyState
           icon={
             filter === "en_attente"

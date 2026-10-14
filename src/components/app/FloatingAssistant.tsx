@@ -18,7 +18,8 @@ import { toast } from "sonner";
 import {
   runMultiStepTour,
   getSequenceForAction,
-  DOC_TOUR_STEPS,
+  stopTour,
+  onTourActiveChange,
   type TourView,
 } from "@/lib/botTour";
 import { animate } from "animejs";
@@ -462,11 +463,12 @@ export function FloatingAssistant() {
   const [idleEmotion, setIdleEmotion] = useState<IdleEmotion>("idle");
   const [voiceOn, setVoiceOn] = useState(() => {
     try {
-      return localStorage.getItem(VOICE_KEY) !== "0";
+      return localStorage.getItem(VOICE_KEY) === "1";
     } catch {
-      return true;
+      return false;
     }
   });
+  const [tourRunning, setTourRunning] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<{ stop?: () => void } | null>(null);
@@ -514,6 +516,10 @@ export function FloatingAssistant() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history?.length, open]);
+
+  useEffect(() => {
+    return onTourActiveChange(setTourRunning);
+  }, []);
 
   // Émotions / réactions quand le bot n'est pas utilisé
   useEffect(() => {
@@ -719,6 +725,16 @@ export function FloatingAssistant() {
       ) : null}
 
       {/* Panneau chat bot — près du personnage */}
+      {tourRunning ? (
+        <button
+          type="button"
+          className="fixed left-1/2 top-3 z-[10001] -translate-x-1/2 rounded-full border border-brand/40 bg-brand px-4 py-2 text-xs font-semibold text-primary-foreground shadow-lg"
+          onClick={() => stopTour()}
+        >
+          Arrêter le guidage
+        </button>
+      ) : null}
+
       {open && pos ? (
         <div
           className="fixed z-50 flex h-[min(480px,70vh)] w-[min(360px,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-2xl"
@@ -1035,9 +1051,9 @@ export function FloatingAssistant() {
               </div>
               <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
                 <div>
-                  <p className="text-sm font-medium">Réponses vocales</p>
+                  <p className="text-sm font-medium">Réponses vocales (optionnel)</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Le robot lit ses réponses à voix haute (français).
+                    Désactivé par défaut. Activez pour que le robot lise ses réponses.
                   </p>
                 </div>
                 <Button
