@@ -102,7 +102,7 @@ export function NotificationsBell({
         <div className="max-h-80 overflow-y-auto">
           {!items ? (
             <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-              Chargement…
+              …
             </p>
           ) : items.length === 0 ? (
             <p className="px-3 py-8 text-center text-xs text-muted-foreground">

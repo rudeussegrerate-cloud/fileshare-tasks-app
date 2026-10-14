@@ -387,3 +387,22 @@ a:focus-visible,
   outline: 2px solid color-mix(in srgb, var(--brand) 55%, transparent);
   outline-offset: 2px;
 }
+
+/* Logo MNDPT — chargement animé */
+@keyframes mndpt-logo-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.92; filter: drop-shadow(0 4px 12px rgba(0, 102, 179, 0.15)); }
+  50% { transform: scale(1.06); opacity: 1; filter: drop-shadow(0 8px 20px rgba(0, 102, 179, 0.28)); }
+}
+@keyframes mndpt-ring {
+  0% { transform: scale(0.85); opacity: 0.35; }
+  70% { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+.mndpt-loader-logo {
+  animation: mndpt-logo-pulse 1.8s ease-in-out infinite;
+}
+.mndpt-loader-ring {
+  border: 2px solid color-mix(in srgb, var(--brand) 45%, transparent);
+  animation: mndpt-ring 1.8s ease-out infinite;
+  margin: -12%;
+}

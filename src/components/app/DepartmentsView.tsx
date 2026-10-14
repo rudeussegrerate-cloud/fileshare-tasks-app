@@ -48,6 +48,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { MndptLoader } from "@/components/MndptLoader";
 import { useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, initialsOf } from "./shared";
@@ -446,9 +447,7 @@ export function DepartmentsView() {
 
   if (!departments || !me) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
+      <MndptLoader size="section" />
     );
   }
 

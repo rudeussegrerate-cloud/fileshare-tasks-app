@@ -12,6 +12,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
+import { MndptLoader } from "@/components/MndptLoader";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { StatusBadge, formatDateTime } from "./shared";

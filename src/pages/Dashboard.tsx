@@ -23,6 +23,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
+import { MndptLoader } from "@/components/MndptLoader";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -91,8 +92,8 @@ export default function Dashboard() {
   // Attendre le statut de compte (syncProfile).
   if (!me || !me.accountStatus) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <main className="bg-background">
+        <MndptLoader size="full" />
       </main>
     );
   }

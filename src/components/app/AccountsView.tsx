@@ -27,6 +27,7 @@ import {
   ShieldX,
   UserRound,
 } from "lucide-react";
+import { MndptLoader } from "@/components/MndptLoader";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, formatDay, initialsOf } from "./shared";
@@ -88,9 +89,7 @@ export function AccountsView() {
 
   if (!me || !accounts) {
     return (
-      <div className="flex items-center justify-center py-20" data-scandoc-tour="accounts-panel">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
+      <MndptLoader size="section" />
     );
   }
 

@@ -8,6 +8,7 @@ import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
+import { MndptLoader } from "@/components/MndptLoader";
 
 // Lazy load route components for better code splitting
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
@@ -16,11 +17,7 @@ const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
 function RouteLoading() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-pulse text-muted-foreground">Chargement…</div>
-    </div>
-  );
+  return <MndptLoader size="full" />;
 }
 
 /** Silent error boundary — if VlyToolbar crashes it renders nothing instead of

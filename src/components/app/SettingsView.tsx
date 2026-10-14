@@ -45,6 +45,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
+import { MndptLoader } from "@/components/MndptLoader";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
@@ -159,9 +160,7 @@ const stats = useQuery(api.documents.stats);
 
   if (!me) {
     return (
-      <div className="flex items-center justify-center py-20" data-scandoc-tour="settings-panel">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
+      <MndptLoader size="section" />
     );
   }
 

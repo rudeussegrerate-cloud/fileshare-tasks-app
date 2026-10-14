@@ -5,6 +5,7 @@ import type { Id } from "@/convex/_generated/dataModel";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Loader2, MessageCircle, Send, Users } from "lucide-react";
+import { MndptLoader } from "@/components/MndptLoader";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PresenceDot } from "./PresenceDot";

@@ -20,6 +20,7 @@ import {
   X,
   Crown,
 } from "lucide-react";
+import { MndptLoader } from "@/components/MndptLoader";
 import { useEffect, useState } from "react";
 import type { AppView } from "@/components/app/AppShell";
 import { SmartInsights } from "./SmartInsights";
@@ -80,9 +81,7 @@ export function DashboardHome({
 
   if (!me || !stats || !inbox) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
+      <MndptLoader size="section" />
     );
   }
 
@@ -142,7 +141,7 @@ export function DashboardHome({
           subtitle="Vue d'ensemble et suivi par département"
         >
           {overview === undefined ? (
-            <LoadingLine label="Chargement de la vue d'ensemble…" />
+            <MndptLoader size="section" />
           ) : overview ? (
             <EnterprisePanel
               overview={overview}
@@ -197,7 +196,7 @@ export function DashboardHome({
           }
         >
           {!deptDetail ? (
-            <LoadingLine label="Chargement du département…" />
+            <MndptLoader size="section" />
           ) : (
             <DepartmentPanel
               detail={deptDetail}
@@ -621,7 +620,7 @@ function EnterprisePanel({
             </Button>
           </div>
           {detailData === undefined ? (
-            <p className="text-xs text-muted-foreground">Chargement…</p>
+            <MndptLoader size="inline" />
           ) : !detailData.items.length ? (
             <p className="text-xs text-muted-foreground">Aucun élément.</p>
           ) : (
@@ -1015,7 +1014,7 @@ function DepartmentPanel({
             </Button>
           </div>
           {detailData === undefined ? (
-            <p className="text-xs text-muted-foreground">Chargement…</p>
+            <MndptLoader size="inline" />
           ) : !detailData.items.length ? (
             <p className="text-xs text-muted-foreground">Aucun élément.</p>
           ) : (

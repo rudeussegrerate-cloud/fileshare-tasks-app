@@ -11,6 +11,7 @@ import {
   MapPin,
   Route,
 } from "lucide-react";
+import { MndptLoader } from "@/components/MndptLoader";
 import { useState } from "react";
 import { toast } from "sonner";
 import { StatusBadge, formatDateTime } from "./shared";
@@ -38,9 +39,7 @@ export function CircuitTrackingView({
 
   if (data === undefined) {
     return (
-      <div className="flex items-center justify-center py-20" data-scandoc-tour="suivi-list">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
+      <MndptLoader size="section" />
     );
   }
 

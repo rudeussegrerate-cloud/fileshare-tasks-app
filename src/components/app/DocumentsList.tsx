@@ -15,6 +15,7 @@ import {
   Search,
   Send,
 } from "lucide-react";
+import { MndptLoader } from "@/components/MndptLoader";
 import { useMemo, useState } from "react";
 import {
   EmptyState,
@@ -213,9 +214,7 @@ export function DocumentsList({
       </div>
 
       {documents === undefined ? (
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="size-5 animate-spin text-muted-foreground" />
-        </div>
+        <MndptLoader size="section" />
       ) : documents.length === 0 ? (
         <EmptyState
           icon={mode === "inbox" ? Inbox : Send}
