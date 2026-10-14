@@ -15,6 +15,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { Loader2, Settings2, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { runBotTour, getTourScript, type TourView } from "@/lib/botTour";
 
 const VOICE_KEY = "scandoc-bot-voice";
 
@@ -495,6 +496,7 @@ export function FloatingAssistant() {
   const [speaking, setSpeaking] = useState(false);
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<{ stop?: () => void } | null>(null);
+  const botFloatRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     try {
@@ -668,6 +670,7 @@ export function FloatingAssistant() {
       {pos ? (
         <button
           type="button"
+          ref={botFloatRef}
           className={`fixed z-40 flex touch-none flex-col items-center gap-1 rounded-full focus:outline-none ${
             dragging ? "cursor-grabbing" : cn("cursor-grab animate-soft-pulse bot-alive", speaking && "bot-speaking", listening && "bot-speaking")
           }`}
@@ -861,7 +864,7 @@ export function FloatingAssistant() {
                 }
                 const action = res?.action;
                 if (action && action !== "reply") {
-                  const map: Record<string, string> = {
+                  const map: Record<string, TourView> = {
                     open_home: "home",
                     open_inbox: "inbox",
                     open_sent: "sent",
@@ -878,14 +881,49 @@ export function FloatingAssistant() {
                   };
                   const view = map[action];
                   if (view) {
-                    toast.message("Je vous y emmène…");
+                    setOpen(false);
+                    setIdleEmotion("excited");
+                    toast.message("Suivez-moi…");
                     window.dispatchEvent(
                       new CustomEvent("scandoc:navigate", {
                         detail: { view },
                       }),
                     );
-                    // laisse le temps de lire la réponse
-                    window.setTimeout(() => setOpen(false), 900);
+                    // Tour animé : déplacement + doigt + voix
+                    window.setTimeout(async () => {
+                      const el = botFloatRef.current;
+                      if (el) {
+                        try {
+                          await runBotTour({
+                            botEl: el,
+                            view,
+                            onBotMoved: (x, y) => {
+                              setPos({ x, y });
+                              try {
+                                localStorage.setItem(
+                                  POS_KEY,
+                                  JSON.stringify({ x, y }),
+                                );
+                              } catch {
+                                /* ignore */
+                              }
+                            },
+                          });
+                        } catch (err) {
+                          console.warn("[botTour]", err);
+                        }
+                      }
+                      const script = getTourScript(view);
+                      if (script && voiceOn) {
+                        setSpeaking(true);
+                        setIdleEmotion("wave");
+                        speakBotReply(script, true);
+                        window.setTimeout(
+                          () => setSpeaking(false),
+                          Math.min(14000, 900 + script.length * 50),
+                        );
+                      }
+                    }, 350);
                   }
                 }
               } catch (err) {

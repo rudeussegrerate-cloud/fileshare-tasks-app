@@ -178,6 +178,7 @@ function NavList({
                         : "",
                     )}
                     data-active={active ? "true" : "false"}
+                    data-scandoc-nav={item.key}
                   >
                     <Icon className="size-4 shrink-0 opacity-90" />
                     <span className="flex-1 text-left">{item.label}</span>
