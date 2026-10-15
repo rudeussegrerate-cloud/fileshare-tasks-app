@@ -7,6 +7,7 @@ import { DepartmentsView } from "@/components/app/DepartmentsView";
 import { DocumentDetailDialog } from "@/components/app/DocumentDetailDialog";
 import { DocumentsList } from "@/components/app/DocumentsList";
 import { ProfileSetup } from "@/components/app/ProfileSetup";
+import { TransmissionsView } from "@/components/app/TransmissionsView";
 import { SendDocument } from "@/components/app/SendDocument";
 import { CircuitTrackingView } from "@/components/app/CircuitTrackingView";
 import { FileManagerView } from "@/components/app/FileManagerView";
@@ -169,7 +170,9 @@ export default function Dashboard() {
         />
       ) : null}
 
-      {view === "suivi" ? (
+      {view === "transmissions" ? (
+        <TransmissionsView />
+      ) : view === "suivi" ? (
         <ViewErrorBoundary label="le suivi des envois">
           <CircuitTrackingView
             onOpen={setOpenDocumentId}

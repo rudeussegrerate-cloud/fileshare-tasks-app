@@ -113,6 +113,7 @@ function AssignPersonDialog({
     departmentId ? { departmentId } : "skip",
   );
   const addMember = useMutation(api.workspace.addMember);
+  const seedMndptTree = useMutation(api.entities.seedMndptTree);
   const addChief = useMutation(api.workspace.addChief);
   const [selectedId, setSelectedId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -472,6 +473,22 @@ export function DepartmentsView() {
         </ul>
       </div>
 
+      {me.isAdmin ? (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            void seedMndptTree({})
+              .then((r) => toast.success("Arbre MNDPT installé (" + r.count + " entités)"))
+              .catch((e: unknown) =>
+                toast.error(e instanceof Error ? e.message : "Échec du seed"),
+              );
+          }}
+        >
+          Installer arbre MNDPT
+        </Button>
+      ) : null}
       {me.isAdmin ? (
         <div className="flex justify-end">
           <Button onClick={() => setCreating(true)} className="gap-2">

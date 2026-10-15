@@ -48,6 +48,39 @@ export const accountStatusValidator = v.union(
 );
 export type AccountStatus = Infer<typeof accountStatusValidator>;
 
+export const entityRoleValidator = v.union(
+  v.literal("agent"),
+  v.literal("chef_service"),
+  v.literal("directeur"),
+  v.literal("sg"),
+  v.literal("cabinet"),
+);
+export type EntityRole = Infer<typeof entityRoleValidator>;
+
+export const routingModeValidator = v.union(
+  v.literal("hierarchique"),
+  v.literal("direct"),
+  v.literal("ampliation"),
+);
+export type RoutingMode = Infer<typeof routingModeValidator>;
+
+export const transmissionStatusValidator = v.union(
+  v.literal("brouillon"),
+  v.literal("envoye"),
+  v.literal("recu"),
+  v.literal("lu"),
+  v.literal("traite"),
+  v.literal("retourne"),
+  v.literal("transmis"),
+);
+export type TransmissionStatus = Infer<typeof transmissionStatusValidator>;
+
+export const confidentialityValidator = v.union(
+  v.literal("normal"),
+  v.literal("restreint"),
+  v.literal("confidentiel"),
+);
+
 export const summaryStatusValidator = v.union(
   v.literal("en_attente"),
   v.literal("pret"),
@@ -85,6 +118,7 @@ const schema = defineSchema(
       // department placement. set by the DG (admin) or the department chef.
       departmentId: v.optional(v.id("departments")),
       departmentRole: v.optional(departmentRoleValidator),
+      entityRole: v.optional(entityRoleValidator),
       createdAt: v.optional(v.number()),
       // Présence : dernière activité (heartbeat client)
       lastSeenAt: v.optional(v.number()),
@@ -156,6 +190,9 @@ const schema = defineSchema(
       senderId: v.id("users"),
       senderName: v.string(),
       senderDepartmentId: v.optional(v.id("departments")),
+      owningEntityId: v.optional(v.id("departments")),
+      confidentiality: v.optional(confidentialityValidator),
+      referenceNumber: v.optional(v.string()),
       recipientId: v.id("users"),
       recipientName: v.string(),
       recipientDepartmentId: v.optional(v.id("departments")),
@@ -427,6 +464,33 @@ const schema = defineSchema(
       body: v.string(),
       createdAt: v.number(),
     }).index("by_announcement", ["announcementId", "createdAt"]),
+    transmissions: defineTable({
+      documentId: v.id("documents"),
+      fromEntityId: v.id("departments"),
+      toEntityId: v.id("departments"),
+      fromUserId: v.id("users"),
+      fromUserName: v.string(),
+      toUserId: v.optional(v.id("users")),
+      toUserName: v.optional(v.string()),
+      routingMode: routingModeValidator,
+      status: transmissionStatusValidator,
+      isAmpliation: v.boolean(),
+      comment: v.optional(v.string()),
+      taskLabel: v.optional(v.string()),
+      parentTransmissionId: v.optional(v.id("transmissions")),
+      actedAt: v.optional(v.number()),
+      actedBy: v.optional(v.id("users")),
+      dueAt: v.optional(v.number()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_document", ["documentId", "createdAt"])
+      .index("by_to_entity", ["toEntityId", "status"])
+      .index("by_from_entity", ["fromEntityId", "createdAt"])
+      .index("by_to_user", ["toUserId", "status"])
+      .index("by_from_user", ["fromUserId", "createdAt"])
+      .index("by_status", ["status"]),
+
     rateLimits: defineTable({
       key: v.string(), // userId:action
       count: v.number(),

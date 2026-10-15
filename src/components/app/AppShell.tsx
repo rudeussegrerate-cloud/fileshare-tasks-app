@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import {
   Building2,
+  Share2,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -49,6 +50,7 @@ export type AppView =
   | "inbox"
   | "sent"
   | "suivi"
+  | "transmissions"
   | "fichiers"
   | "messages"
   | "actualites"
@@ -85,6 +87,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       { key: "inbox", label: "Boîte de réception", icon: Inbox },
       { key: "sent", label: "Envoyés", icon: Send },
       { key: "suivi", label: "Suivi & circuits", icon: Route },
+      { key: "transmissions", label: "Transmissions", icon: Share2 },
       { key: "fichiers", label: "Recherche fichiers", icon: FolderOpen },
     ],
   },

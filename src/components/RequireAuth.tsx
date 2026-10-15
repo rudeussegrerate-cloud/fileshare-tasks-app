@@ -36,9 +36,26 @@ export function RequireAuth({
   /** Skip the explanation and go straight to `/auth`. */
   redirectImmediately?: boolean;
 }) {
-  const { isLoading, isAuthenticated } = useAuth();
+  const { isLoading, isAuthenticated, authTimedOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  if (authTimedOut) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center">
+        <p className="text-lg font-semibold text-foreground">Connexion difficile</p>
+        <p className="max-w-md text-sm text-muted-foreground">
+          Le serveur met trop de temps à répondre. Vérifiez votre réseau puis réessayez.
+        </p>
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <Button type="button" onClick={() => window.location.reload()}>Réessayer</Button>
+          <Button type="button" variant="outline" onClick={() => navigate("/auth", { replace: true })}>
+            Page de connexion
+          </Button>
+        </div>
+      </main>
+    );
+  }
 
   if (isLoading) {
     return (
