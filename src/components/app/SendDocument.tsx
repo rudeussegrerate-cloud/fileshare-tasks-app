@@ -56,12 +56,12 @@ export function SendDocument({
   const sendDocument = useMutation(api.documents.send);
 
   const [step, setStep] = useState(0);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [extractedText, setExtractedText] = useState("");
   const [extracting, setExtracting] = useState(false);
-  const [departmentId, setDepartmentId] = useState<Id<"departments"> | null>(
-    null,
-  );
+  /** Destinations structurelles (directions et/ou services) — multi-sélection */
+  const [destIds, setDestIds] = useState<Id<"departments">[]>([]);
+  const departmentId = destIds[0] ?? null;
   const [recipientId, setRecipientId] = useState<Id<"users"> | null>(null);
   /** Intervenants suivants dans le circuit (après le destinataire principal) */
   const [circuitExtra, setCircuitExtra] = useState<
@@ -145,26 +145,54 @@ export function SendDocument({
     ...(customTask.trim() ? [customTask.trim()] : []),
   ];
 
-  const handleFile = async (next: File | null) => {
-    if (!next) return;
-    if (next.size > MAX_FILE_BYTES) {
-      toast.error("Fichier trop volumineux", {
-        description: "La taille maximale est de 10 Mo.",
-      });
-      return;
+  const handleFiles = async (list: FileList | File[] | null) => {
+    if (!list || (Array.isArray(list) ? list.length === 0 : list.length === 0)) return;
+    const incoming = Array.from(list as FileList | File[]);
+    const accepted: File[] = [];
+    for (const next of incoming) {
+      if (next.size > MAX_FILE_BYTES) {
+        toast.error(`« ${next.name} » trop volumineux (max 10 Mo)`);
+        continue;
+      }
+      accepted.push(next);
     }
-    setFile(next);
+    if (accepted.length === 0) return;
+    setFiles((prev) => {
+      const names = new Set(prev.map((f) => f.name + f.size));
+      const merged = [...prev];
+      for (const f of accepted) {
+        const key = f.name + f.size;
+        if (!names.has(key)) {
+          merged.push(f);
+          names.add(key);
+        }
+      }
+      return merged.slice(0, 20);
+    });
     setExtracting(true);
-    const text = await extractTextFromFile(next);
-    setExtractedText(text);
-    setExtracting(false);
+    try {
+      const text = await extractTextFromFile(accepted[0]!);
+      setExtractedText(text);
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const removeFileAt = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const toggleDest = (id: Id<"departments">) => {
+    setDestIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   };
 
   const reset = () => {
     setStep(0);
-    setFile(null);
+    setFiles([]); setDestIds([]);
     setExtractedText("");
-    setDepartmentId(null);
+    // destIds cleared above
     setRecipientId(null);
     setCircuitExtra([]);
     setObjet("");
@@ -184,9 +212,9 @@ export function SendDocument({
 
   const canContinue =
     step === 0
-      ? Boolean(file)
+      ? files.length > 0
       : step === 1
-        ? Boolean(departmentId)
+        ? destIds.length > 0
         : (() => {
               if (!objet.trim()) return false;
               if (selectedTasks.length === 0 && !customTask.trim()) return false;
@@ -197,8 +225,7 @@ export function SendDocument({
             })();
 
   const handleSend = async () => {
-    // Envoi structurel (direction/service) — personne optionnelle.
-    if (!file || !departmentId) return;
+    if (files.length === 0 || destIds.length === 0) return;
     if (!objet.trim()) {
       toast.error("Précisez l'objet de l'envoi.");
       return;
@@ -213,79 +240,107 @@ export function SendDocument({
     }
     setSending(true);
     try {
-      const uploadUrl = await generateUploadUrl();
-      const response = await fetch(uploadUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": file.type || "application/octet-stream",
-        },
-        body: file,
-      });
-      if (!response.ok) {
-        const detail = await response.text().catch(() => "");
-        throw new Error(
-          detail
-            ? `L'envoi du fichier a échoué (${response.status}).`
-            : "L'envoi du fichier a échoué. Vérifiez votre connexion.",
-        );
-      }
-      const { storageId } = (await response.json()) as {
-        storageId: Id<"_storage">;
-      };
-
-      // Interne sans sélection : on envoie « de la part de » soi-même
       const resolvedOnBehalfUserId =
         onBehalfType === "internal"
           ? (onBehalfUserId ?? me?.user._id ?? undefined)
           : undefined;
 
-      const documentId = await sendDocument({
-        storageId,
-        fileName: file.name || `document-${Date.now()}.bin`,
-        contentType: file.type || undefined,
-        size: file.size,
-        objet: objet.trim(),
-        observations: observations.trim() || undefined,
-        tasks: effectiveTasks,
-        extractedText: extractedText || undefined,
-        recipientDepartmentId: departmentId,
-        recipientId: recipientId ?? undefined,
-        publicRef: publicRef.trim() || undefined,
-        stepDeadlineHours: stepDeadlineHours,
-        circuitAssigneeIds:
-          circuitExtra.length > 0
-            ? circuitExtra.map((c) => c.userId)
-            : undefined,
-        onBehalfOfType: onBehalfType,
-        onBehalfOfUserId: resolvedOnBehalfUserId,
-        onBehalfOfName:
-          onBehalfType === "external" ? onBehalfName.trim() : undefined,
-        onBehalfOfFunction:
-          onBehalfType === "external"
-            ? onBehalfFunction.trim() || undefined
-            : undefined,
-        onBehalfOfDepartment:
-          onBehalfType === "external"
-            ? onBehalfDepartmentText.trim() || undefined
-            : undefined,
-      });
+      const uploaded: Array<{
+        storageId: Id<"_storage">;
+        fileName: string;
+        contentType: string | undefined;
+        size: number;
+      }> = [];
 
-      toast.success("Document envoyé !", {
-        description: "Le résumé automatique est en cours de génération.",
-      });
+      for (const file of files) {
+        const uploadUrl = await generateUploadUrl();
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+          body: file,
+        });
+        if (!response.ok) {
+          throw new Error(
+            `Échec d'envoi du fichier « ${files[0]?.name} » (${response.status}).`,
+          );
+        }
+        const { storageId } = (await response.json()) as {
+          storageId: Id<"_storage">;
+        };
+        uploaded.push({
+          storageId,
+          fileName: file.name || `document-${Date.now()}.bin`,
+          contentType: file.type || undefined,
+          size: file.size,
+        });
+      }
+
+      let lastId: Id<"documents"> | undefined;
+      let count = 0;
+      // Chaque fichier × chaque destination structurelle
+      for (const up of uploaded) {
+        for (let di = 0; di < destIds.length; di++) {
+          const dest = destIds[di]!;
+          const isFirstDest = di === 0;
+          const refBase = publicRef.trim();
+          const ref =
+            refBase && destIds.length === 1 && uploaded.length === 1
+              ? refBase
+              : refBase
+                ? `${refBase}-${di + 1}${uploaded.length > 1 ? `-${count + 1}` : ""}`
+                : undefined;
+          lastId = await sendDocument({
+            storageId: up.storageId,
+            fileName: up.fileName,
+            contentType: up.contentType,
+            size: up.size,
+            objet: objet.trim(),
+            observations: observations.trim() || undefined,
+            tasks: effectiveTasks,
+            extractedText: isFirstDest ? extractedText || undefined : undefined,
+            recipientDepartmentId: dest,
+            recipientId: isFirstDest ? recipientId ?? undefined : undefined,
+            publicRef: ref,
+            stepDeadlineHours: stepDeadlineHours,
+            circuitAssigneeIds:
+              isFirstDest && circuitExtra.length > 0
+                ? circuitExtra.map((c) => c.userId)
+                : undefined,
+            onBehalfOfType: onBehalfType,
+            onBehalfOfUserId: resolvedOnBehalfUserId,
+            onBehalfOfName:
+              onBehalfType === "external" ? onBehalfName.trim() : undefined,
+            onBehalfOfFunction:
+              onBehalfType === "external"
+                ? onBehalfFunction.trim() || undefined
+                : undefined,
+            onBehalfOfDepartment:
+              onBehalfType === "external"
+                ? onBehalfDepartmentText.trim() || undefined
+                : undefined,
+          });
+          count += 1;
+        }
+      }
+
+      toast.success(
+        count === 1
+          ? "Document transmis à la structure destinataire."
+          : `${count} envois effectués (${uploaded.length} fichier${uploaded.length > 1 ? "s" : ""} × ${destIds.length} destination${destIds.length > 1 ? "s" : ""}).`,
+      );
       reset();
-      onSent(documentId);
-    } catch (error) {
-      console.error(error);
+      onSent(lastId);
+    } catch (error: unknown) {
       const message =
-        error instanceof Error
-          ? error.message
-          : "Impossible d'envoyer le document.";
+        error instanceof Error ? error.message : "Envoi impossible.";
       toast.error(message);
     } finally {
       setSending(false);
     }
   };
+
 
   if (departments !== undefined && departments.length === 0) {
     return (
@@ -313,10 +368,10 @@ export function SendDocument({
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">
-          Envoyer un document
+          Envoyer des documents
         </h2>
         <p className="text-xs text-muted-foreground">
-          Transmettez un fichier vers une direction ou un service ; précisez l&apos;objet, la personne au nom de
+          Transmettez un ou plusieurs fichiers vers une ou plusieurs directions/services ; précisez l&apos;objet, la personne au nom de
           qui vous envoyez et les tâches à réaliser.
         </p>
       </div>
@@ -327,40 +382,57 @@ export function SendDocument({
 
           {step === 0 ? (
             <div className="space-y-4">
-              {file ? (
-                <div className="flex items-center gap-4 rounded-sm border border-border bg-brand-soft/50 p-4">
-                  <div className="flex size-11 items-center justify-center rounded-sm bg-card text-brand ">
-                    <FileText className="size-5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold">{file.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatBytes(file.size)}
-                      {extracting
-                        ? " · lecture du contenu…"
-                        : extractedText
-                          ? " · texte extrait pour le résumé automatique"
-                          : " · pas de texte lisible, résumé indisponible"}
-                    </p>
-                  </div>
-                  {extracting ? (
-                    <Loader2 className="size-4 animate-spin text-brand-sky" />
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => {
-                        setFile(null);
-                        setExtractedText("");
-                      }}
-                    >
-                      <X className="size-4" />
-                    </Button>
-                  )}
+                            {files.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {files.length} fichier{files.length > 1 ? "s" : ""} sélectionné
+                    {files.length > 1 ? "s" : ""}
+                    {extracting ? " · analyse…" : extractedText ? " · texte extrait" : ""}
+                  </p>
+                  <ul className="space-y-2">
+                    {files.map((f, i) => (
+                      <li
+                        key={`${f.name}-${f.size}-${i}`}
+                        className="flex items-center gap-3 rounded-sm border border-border bg-brand-soft/50 p-3"
+                      >
+                        <div className="flex size-9 items-center justify-center rounded-sm bg-card text-brand">
+                          <FileText className="size-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">{f.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatBytes(f.size)}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeFileAt(i)}
+                          aria-label={`Retirer ${f.name}`}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFiles([]);
+                      setExtractedText("");
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                      if (cameraInputRef.current) cameraInputRef.current.value = "";
+                    }}
+                  >
+                    Tout retirer
+                  </Button>
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  PDF, Word, Excel, image ou texte · 10 Mo maximum
+                  PDF, Word, Excel, images ou texte · 10 Mo max par fichier · plusieurs fichiers possibles
                 </p>
               )}
 
@@ -373,7 +445,7 @@ export function SendDocument({
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <FileText className="size-4" />
-                  Importer un fichier
+                  Ajouter des fichiers
                 </Button>
                 <Button
                   type="button"
@@ -392,8 +464,9 @@ export function SendDocument({
                 type="file" data-scandoc-tour="send-file"
                 accept={ACCEPT}
                 className="hidden"
+                multiple
                 onChange={(event) =>
-                  void handleFile(event.target.files?.[0] ?? null)
+                  void handleFiles(event.target.files)
                 }
               />
               <input
@@ -403,7 +476,7 @@ export function SendDocument({
                 capture="environment"
                 className="hidden"
                 onChange={(event) =>
-                  void handleFile(event.target.files?.[0] ?? null)
+                  void handleFiles(event.target.files)
                 }
               />
 
@@ -423,13 +496,19 @@ export function SendDocument({
               <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
-                  Choisissez une <strong>direction</strong> ou un{" "}
-                  <strong>service</strong> destinataire. Les utilisateurs sont
+                  Choisissez une ou plusieurs <strong>directions</strong> ou{" "}
+                  <strong>services</strong> destinataires (cliquez pour
+                  sélectionner / désélectionner). Les utilisateurs sont
                   membres des services ; un envoi à une direction est visible
                   par ses services. Vous n&apos;envoyez plus à une personne
                   nommée, mais à une structure.
                 </p>
               </div>
+              {destIds.length > 0 ? (
+                <p className="text-xs font-medium text-foreground">
+                  {destIds.length} destination{destIds.length > 1 ? "s" : ""} sélectionnée{destIds.length > 1 ? "s" : ""}
+                </p>
+              ) : null}
               {departments === undefined ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -437,15 +516,15 @@ export function SendDocument({
               ) : (
                 <div className="grid gap-3 sm:grid-cols-2">
                   {departments.map((department) => {
-                    const active = department._id === departmentId;
+                    const active = destIds.includes(department._id);
                     return (
                       <button
                         key={department._id}
                         type="button"
                         onClick={() => {
-                          setDepartmentId(department._id);
+                          toggleDest(department._id);
                           setRecipientId(null);
-    setCircuitExtra([]);
+                          setCircuitExtra([]);
                         }}
                         className={cn(
                           "rounded-sm border p-4 text-left transition-all",
@@ -1032,15 +1111,23 @@ export function SendDocument({
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground">Document</dt>
                     <dd className="truncate text-right font-medium">
-                      {file?.name}
+                      {files.length === 1
+                        ? files[0]?.name
+                        : `${files.length} fichiers`}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="text-muted-foreground" data-scandoc-tour="send-recipient">Destination</dt>
                     <dd className="text-right font-medium">
-                      {(selectedDepartment as { parentName?: string | null } | undefined)?.parentName
-                        ? `${(selectedDepartment as { parentName?: string }).parentName} → ${selectedDepartment?.name}`
-                        : selectedDepartment?.name}
+                      {destIds
+                        .map((id) => {
+                          const d = departments?.find((x) => x._id === id);
+                          if (!d) return null;
+                          const parent = (d as { parentName?: string | null }).parentName;
+                          return parent ? `${parent} → ${d.name}` : d.name;
+                        })
+                        .filter(Boolean)
+                        .join(", ") || "—"}
                     </dd>
                   </div>
                   {circuitExtra.length > 0 ? (

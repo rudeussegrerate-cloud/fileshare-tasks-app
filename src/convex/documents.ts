@@ -443,7 +443,7 @@ export const send = mutation({
     await assertRateLimit(ctx, {
       userId,
       action: "document.sent",
-      maxPerWindow: 20,
+      maxPerWindow: 60,
       windowMs: 10 * 60 * 1000,
     });
 
