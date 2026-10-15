@@ -184,24 +184,16 @@ async function collectInboxDocuments(
     /* table absente ou index : ignorer */
   }
 
-  // Envoi structurel : tous les membres de la direction/service destinataire
+  // Envoi structurel :
+  // - membre d'un service → docs de son service + de sa direction parente
+  // - membre d'une direction → docs adressés à cette direction
   if (me?.departmentId) {
     const myDeptId = String(me.departmentId);
     const allDepts = await ctx.db.query("departments").collect();
-    // Structures dont je suis membre direct OU parent de mon service
     const relevant = new Set<string>([myDeptId]);
     const mine = allDepts.find((d) => String(d._id) === myDeptId);
     if (mine?.parentId) relevant.add(String(mine.parentId));
-    // Si j'appartiens à une direction, les envois à mes services enfants me concernent aussi? Non — l'inverse :
-    // envoi à une direction → membres des services enfants reçoivent.
-    for (const d of allDepts) {
-      if (d.parentId && String(d.parentId) === myDeptId) {
-        // mon dept est parent : les docs adressés à un enfant ne me concernent pas auto
-      }
-      // si mon service a pour parent P, docs adressés à P me concernent (déjà via parentId)
-    }
 
-    // Documents adressés à mon dept ou à mon parent (direction)
     for (const rid of relevant) {
       try {
         const structural = await ctx.db
@@ -869,19 +861,31 @@ export const send = mutation({
       console.error("[send] audit log échoué:", e);
     }
 
-        // Notifier tous les membres de la structure destinataire (étape 0)
+        // Notifier les membres de la structure + services enfants si direction
     try {
       if (recipientDeptId) {
-        const members = membersOfDept(recipientDeptId);
-        for (const m of members) {
-          if (m._id === userId) continue;
-          await pushNotification(ctx, {
-            userId: m._id,
-            type: "document.received",
-            title: "Nouveau document pour votre structure",
-            body: `${displayName(sender)} → ${recipientDept?.code ?? recipientDept?.name ?? "structure"} — « ${objet} »`,
-            documentId,
-          });
+        const allDepts = await ctx.db.query("departments").collect();
+        const audienceIds = new Set<string>([String(recipientDeptId)]);
+        for (const d of allDepts) {
+          if (d.parentId && String(d.parentId) === String(recipientDeptId)) {
+            audienceIds.add(String(d._id));
+          }
+        }
+        const notified = new Set<string>();
+        for (const aid of audienceIds) {
+          const members = membersOfDept(aid as Id<"departments">);
+          for (const m of members) {
+            if (m._id === userId) continue;
+            if (notified.has(String(m._id))) continue;
+            notified.add(String(m._id));
+            await pushNotification(ctx, {
+              userId: m._id,
+              type: "document.received",
+              title: "Nouveau document pour votre structure",
+              body: `${displayName(sender)} → ${recipientDept?.code ?? recipientDept?.name ?? "structure"} — « ${objet} »`,
+              documentId,
+            });
+          }
         }
       }
     } catch (e) {

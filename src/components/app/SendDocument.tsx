@@ -35,7 +35,7 @@ function isOnline(lastSeenAt?: number | null) {
 }
 
 
-const STEPS = ["Document", "Département", "Destinataire", "Détails & envoi"];
+const STEPS = ["Document", "Destination", "Détails & envoi"];
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
@@ -67,6 +67,8 @@ export function SendDocument({
   const [circuitExtra, setCircuitExtra] = useState<
     Array<{ userId: Id<"users">; name: string; dept?: string }>
   >([]);
+  /** Autres directions/services destinataires (en plus de la destination principale) */
+  const [extraDestIds, setExtraDestIds] = useState<Id<"departments">[]>([]);
 
   // Objet de l'envoi
   const [objet, setObjet] = useState("");
@@ -185,13 +187,11 @@ export function SendDocument({
       ? Boolean(file)
       : step === 1
         ? Boolean(departmentId)
-        : step === 2
-          ? Boolean(departmentId) // structure suffit ; personne optionnelle
-          : (() => {
+        : (() => {
               if (!objet.trim()) return false;
               if (selectedTasks.length === 0 && !customTask.trim()) return false;
               if (onBehalfType === "internal") {
-                return Boolean(onBehalfUserId);
+                return Boolean(onBehalfUserId || me?.user._id);
               }
               return onBehalfName.trim().length > 0;
             })();
@@ -316,7 +316,7 @@ export function SendDocument({
           Envoyer un document
         </h2>
         <p className="text-xs text-muted-foreground">
-          Transmettez un fichier, précisez l&apos;objet, la personne au nom de
+          Transmettez un fichier vers une direction ou un service ; précisez l&apos;objet, la personne au nom de
           qui vous envoyez et les tâches à réaliser.
         </p>
       </div>
@@ -423,9 +423,11 @@ export function SendDocument({
               <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
-                  Règle fondamentale : le destinataire se choisit toujours en
-                  deux temps — d&apos;abord le département, puis un membre de ce
-                  département. Cela évite les erreurs d&apos;affectation.
+                  Choisissez une <strong>direction</strong> ou un{" "}
+                  <strong>service</strong> destinataire. Les utilisateurs sont
+                  membres des services ; un envoi à une direction est visible
+                  par ses services. Vous n&apos;envoyez plus à une personne
+                  nommée, mais à une structure.
                 </p>
               </div>
               {departments === undefined ? (
@@ -472,10 +474,19 @@ export function SendDocument({
                           {department.name}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {(department as { parentName?: string | null })
+                          {(department as { parentName?: string | null; kind?: string | null })
                             .parentName
-                            ? `Groupe de ${(department as { parentName?: string | null }).parentName} · `
-                            : ""}
+                            ? `Service de ${(department as { parentName?: string | null }).parentName}`
+                            : (department as { kind?: string | null }).kind === "service"
+                              ? "Service"
+                              : (department as { kind?: string | null }).kind === "direction"
+                                ? "Direction / Département"
+                                : (department as { kind?: string | null }).kind === "sg"
+                                  ? "Secrétariat Général"
+                                  : (department as { kind?: string | null }).kind === "cabinet"
+                                    ? "Cabinet"
+                                    : "Structure"}
+                          {" · "}
                           {department.members.length} membre
                           {department.members.length > 1 ? "s" : ""}
                           {department.chief
@@ -490,7 +501,7 @@ export function SendDocument({
             </div>
           ) : null}
 
-          {step === 2 ? (
+          {false && step === 2 ? (
             <div className="space-y-3" data-scandoc-tour="send-recipient">
               <p className="text-xs text-muted-foreground">
                 Destination :{" "}
@@ -700,7 +711,7 @@ export function SendDocument({
             </div>
           ) : null}
 
-          {step === 3 ? (
+          {step === 2 ? (
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="publicRef">Identifiant du dossier</Label>
@@ -1025,24 +1036,18 @@ export function SendDocument({
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Département</dt>
+                    <dt className="text-muted-foreground" data-scandoc-tour="send-recipient">Destination</dt>
                     <dd className="text-right font-medium">
-                      {selectedDepartment?.name}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground" data-scandoc-tour="send-recipient">Destinataire</dt>
-                    <dd className="text-right font-medium">
-                      {selectedRecipient?.name}
+                      {(selectedDepartment as { parentName?: string | null } | undefined)?.parentName
+                        ? `${(selectedDepartment as { parentName?: string }).parentName} → ${selectedDepartment?.name}`
+                        : selectedDepartment?.name}
                     </dd>
                   </div>
                   {circuitExtra.length > 0 ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">Circuit</dt>
+                      <dt className="text-muted-foreground">Circuit personnes</dt>
                       <dd className="text-right font-medium">
-                        {[selectedRecipient?.name, ...circuitExtra.map((c) => c.name)]
-                          .filter(Boolean)
-                          .join(" → ")}
+                        {circuitExtra.map((c) => c.name).join(" → ")}
                       </dd>
                     </div>
                   ) : null}

@@ -339,6 +339,8 @@ export const listDepartments = query({
       result.push({
         _id: department._id,
         name: department.name,
+        code: department.code ?? null,
+        kind: department.kind ?? (department.parentId ? "service" : "direction"),
         description: department.description ?? null,
         createdAt: department.createdAt,
         parentId: department.parentId ?? null,
@@ -350,7 +352,16 @@ export const listDepartments = query({
         logoUrl,
       });
     }
-    return result.sort((a, b) => a.name.localeCompare(b.name));
+    // Directions / racines d'abord, puis services sous leur parent
+    return result.sort((a, b) => {
+      const aRoot = a.parentId ? 1 : 0;
+      const bRoot = b.parentId ? 1 : 0;
+      if (aRoot !== bRoot) return aRoot - bRoot;
+      if (a.parentName && b.parentName && a.parentName !== b.parentName) {
+        return a.parentName.localeCompare(b.parentName, "fr");
+      }
+      return a.name.localeCompare(b.name, "fr");
+    });
   },
 });
 
