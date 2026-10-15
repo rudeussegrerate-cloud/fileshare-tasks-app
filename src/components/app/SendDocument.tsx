@@ -35,7 +35,7 @@ function isOnline(lastSeenAt?: number | null) {
 }
 
 
-const STEPS = ["Document", "Destination", "Détails & envoi"];
+const STEPS = ["Document", "Direction & service", "Détails"];
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
@@ -59,8 +59,11 @@ export function SendDocument({
   const [files, setFiles] = useState<File[]>([]);
   const [extractedText, setExtractedText] = useState("");
   const [extracting, setExtracting] = useState(false);
-  /** Destinations structurelles (directions et/ou services) — multi-sélection */
+  /** Services destinataires (rattachés à une direction) */
   const [destIds, setDestIds] = useState<Id<"departments">[]>([]);
+  const [selectedDirectionId, setSelectedDirectionId] = useState<
+    Id<"departments"> | null
+  >(null);
   const departmentId = destIds[0] ?? null;
   const [recipientId, setRecipientId] = useState<Id<"users"> | null>(null);
   /** Intervenants suivants dans le circuit (après le destinataire principal) */
@@ -188,9 +191,21 @@ export function SendDocument({
     );
   };
 
+  const directions = (departments ?? []).filter(
+    (d) => !d.parentId && (d as { kind?: string | null }).kind !== "service",
+  );
+  const servicesOfSelected = (departments ?? []).filter(
+    (d) => selectedDirectionId && d.parentId === selectedDirectionId,
+  );
+  const selectedDirection = (departments ?? []).find(
+    (d) => d._id === selectedDirectionId,
+  );
+
   const reset = () => {
     setStep(0);
-    setFiles([]); setDestIds([]);
+    setFiles([]);
+    setDestIds([]);
+    setSelectedDirectionId(null);
     setExtractedText("");
     // destIds cleared above
     setRecipientId(null);
@@ -496,297 +511,174 @@ export function SendDocument({
               <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
-                  Choisissez une ou plusieurs <strong>directions</strong> ou{" "}
-                  <strong>services</strong> destinataires (cliquez pour
-                  sélectionner / désélectionner). Les utilisateurs sont
-                  membres des services ; un envoi à une direction est visible
-                  par ses services. Vous n&apos;envoyez plus à une personne
-                  nommée, mais à une structure.
+                  <strong>1.</strong> Choisissez d&apos;abord la{" "}
+                  <strong>direction / le département</strong>, puis{" "}
+                  <strong>2.</strong> le <strong>service</strong> à
+                  l&apos;intérieur. Tous les membres rattachés à ce service
+                  recevront le document.
                 </p>
               </div>
-              {destIds.length > 0 ? (
-                <p className="text-xs font-medium text-foreground">
-                  {destIds.length} destination{destIds.length > 1 ? "s" : ""} sélectionnée{destIds.length > 1 ? "s" : ""}
-                </p>
-              ) : null}
-              {departments === undefined ? (
-                <div className="flex justify-center py-8">
-                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {departments.map((department) => {
-                    const active = destIds.includes(department._id);
-                    return (
-                      <button
-                        key={department._id}
-                        type="button"
-                        onClick={() => {
-                          toggleDest(department._id);
-                          setRecipientId(null);
-                          setCircuitExtra([]);
-                        }}
-                        className={cn(
-                          "rounded-sm border p-4 text-left transition-all",
-                          active
-                            ? "border-brand bg-brand-soft  "
-                            : "border-border bg-card hover:border-brand-sky/50",
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          {"logoUrl" in department && department.logoUrl ? (
-                            <img
-                              src={department.logoUrl as string}
-                              alt=""
-                              className="size-10 rounded-lg border object-cover"
-                            />
-                          ) : (
-                            <div className="flex size-10 items-center justify-center rounded-lg bg-brand text-primary-foreground">
-                              <Building2 className="size-4" />
-                            </div>
-                          )}
-                          {active ? (
-                            <CheckCircle2 className="size-4 text-brand" />
-                          ) : null}
-                        </div>
-                        <p className="mt-3 text-sm font-semibold">
-                          {department.name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {(department as { parentName?: string | null; kind?: string | null })
-                            .parentName
-                            ? `Service de ${(department as { parentName?: string | null }).parentName}`
-                            : (department as { kind?: string | null }).kind === "service"
-                              ? "Service"
-                              : (department as { kind?: string | null }).kind === "direction"
-                                ? "Direction / Département"
-                                : (department as { kind?: string | null }).kind === "sg"
-                                  ? "Secrétariat Général"
-                                  : (department as { kind?: string | null }).kind === "cabinet"
-                                    ? "Cabinet"
-                                    : "Structure"}
-                          {" · "}
-                          {department.members.length} membre
-                          {department.members.length > 1 ? "s" : ""}
-                          {department.chief
-                            ? ` · chef : ${department.chief.name}`
-                            : ""}
-                        </p>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ) : null}
 
-          {false && step === 2 ? (
-            <div className="space-y-3" data-scandoc-tour="send-recipient">
-              <p className="text-xs text-muted-foreground">
-                Destination :{" "}
-                <span className="font-medium text-foreground">
-                  {selectedDepartment?.name}
-                </span>
-              </p>
-              <button
-                type="button"
-                onClick={() => setRecipientId(null)}
-                className={cn(
-                  "flex w-full items-center gap-3 rounded-sm border p-3 text-left transition-all",
-                  !recipientId
-                    ? "border-brand bg-brand-soft"
-                    : "border-border bg-card hover:border-brand-sky/50",
-                )}
-              >
-                <span className="flex size-9 items-center justify-center rounded-full bg-brand text-xs font-semibold text-primary-foreground">
-                  ∑
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium">
-                    Toute la structure
-                  </span>
-                  <span className="block text-xs text-muted-foreground">
-                    Tous les membres de cette direction ou de ce service
-                    recevront le document.
-                  </span>
-                </span>
-              </button>
-              <p className="text-[11px] text-muted-foreground">
-                Optionnel — restreindre à une personne (confidentiel) :
-              </p>
-              {selectableMembers.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Aucun membre inscrit pour l&apos;instant : l&apos;envoi
-                  structurel reste possible ; les futurs membres verront le
-                  dossier selon les règles d&apos;appartenance.
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  1 · Direction ou département
                 </p>
-              ) : (
-                <ul className="space-y-2">
-                  {selectableMembers.map((member) => {
-                    const active = member._id === recipientId;
-                    return (
-                      <li key={member._id}>
+                {departments === undefined ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : directions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Aucune direction disponible. Le DG doit installer
+                    l&apos;arbre MNDPT ou créer les structures.
+                  </p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {directions.map((dir) => {
+                      const active = selectedDirectionId === dir._id;
+                      const serviceCount = (departments ?? []).filter(
+                        (s) => s.parentId === dir._id,
+                      ).length;
+                      const selectedInDir = (departments ?? []).filter(
+                        (s) =>
+                          s.parentId === dir._id && destIds.includes(s._id),
+                      ).length;
+                      return (
                         <button
+                          key={dir._id}
                           type="button"
-                          onClick={() => setRecipientId(member._id)}
+                          onClick={() => {
+                            setSelectedDirectionId(dir._id);
+                            setRecipientId(null);
+                            setCircuitExtra([]);
+                          }}
                           className={cn(
-                            "flex w-full items-center gap-3 rounded-sm border p-3 text-left transition-all",
+                            "rounded-sm border p-3 text-left transition-all",
                             active
-                              ? "border-brand bg-brand-soft  "
+                              ? "border-brand bg-brand-soft"
                               : "border-border bg-card hover:border-brand-sky/50",
                           )}
                         >
-                          <span className="relative flex size-9 items-center justify-center rounded-full bg-brand text-xs font-semibold text-primary-foreground">
-                            {initialsOf(member.name)}
-                            <PresenceDot
-                              online={isOnline(
-                                (member as { lastSeenAt?: number | null })
-                                  .lastSeenAt,
-                              )}
-                              className="absolute bottom-0 right-0"
-                            />
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium">
-                              {member.name}
+                          <div className="flex items-center gap-2">
+                            <Building2 className="size-4 shrink-0 text-brand-sky" />
+                            <span className="text-sm font-semibold">
+                              {dir.code ? `${dir.code} — ` : ""}
+                              {dir.name}
                             </span>
-                            <span className="block truncate text-xs text-muted-foreground">
-                              {member.email ?? "—"}
-                              {" · "}
-                              {isOnline(
-                                (member as { lastSeenAt?: number | null })
-                                  .lastSeenAt,
-                              )
-                                ? "En ligne"
-                                : "Hors ligne"}
-                            </span>
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className="border-emerald-200 bg-emerald-50 text-[10px] text-emerald-800"
-                          >
-                            Validé
-                          </Badge>
-                          {member.departmentRole === "chef" ? (
-                            <Badge
-                              variant="outline"
-                              className="border-brand-sky/30 bg-brand-soft text-[10px] text-brand-sky"
-                            >
-                              Chef
-                            </Badge>
-                          ) : null}
-                          {active ? (
-                            <CheckCircle2 className="size-4 text-brand" />
-                          ) : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-              {recipientId ? (
-                <div className="mt-4 space-y-2 rounded-sm border border-dashed border-border p-3">
-                  <p className="text-sm font-medium text-foreground">
-                    Circuit de traitement (optionnel)
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Après le destinataire principal, le document passera
-                    aux personnes suivantes dans l&apos;ordre — y compris
-                    d&apos;autres départements. Le document n&apos;est « traité »
-                    qu&apos;à la dernière étape.
-                  </p>
-                  <ol className="space-y-1 text-xs">
-                    <li className="flex items-center gap-2 rounded-md bg-brand-soft/50 px-2 py-1.5">
-                      <span className="flex size-5 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-primary-foreground">
-                        1
-                      </span>
-                      <span className="font-medium">
-                        {selectedRecipient?.name ?? "Destinataire"}
-                      </span>
-                      <span className="text-muted-foreground">(en premier)</span>
-                    </li>
-                    {circuitExtra.map((c, i) => (
-                      <li
-                        key={c.userId}
-                        className="flex items-center gap-2 rounded-md border border-border px-2 py-1.5"
-                      >
-                        <span className="flex size-5 items-center justify-center rounded-full bg-muted text-[10px] font-bold">
-                          {i + 2}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate font-medium">
-                          {c.name}
-                          {c.dept ? (
-                            <span className="text-muted-foreground"> · {c.dept}</span>
-                          ) : null}
-                        </span>
-                        <button
-                          type="button"
-                          className="text-[10px] text-destructive"
-                          onClick={() =>
-                            setCircuitExtra((prev) =>
-                              prev.filter((x) => x.userId !== c.userId),
-                            )
-                          }
-                        >
-                          Retirer
-                        </button>
-                      </li>
-                    ))}
-                  </ol>
-                  <div className="pt-1 space-y-2">
-                    <p className="text-[11px] text-muted-foreground">
-                      Ajouter une étape suivante (tous départements) :
-                    </p>
-                    {(departments ?? []).map((dep) => {
-                      const candidates = (dep.members ?? []).filter(
-                        (m) =>
-                          m._id !== recipientId &&
-                          m._id !== me?.user._id &&
-                          !circuitExtra.some((c) => c.userId === m._id),
-                      );
-                      if (candidates.length === 0) return null;
-                      return (
-                        <div key={dep._id}>
-                          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            {dep.name}
-                          </p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {candidates.map((m) => (
-                              <button
-                                key={m._id}
-                                type="button"
-                                className="rounded-full border border-border px-2.5 py-1 text-[11px] hover:border-brand hover:bg-brand-soft"
-                                onClick={() =>
-                                  setCircuitExtra((prev) => [
-                                    ...prev,
-                                    {
-                                      userId: m._id,
-                                      name: m.name,
-                                      dept: dep.name,
-                                    },
-                                  ])
-                                }
-                              >
-                                + {m.name}
-                              </button>
-                            ))}
                           </div>
-                        </div>
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            {serviceCount} service
+                            {serviceCount !== 1 ? "s" : ""}
+                            {selectedInDir > 0
+                              ? ` · ${selectedInDir} sélectionné${selectedInDir > 1 ? "s" : ""}`
+                              : ""}
+                          </p>
+                        </button>
                       );
                     })}
-                    {allCircuitCandidates.filter(
-                      (c) =>
-                        c.userId !== recipientId &&
-                        !circuitExtra.some((x) => x.userId === c.userId),
-                    ).length === 0 ? (
-                      <p className="text-[11px] text-muted-foreground">
-                        Aucun autre intervenant disponible.
-                      </p>
-                    ) : null}
                   </div>
+                )}
+              </div>
+
+              {selectedDirectionId ? (
+                <div className="space-y-2 border-t border-border pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    2 · Service dans « {selectedDirection?.name} »
+                  </p>
+                  {servicesOfSelected.length === 0 ? (
+                    <div className="rounded-sm border border-dashed border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
+                      Cette direction n&apos;a pas encore de service. Vous
+                      pouvez envoyer à la direction entière : les membres
+                      rattachés directement la recevront.
+                      <div className="mt-2">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={
+                            destIds.includes(selectedDirectionId)
+                              ? "default"
+                              : "outline"
+                          }
+                          onClick={() => toggleDest(selectedDirectionId)}
+                        >
+                          {destIds.includes(selectedDirectionId)
+                            ? "Direction sélectionnée"
+                            : "Envoyer à toute la direction"}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {servicesOfSelected.map((svc) => {
+                        const active = destIds.includes(svc._id);
+                        const memberCount =
+                          "members" in svc && Array.isArray(svc.members)
+                            ? svc.members.length
+                            : null;
+                        return (
+                          <button
+                            key={svc._id}
+                            type="button"
+                            onClick={() => {
+                              toggleDest(svc._id);
+                              setRecipientId(null);
+                              setCircuitExtra([]);
+                            }}
+                            className={cn(
+                              "rounded-sm border p-3 text-left transition-all",
+                              active
+                                ? "border-brand bg-brand-soft"
+                                : "border-border bg-card hover:border-brand-sky/50",
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold">
+                                {svc.code ? `${svc.code} — ` : ""}
+                                {svc.name}
+                              </span>
+                              {active ? (
+                                <span className="text-[10px] font-medium text-brand">
+                                  ✓
+                                </span>
+                              ) : null}
+                            </div>
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              {memberCount !== null
+                                ? `${memberCount} membre${memberCount !== 1 ? "s" : ""} · recevront le document`
+                                : "Tous les membres du service recevront le document"}
+                            </p>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Sélectionnez d&apos;abord une direction pour afficher ses
+                  services.
+                </p>
+              )}
+
+              {destIds.length > 0 ? (
+                <div className="rounded-sm border border-brand/30 bg-brand-soft/40 px-3 py-2 text-xs">
+                  <span className="font-semibold text-foreground">
+                    {destIds.length} destination
+                    {destIds.length > 1 ? "s" : ""} :
+                  </span>{" "}
+                  {destIds
+                    .map((id) => {
+                      const d = departments?.find((x) => x._id === id);
+                      if (!d) return null;
+                      const parent = d.parentName
+                        ? `${d.parentName} → `
+                        : "";
+                      return parent + d.name;
+                    })
+                    .filter(Boolean)
+                    .join(" · ")}
                 </div>
               ) : null}
-
             </div>
           ) : null}
 
