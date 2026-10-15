@@ -20,6 +20,7 @@ import type * as chat from "../chat.js";
 import type * as crons from "../crons.js";
 import type * as departmentMembership from "../departmentMembership.js";
 import type * as documents from "../documents.js";
+import type * as entities from "../entities.js";
 import type * as http from "../http.js";
 import type * as inAppNotifications from "../inAppNotifications.js";
 import type * as lib_groq from "../lib/groq.js";
@@ -27,6 +28,7 @@ import type * as lib_security from "../lib/security.js";
 import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
 import type * as smart from "../smart.js";
+import type * as transmissions from "../transmissions.js";
 import type * as users from "../users.js";
 import type * as workspace from "../workspace.js";
 
@@ -49,6 +51,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   departmentMembership: typeof departmentMembership;
   documents: typeof documents;
+  entities: typeof entities;
   http: typeof http;
   inAppNotifications: typeof inAppNotifications;
   "lib/groq": typeof lib_groq;
@@ -56,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   notifications: typeof notifications;
   presence: typeof presence;
   smart: typeof smart;
+  transmissions: typeof transmissions;
   users: typeof users;
   workspace: typeof workspace;
 }>;

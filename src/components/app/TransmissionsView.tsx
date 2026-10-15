@@ -60,7 +60,9 @@ export function TransmissionsView() {
   const setStatus = useMutation(api.transmissions.setStatus);
   const forward = useMutation(api.transmissions.forward);
 
-  const rows = tab === "inbox" ? inbox : sent;
+  const rows = (tab === "inbox" ? inbox : sent) as
+    | Array<Record<string, any>>
+    | undefined;
 
   async function handleStatus(
     id: Id<"transmissions">,
@@ -288,7 +290,7 @@ export function TransmissionsView() {
                                   <SelectValue placeholder="Transmettre vers…" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {(tree ?? []).map((e) => (
+                                  {((tree ?? []) as Array<{ _id: string; name: string; code?: string | null }>).map((e) => (
                                     <SelectItem key={e._id} value={e._id}>
                                       {e.code ? `${e.code} — ` : ""}
                                       {e.name}

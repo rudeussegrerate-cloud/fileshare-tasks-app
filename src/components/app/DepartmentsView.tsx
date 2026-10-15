@@ -113,7 +113,6 @@ function AssignPersonDialog({
     departmentId ? { departmentId } : "skip",
   );
   const addMember = useMutation(api.workspace.addMember);
-  const seedMndptTree = useMutation(api.entities.seedMndptTree);
   const addChief = useMutation(api.workspace.addChief);
   const [selectedId, setSelectedId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -420,6 +419,7 @@ export function DepartmentsView() {
   const departments = useQuery(api.workspace.listDepartments);
   const removeMember = useMutation(api.workspace.removeMember);
   const deleteDepartment = useMutation(api.workspace.deleteDepartment);
+  const seedMndptTree = useMutation(api.entities.seedMndptTree);
 
   const [creating, setCreating] = useState(false);
   const [subParent, setSubParent] = useState<{
@@ -480,7 +480,7 @@ export function DepartmentsView() {
           size="sm"
           onClick={() => {
             void seedMndptTree({})
-              .then((r) => toast.success("Arbre MNDPT installé (" + r.count + " entités)"))
+              .then((r: { count: number }) => toast.success("Arbre MNDPT installé (" + r.count + " entités)"))
               .catch((e: unknown) =>
                 toast.error(e instanceof Error ? e.message : "Échec du seed"),
               );
