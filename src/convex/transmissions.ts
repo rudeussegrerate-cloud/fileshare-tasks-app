@@ -63,7 +63,7 @@ export const send = mutation({
   },
   handler: async (ctx, args) => {
     const { userId, user } = await requireUser(ctx);
-    await assertRateLimit(ctx, userId, "transmission.send", 30, 60_000);
+    await assertRateLimit(ctx, { userId, action: "transmission.send", maxPerWindow: 30, windowMs: 60_000 });
 
     if (!user.departmentId && !isAdmin(user.role)) {
       throw new Error("Vous devez être rattaché à une entité pour transmettre.");
