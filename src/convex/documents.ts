@@ -684,7 +684,18 @@ export const send = mutation({
             u.role === "root"),
       );
 
+    // Destinations structurelles prioritaires (multi-cibles)
     let recipientDeptId = args.recipientDepartmentId;
+    if (
+      !recipientDeptId &&
+      args.recipientTargets &&
+      args.recipientTargets.length > 0
+    ) {
+      const firstTreat =
+        args.recipientTargets.find((t) => t.kind === "traitement") ??
+        args.recipientTargets[0];
+      recipientDeptId = firstTreat?.departmentId;
+    }
     let recipientDept = recipientDeptId
       ? await ctx.db.get(recipientDeptId)
       : null;
@@ -944,20 +955,31 @@ export const send = mutation({
         actorId: userId,
         actorName: displayName(sender),
         documentId,
-        details: `Envoi à ${displayName(recipient)} — ${objet}`,
+        details: `Envoi à ${
+          recipientDept
+            ? `${recipientDept.code ? recipientDept.code + " — " : ""}${recipientDept.name}`
+            : recipient
+              ? displayName(recipient)
+              : "structure"
+        } — ${objet}`,
         metadata: { tasks, fileName: args.fileName },
       });
     } catch (e) {
       console.error("[send] audit log échoué:", e);
     }
 
-        // Notifier les membres de la structure + services enfants si direction
+        // Notifier les membres des structures destinataires (+ services enfants)
     try {
-      if (recipientDeptId) {
+      const notifyDeptIds = new Set<string>();
+      if (recipientDeptId) notifyDeptIds.add(String(recipientDeptId));
+      for (const rt of args.recipientTargets ?? []) {
+        notifyDeptIds.add(String(rt.departmentId));
+      }
+      if (notifyDeptIds.size > 0) {
         const allDepts = await ctx.db.query("departments").collect();
-        const audienceIds = new Set<string>([String(recipientDeptId)]);
+        const audienceIds = new Set<string>(notifyDeptIds);
         for (const d of allDepts) {
-          if (d.parentId && String(d.parentId) === String(recipientDeptId)) {
+          if (d.parentId && notifyDeptIds.has(String(d.parentId))) {
             audienceIds.add(String(d._id));
           }
         }
@@ -1019,7 +1041,7 @@ export const send = mutation({
       console.error("[send] planification résumé IA échouée:", e);
     }
 
-    if (recipient.email) {
+    if (recipient?.email) {
       try {
         await ctx.scheduler.runAfter(
           0,
