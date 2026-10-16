@@ -74,10 +74,6 @@ export function SendDocument({
   >([]);
   /** Autres directions/services destinataires (en plus de la destination principale) */
   const [extraDestIds, setExtraDestIds] = useState<Id<"departments">[]>([]);
-  /** Ampliation : pour information uniquement (pas d'obligation de traiter) */
-  const [ampliationDestIds, setAmpliationDestIds] = useState<
-    Id<"departments">[]
-  >([]);
 
   // Objet de l'envoi
   const [objet, setObjet] = useState("");
@@ -195,15 +191,6 @@ export function SendDocument({
     setDestIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
-    // Retirer de l'ampliation si on passe en traitement
-    setAmpliationDestIds((prev) => prev.filter((x) => x !== id));
-  };
-
-  const toggleAmpliation = (id: Id<"departments">) => {
-    setAmpliationDestIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-    setDestIds((prev) => prev.filter((x) => x !== id));
   };
 
   const directions = (departments ?? [])
@@ -235,7 +222,6 @@ export function SendDocument({
     setStep(0);
     setFiles([]);
     setDestIds([]);
-    setAmpliationDestIds([]);
     setDestMode("direction");
     setSelectedDirectionId(null);
     setExtractedText("");
@@ -327,19 +313,11 @@ export function SendDocument({
       let lastId: Id<"documents"> | undefined;
       let count = 0;
 
-      // Destinations : traitement + ampliation (document unique par fichier)
-      const recipientTargets = [
-        ...destIds.map((departmentId) => ({
-          departmentId,
-          kind: "traitement" as const,
-        })),
-        ...ampliationDestIds
-          .filter((id) => !destIds.includes(id))
-          .map((departmentId) => ({
-            departmentId,
-            kind: "ampliation" as const,
-          })),
-      ];
+      // Destinations structurelles (traitement uniquement — document unique)
+      const recipientTargets = destIds.map((departmentId) => ({
+        departmentId,
+        kind: "traitement" as const,
+      }));
 
       for (let fi = 0; fi < uploaded.length; fi++) {
         const up = uploaded[fi]!;
@@ -387,13 +365,12 @@ export function SendDocument({
         count += 1;
       }
 
-      const nDest = destIds.length + ampliationDestIds.filter((id) => !destIds.includes(id)).length;
       toast.success(
         count === 1
-          ? nDest > 1
-            ? `Document transmis à ${nDest} structures (dossier unique).`
+          ? destIds.length > 1
+            ? `Document transmis à ${destIds.length} structures (dossier unique).`
             : "Document transmis à la structure destinataire."
-          : `${count} dossier(s) créé(s) pour ${nDest} destination(s).`,
+          : `${count} dossier(s) créé(s) pour ${destIds.length} destination(s).`,
       );
       reset();
       onSent(lastId);
@@ -802,41 +779,6 @@ export function SendDocument({
 
           {step === 2 ? (
             <div className="space-y-6">
-              {/* Ampliation optionnelle */}
-              <div className="space-y-2">
-                <Label>Ampliation (pour information)</Label>
-                <p className="text-[11px] text-muted-foreground">
-                  Structures qui reçoivent une copie sans obligation de traiter.
-                </p>
-                <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
-                  {(departments ?? [])
-                    .filter((d) => {
-                      const k = (d as { kind?: string | null }).kind;
-                      return k !== "service" && !destIds.includes(d._id);
-                    })
-                    .slice(0, 36)
-                    .map((d) => {
-                      const active = ampliationDestIds.includes(d._id);
-                      return (
-                        <button
-                          key={d._id}
-                          type="button"
-                          onClick={() => toggleAmpliation(d._id)}
-                          className={cn(
-                            "rounded-full border px-2.5 py-1 text-[11px] transition-all",
-                            active
-                              ? "border-amber-600/50 bg-amber-50 text-amber-900"
-                              : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
-                          )}
-                        >
-                          {d.code ?? d.name.slice(0, 20)}
-                          {active ? " ✓" : ""}
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
-
               <div className="space-y-2">
                 <Label htmlFor="publicRef">Identifiant du dossier</Label>
                 <Input
