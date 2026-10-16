@@ -704,20 +704,23 @@ export const send = mutation({
         recipientDept = await ctx.db.get(recipient.departmentId);
       }
     } else if (recipientDeptId && recipientDept) {
-      // Envoi structurel : chef en priorité, sinon premier membre, sinon émetteur (porteur technique)
-      const members = membersOfDept(recipientDeptId);
+      // Envoi structurel : le dossier appartient à la structure.
+      // Si des membres existent, on peut noter le chef comme contact (optionnel).
+      // Jamais l'émetteur admin comme « récepteur » artificiel.
+      const members = membersOfDept(recipientDeptId).filter(
+        (m) => String(m._id) !== String(userId),
+      );
       const chef = members.find((m) => m.departmentRole === "chef");
-      recipient = chef ?? members[0] ?? sender;
+      recipient = chef ?? members[0] ?? null;
     } else {
       throw new Error(
         "Choisissez une direction ou un service destinataire (ou une personne).",
       );
     }
 
-    if (!recipient) throw new Error("Destinataire introuvable.");
-
-    // Circuit personnes (compat) + circuit structures
-    const circuitIds: Id<"users">[] = [recipient._id];
+    // Circuit personnes (compat) — uniquement s'il y a un destinataire nommé
+    const circuitIds: Id<"users">[] = [];
+    if (recipient) circuitIds.push(recipient._id);
     for (const id of args.circuitAssigneeIds ?? []) {
       if (circuitIds.some((x) => x === id)) continue;
       if (id === userId) continue;
@@ -742,12 +745,16 @@ export const send = mutation({
     const circuitNodes: CircuitNode[] = [];
 
     if (circuitDeptIds.length > 0 && !args.circuitAssigneeIds?.length) {
-      // Mode structure pur
+      // Mode structure : étapes personne seulement s'il y a un membre réel
+      // (sinon le dossier reste stocké sur la structure via transmissions)
       for (const did of circuitDeptIds) {
         const dep = await ctx.db.get(did);
-        const members = membersOfDept(did);
+        const members = membersOfDept(did).filter(
+          (m) => String(m._id) !== String(userId),
+        );
         const chef = members.find((m) => m.departmentRole === "chef");
-        const rep = chef ?? members[0] ?? sender;
+        const rep = chef ?? members[0] ?? null;
+        if (!rep) continue;
         circuitNodes.push({
           user: rep,
           departmentId: did,
@@ -823,11 +830,14 @@ export const send = mutation({
       senderId: userId,
       senderName: displayName(sender),
       senderDepartmentId: sender.departmentId,
-      recipientId: recipient._id,
+      recipientId: recipient?._id,
       recipientName: recipientDept
         ? `${recipientDept.code ? recipientDept.code + " — " : ""}${recipientDept.name}`
-        : displayName(recipient),
-      recipientDepartmentId: recipientDeptId ?? recipient.departmentId,
+        : recipient
+          ? displayName(recipient)
+          : "Structure",
+      recipientDepartmentId:
+        recipientDeptId ?? recipient?.departmentId ?? undefined,
       status: "envoye",
       publicRef: manualRef || generatePublicRef(),
       hasCircuit: circuitUsers.length > 1,
@@ -839,7 +849,7 @@ export const send = mutation({
       ),
       dueAt:
         now +
-        circuitUsers.length *
+        Math.max(1, circuitUsers.length || 1) *
           Math.min(
             168,
             Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
@@ -1247,6 +1257,37 @@ export const get = query({
 
     const activeStep = steps.find((s) => s.status === "active") ?? null;
     const isSender = document.senderId === userId;
+    // Membre d'une structure destinataire (même sans recipientId nommé)
+    let isStructureViewer = false;
+    try {
+      const meUser = await ctx.db.get(userId);
+      if (meUser?.departmentId) {
+        const myDept = String(meUser.departmentId);
+        const allDepts = await ctx.db.query("departments").collect();
+        const mine = allDepts.find((d) => String(d._id) === myDept);
+        const matchIds = new Set<string>([myDept]);
+        if (mine?.parentId) matchIds.add(String(mine.parentId));
+        if (
+          document.recipientDepartmentId &&
+          matchIds.has(String(document.recipientDepartmentId))
+        ) {
+          isStructureViewer = true;
+        }
+        if (!isStructureViewer) {
+          const txs = await ctx.db
+            .query("documentTransmissions")
+            .withIndex("by_document", (q) =>
+              q.eq("documentId", document._id),
+            )
+            .collect();
+          isStructureViewer = txs.some((tr) =>
+            matchIds.has(String(tr.departmentId)),
+          );
+        }
+      }
+    } catch {
+      /* ignore */
+    }
     const myStepIndex = steps.findIndex((s) => s.assigneeId === userId);
     const myStep = myStepIndex >= 0 ? steps[myStepIndex]! : null;
     const prevStep = myStepIndex > 0 ? steps[myStepIndex - 1]! : null;
@@ -1320,7 +1361,9 @@ export const get = query({
     return {
       ...(await decorate(ctx, [document]))[0]!,
       downloadUrl: await ctx.storage.getUrl(document.storageId),
-      isRecipient: document.recipientId === userId,
+      isRecipient: Boolean(
+        document.recipientId && document.recipientId === userId,
+      ),
       isSender,
       publicRef: document.publicRef ?? null,
       revisionCount: document.revisionCount ?? 0,
@@ -1347,10 +1390,12 @@ export const get = query({
         activeStep != null &&
         activeStep.assigneeId === userId &&
         document.status !== "traite",
-      /** Tout intervenant du circuit (ou destinataire) peut mettre à jour le statut */
+      /** Destinataire nommé, étape circuit, ou membre structure destinataire */
       canUpdateStatus:
         document.status !== "traite" &&
-        (document.recipientId === userId || isStepAssignee),
+        (Boolean(document.recipientId && document.recipientId === userId) ||
+          isStepAssignee ||
+          isStructureViewer),
       isLastInCircuit:
         myStepIndex >= 0 && myStepIndex === steps.length - 1,
       myStepDone: myStep?.status === "done",
@@ -1463,7 +1508,9 @@ export const setStatus = mutation({
     }
 
     const isAssignee = steps.some((s) => String(s.assigneeId) === uid);
-    const isRecipient = String(document.recipientId) === uid;
+    const isRecipient = Boolean(
+      document.recipientId && String(document.recipientId) === uid,
+    );
 
     // Transmissions : membre de la structure destinataire
     let myTransmission: Doc<"documentTransmissions"> | null = null;

@@ -193,7 +193,8 @@ const schema = defineSchema(
       owningEntityId: v.optional(v.id("departments")),
       confidentiality: v.optional(confidentialityValidator),
       referenceNumber: v.optional(v.string()),
-      recipientId: v.id("users"),
+      /** Optionnel si envoi purement structurel (direction/service sans membre encore). */
+      recipientId: v.optional(v.id("users")),
       recipientName: v.string(),
       recipientDepartmentId: v.optional(v.id("departments")),
       status: documentStatusValidator,
