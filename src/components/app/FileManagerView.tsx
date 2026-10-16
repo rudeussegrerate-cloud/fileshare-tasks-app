@@ -15,7 +15,12 @@ import {
 import { MndptLoader } from "@/components/MndptLoader";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { StatusBadge, formatDateTime } from "./shared";
+import {
+  StatusBadge,
+  formatDateTime,
+  structureRecipient,
+  structureSender,
+} from "./shared";
 
 type Scope = "all" | "sent" | "received" | "archived";
 
@@ -36,6 +41,7 @@ export function FileManagerView({
   const [search, setSearch] = useState("");
   const [scope, setScope] = useState<Scope>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [historyId, setHistoryId] = useState<Id<"documents"> | null>(null);
 
   const debounced = useMemo(() => search.trim(), [search]);
   const rows = useQuery(api.documents.fileManager, {
@@ -45,6 +51,10 @@ export function FileManagerView({
   const archive = useMutation(api.documents.archive);
   const unarchive = useMutation(api.documents.unarchive);
   const remove = useMutation(api.documents.remove);
+  const history = useQuery(
+    api.documents.documentHistory,
+    historyId ? { documentId: historyId } : "skip",
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-5" data-scandoc-tour="files-search">
@@ -55,8 +65,8 @@ export function FileManagerView({
             Gestionnaire de fichiers
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Recherchez un dossier par <strong>identifiant</strong>, objet ou
-            nom de fichier. Archivez ou supprimez selon vos droits.
+            Recherchez par <strong>identifiant REF-</strong>, objet ou fichier.
+            Consultez l&apos;historique par structure (parcours organisationnel).
           </p>
         </div>
         <Button type="button" className="gap-1.5" onClick={onSend}>
@@ -121,7 +131,7 @@ export function FileManagerView({
                     {doc.publicRef ?? "Sans identifiant"} · {doc.fileName}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {doc.senderName} → {doc.recipientName}
+                    {structureSender(doc)} → {structureRecipient(doc)}
                     {doc.hasCircuit ? " · circuit" : ""}
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
@@ -147,6 +157,20 @@ export function FileManagerView({
                   onClick={() => onOpen(doc._id as Id<"documents">)}
                 >
                   Ouvrir
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    setHistoryId(
+                      historyId === doc._id
+                        ? null
+                        : (doc._id as Id<"documents">),
+                    )
+                  }
+                >
+                  Historique
                 </Button>
                 {doc.canArchive ? (
                   <Button
@@ -240,6 +264,60 @@ export function FileManagerView({
           ))}
         </ul>
       )}
+      {historyId ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 max-h-[55vh] overflow-y-auto border-t border-border bg-card p-4 shadow-lg sm:inset-x-auto sm:bottom-4 sm:right-4 sm:max-w-md sm:rounded-lg sm:border">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">
+              Historique organisationnel
+            </h3>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setHistoryId(null)}
+            >
+              Fermer
+            </Button>
+          </div>
+          {history === undefined ? (
+            <MndptLoader size="inline" />
+          ) : history === null ? (
+            <p className="text-xs text-muted-foreground">
+              Historique non accessible.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium">{history.objet}</p>
+                {history.publicRef ? (
+                  <p className="font-mono text-[11px] text-muted-foreground">
+                    {history.publicRef}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Actuellement : {history.currentStructure} ·{" "}
+                  {history.currentStatus}
+                </p>
+              </div>
+              <ol className="space-y-2 border-l-2 border-brand/30 pl-3">
+                {history.events.map((ev, i) => (
+                  <li key={`${ev.at}-${i}`} className="relative text-xs">
+                    <span className="absolute -left-[calc(0.75rem+5px)] top-1 size-2 rounded-full bg-brand" />
+                    <p className="font-medium">{ev.structure}</p>
+                    <p className="text-muted-foreground">
+                      {ev.status}
+                      {ev.note ? ` · ${ev.note}` : ""}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {formatDateTime(ev.at)}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

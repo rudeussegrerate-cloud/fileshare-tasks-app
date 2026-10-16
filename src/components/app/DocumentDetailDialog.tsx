@@ -34,6 +34,8 @@ import {
   fileIconFor,
   formatBytes,
   formatDateTime,
+  structureRecipient,
+  structureSender,
   type DocumentStatus,
   PREDEFINED_TASKS,
 } from "./shared";
@@ -90,7 +92,7 @@ export function DocumentDetailDialog({
 <h1>${esc(documentOrNull.objet || documentOrNull.fileName)}</h1>
 <div class="meta">ScanDoc · Fiche document</div>
 <div class="box"><div class="label">Fichier</div>${esc(documentOrNull.fileName)}</div>
-<div class="box"><div class="label">De</div>${esc(documentOrNull.senderName ?? "—")} → ${esc(documentOrNull.recipientName ?? "—")}</div>
+<div class="box"><div class="label">De</div>${esc(structureSender(documentOrNull))} → ${esc(structureRecipient(documentOrNull))}</div>
 <div class="box"><div class="label">Tâches</div>${esc(String(tasks))}</div>
 <div class="box"><div class="label">Statut</div>${esc(documentOrNull.status ?? "—")}</div>
 <div class="box"><div class="label">Résumé / explication</div><pre>${esc(documentOrNull.summary ?? "Aucun résumé.")}</pre></div>
@@ -310,19 +312,11 @@ export function DocumentDetailDialog({
               ) : null}
               <p>
                 <span className="text-muted-foreground">Expéditeur : </span>
-                <span className="font-medium">{documentOrNull.senderName}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Département expéditeur : </span>
-                <span className="font-medium">{documentOrNull.senderDepartmentName ?? "—"}</span>
+                <span className="font-medium">{structureSender(documentOrNull)}</span>
               </p>
               <p>
                 <span className="text-muted-foreground">Destinataire : </span>
-                <span className="font-medium">{documentOrNull.recipientName}</span>
-              </p>
-              <p>
-                <span className="text-muted-foreground">Département destinataire : </span>
-                <span className="font-medium">{documentOrNull.recipientDepartmentName ?? "—"}</span>
+                <span className="font-medium">{structureRecipient(documentOrNull)}</span>
               </p>
             </section>
 
@@ -657,8 +651,8 @@ export function DocumentDetailDialog({
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">
                 {documentOrNull.isRecipient
-                  ? `Envoyé par ${documentOrNull.senderName}`
-                  : `Envoyé à ${documentOrNull.recipientName}`}{" "}
+                  ? `Envoyé par ${structureSender(documentOrNull)}`
+                  : `Envoyé à ${structureRecipient(documentOrNull)}`}{" "}
                 le {formatDateTime(documentOrNull.createdAt)}
                 {documentOrNull.archivedAt
                   ? ` · Archivé le ${formatDateTime(documentOrNull.archivedAt)}`

@@ -2057,6 +2057,158 @@ export const purgeAllDocuments = mutation({
   },
 });
 
+
+/**
+ * Historique organisationnel d'un dossier (structures + états + dates).
+ * Orienté services — pas de noms de personnes dans le parcours public.
+ */
+export const documentHistory = query({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const document = await ctx.db.get(args.documentId);
+    if (!document) return null;
+    const user = await ctx.db.get(userId);
+
+    let allowed =
+      document.senderId === userId ||
+      document.recipientId === userId ||
+      isAdminRole(user?.role);
+    if (!allowed && user?.departmentId) {
+      if (
+        document.recipientDepartmentId &&
+        String(document.recipientDepartmentId) === String(user.departmentId)
+      ) {
+        allowed = true;
+      }
+      if (!allowed && document.senderDepartmentId &&
+          String(document.senderDepartmentId) === String(user.departmentId)) {
+        allowed = true;
+      }
+    }
+    if (!allowed) {
+      try {
+        const steps = await ctx.db
+          .query("documentSteps")
+          .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+          .collect();
+        allowed = steps.some((s) => s.assigneeId === userId);
+      } catch {
+        allowed = false;
+      }
+    }
+    if (!allowed) {
+      try {
+        const txs = await ctx.db
+          .query("documentTransmissions")
+          .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+          .collect();
+        if (user?.departmentId) {
+          allowed = txs.some(
+            (tr) => String(tr.departmentId) === String(user.departmentId),
+          );
+        }
+      } catch {
+        /* */
+      }
+    }
+    if (!allowed) return null;
+
+    const senderDep = document.senderDepartmentId
+      ? await ctx.db.get(document.senderDepartmentId)
+      : null;
+    const recipientDep = document.recipientDepartmentId
+      ? await ctx.db.get(document.recipientDepartmentId)
+      : null;
+
+    type Event = {
+      at: number;
+      structure: string;
+      status: string;
+      note?: string | null;
+      kind: "envoi" | "transmission" | "etape" | "statut";
+    };
+    const events: Event[] = [];
+
+    events.push({
+      at: document.createdAt ?? document._creationTime,
+      structure: senderDep
+        ? `${senderDep.code ? senderDep.code + " — " : ""}${senderDep.name}`
+        : "Structure émettrice",
+      status: "envoye",
+      note: "Dépôt / envoi du dossier",
+      kind: "envoi",
+    });
+
+    try {
+      const txs = await ctx.db
+        .query("documentTransmissions")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      for (const tr of txs.sort((a, b) => a.createdAt - b.createdAt)) {
+        events.push({
+          at: tr.actedAt ?? tr.updatedAt ?? tr.createdAt,
+          structure:
+            (tr.departmentCode ? tr.departmentCode + " — " : "") +
+            (tr.departmentName ?? "Structure"),
+          status: tr.status,
+          note: tr.kind === "ampliation" ? "Ampliation (info)" : "Traitement",
+          kind: "transmission",
+        });
+      }
+    } catch {
+      /* */
+    }
+
+    try {
+      const steps = await ctx.db
+        .query("documentSteps")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      for (const s of steps.sort((a, b) => a.stepIndex - b.stepIndex)) {
+        const struct =
+          s.assigneeDepartmentName ||
+          (s.assigneeDepartmentId
+            ? (await ctx.db.get(s.assigneeDepartmentId))?.name
+            : null) ||
+          "Structure";
+        events.push({
+          at: s.actedAt ?? s.activatedAt ?? s.createdAt,
+          structure: struct,
+          status: s.status,
+          note: s.note ?? s.taskLabel ?? null,
+          kind: "etape",
+        });
+      }
+    } catch {
+      /* */
+    }
+
+    events.push({
+      at: document.updatedAt ?? document.createdAt ?? document._creationTime,
+      structure: recipientDep
+        ? `${recipientDep.code ? recipientDep.code + " — " : ""}${recipientDep.name}`
+        : document.recipientName || "Structure destinataire",
+      status: document.status,
+      note: "État actuel",
+      kind: "statut",
+    });
+
+    events.sort((a, b) => a.at - b.at);
+
+    return {
+      publicRef: document.publicRef ?? null,
+      objet: document.objet ?? document.fileName,
+      currentStatus: document.status,
+      currentStructure: recipientDep
+        ? `${recipientDep.code ? recipientDep.code + " — " : ""}${recipientDep.name}`
+        : document.recipientName || "—",
+      events,
+    };
+  },
+});
+
 export const auditTrail = query({
   args: { documentId: v.id("documents") },
   handler: async (ctx, args) => {

@@ -95,6 +95,36 @@ export function formatBytes(bytes?: number | null) {
   return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
+/** Libellé structure (direction/service) — règle métier : pas de nom de personne. */
+export type StructureDocFields = {
+  senderName?: string | null;
+  recipientName?: string | null;
+  senderDepartmentName?: string | null;
+  recipientDepartmentName?: string | null;
+};
+
+export function structureFrom(
+  structureName?: string | null,
+  fallbackPersonOrLabel?: string | null,
+): string {
+  const s = structureName?.trim();
+  if (s) return s;
+  // recipientName peut déjà être un libellé de structure (envoi structurel)
+  const f = fallbackPersonOrLabel?.trim();
+  if (f && (f.includes("—") || f.includes(" - ") || /^[A-Z]{2,}/.test(f))) {
+    return f;
+  }
+  return f ? "Structure" : "—";
+}
+
+export function structureSender(doc: StructureDocFields): string {
+  return structureFrom(doc.senderDepartmentName, doc.senderName);
+}
+
+export function structureRecipient(doc: StructureDocFields): string {
+  return structureFrom(doc.recipientDepartmentName, doc.recipientName);
+}
+
 export function formatDateTime(timestamp?: number | null) {
   if (!timestamp) return "—";
   return format(new Date(timestamp), "d MMM yyyy 'à' HH:mm", { locale: fr });

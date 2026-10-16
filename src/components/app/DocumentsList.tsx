@@ -24,6 +24,8 @@ import {
   fileIconFor,
   formatBytes,
   formatDateTime,
+  structureRecipient,
+  structureSender,
   type DocumentStatus,
 } from "./shared";
 
@@ -248,12 +250,8 @@ export function DocumentsList({
               const Icon = fileIconFor(document.fileName);
               const counterpart =
                 mode === "inbox"
-                  ? document.senderName
-                  : document.recipientName;
-              const department =
-                mode === "inbox"
-                  ? document.senderDepartmentName
-                  : document.recipientDepartmentName;
+                  ? structureSender(document)
+                  : structureRecipient(document);
               return (
                 <li key={document._id}>
                   <button
@@ -302,7 +300,7 @@ export function DocumentsList({
                       </div>
                       <p className="mt-1 truncate text-xs text-muted-foreground">
                         {mode === "inbox" ? "De" : "À"} {counterpart}
-                        {department ? ` · ${department}` : ""} ·{" "}
+                        {" · "}
                         {formatDateTime(document.createdAt)} ·{" "}
                         {formatBytes(document.size)}
                       </p>
@@ -323,11 +321,7 @@ export function DocumentsList({
                         <p className="mt-1 text-xs font-medium text-amber-900">
                           {document.status === "traite"
                             ? "Circuit terminé"
-                            : `📍 Chez ${document.recipientName}${
-                                document.recipientDepartmentName
-                                  ? ` (${document.recipientDepartmentName})`
-                                  : ""
-                              } · étape ${(document.currentStepIndex ?? 0) + 1}/${
+                            : `📍 Chez ${structureRecipient(document)} · étape ${(document.currentStepIndex ?? 0) + 1}/${
                                 document.circuitTotalSteps ?? "?"
                               }`}
                         </p>

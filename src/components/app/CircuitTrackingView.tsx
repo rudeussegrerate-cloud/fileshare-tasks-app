@@ -1,3 +1,4 @@
+import { structureRecipient, structureSender } from "./shared";
 import { Button } from "@/components/ui/button";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -113,7 +114,7 @@ export function CircuitTrackingView({
                     {doc.publicRef ?? "Sans identifiant"}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {doc.senderName} → {doc.recipientName}
+                    {structureSender(doc)} → {structureRecipient(doc)}
                     {doc.hasCircuit
                       ? ` · étape ${doc.currentStepIndex + 1}/${doc.circuitTotalSteps || "?"}`
                       : ""}

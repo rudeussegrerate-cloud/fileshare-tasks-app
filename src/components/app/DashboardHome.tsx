@@ -30,6 +30,7 @@ import {
   formatDateTime,
   initialsOf,
 } from "./shared";
+import { structureRecipient, structureSender } from "./shared";
 
 const ONLINE_MS = 2 * 60 * 1000;
 
@@ -337,7 +338,7 @@ export function DashboardHome({
                         {document.objet || document.fileName}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {document.senderName} ·{" "}
+                        {structureSender(document)} ·{" "}
                         {formatDateTime(document.createdAt)}
                       </span>
                     </span>
@@ -652,8 +653,8 @@ function EnterprisePanel({
                       </p>
                     ) : null}
                     <p className="text-[11px] text-muted-foreground">
-                      {item.senderName
-                        ? `${item.senderName} → ${item.recipientName}`
+                      {item.senderName || item.senderDepartment
+                        ? `${item.senderDepartment || item.senderName} → ${item.recipientDepartment || item.recipientName}`
                         : item.fonction || item.email || ""}
                       {item.activeAssigneeName
                         ? ` · chez ${item.activeAssigneeName}`
@@ -844,17 +845,9 @@ function EnterprisePanel({
                       {doc.objet || doc.fileName}
                     </p>
                     <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {doc.senderName}
-                      <span className="text-muted-foreground/70">
-                        {" "}
-                        ({doc.senderDepartment})
-                      </span>
+                      {doc.senderDepartment || "Structure"}
                       {" → "}
-                      {doc.recipientName}
-                      <span className="text-muted-foreground/70">
-                        {" "}
-                        ({doc.recipientDepartment})
-                      </span>
+                      {doc.recipientDepartment || doc.recipientName || "Structure"}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
@@ -1063,7 +1056,11 @@ function DepartmentPanel({
                         {item.publicRef ?? "—"}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        {item.senderName} → {item.recipientName}
+                        {(item as { senderDepartment?: string }).senderDepartment ||
+                          item.senderName}{" "}
+                        →{" "}
+                        {(item as { recipientDepartment?: string }).recipientDepartment ||
+                          item.recipientName}
                         {item.activeAssigneeName
                           ? ` · chez ${item.activeAssigneeName}`
                           : ""}
@@ -1178,7 +1175,7 @@ function DepartmentPanel({
                           ? "Reçu"
                           : "Interne"}
                       {" · "}
-                      {doc.senderName} → {doc.recipientName}
+                      {structureSender(doc as any)} → {structureRecipient(doc as any)}
                       {doc.hasCircuit
                         ? ` · circuit ${doc.currentStepIndex + 1}/${doc.circuitTotalSteps || "?"}`
                         : ""}

@@ -665,13 +665,21 @@ export const departmentActivity = query({
         isAdminRole(me.role);
       if (!sameDept && !involved) continue;
 
+      let fromLabel = d.senderName ?? "Structure";
+      let toLabel = d.recipientName ?? "Structure";
+      if (d.senderDepartmentId) {
+        const sd = await ctx.db.get(d.senderDepartmentId);
+        if (sd) fromLabel = sd.code ? `${sd.code} — ${sd.name}` : sd.name;
+      }
+      if (d.recipientDepartmentId) {
+        const rd = await ctx.db.get(d.recipientDepartmentId);
+        if (rd) toLabel = rd.code ? `${rd.code} — ${rd.name}` : rd.name;
+      }
       events.push({
         id: `doc-${d._id}`,
         kind: "document",
         title: d.objet || d.fileName,
-        body: `${d.senderName} → ${recipient?.name ?? d.recipientName ?? "structure"} · ${
-          Array.isArray(d.tasks) ? d.tasks.slice(0, 2).join(", ") : d.task ?? ""
-        }`,
+        body: `${fromLabel} → ${toLabel}`,
         createdAt: d._creationTime,
         documentId: d._id,
       });
