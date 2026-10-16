@@ -58,12 +58,7 @@ export function DocumentDetailDialog({
   const markViewed = useMutation(api.documents.markViewed);
   const setStatus = useMutation(api.documents.setStatus);
   const completeStep = useMutation(api.documents.completeStep);
-  const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
-  const attachRevision = useMutation(api.documents.attachRevision);
   const [stepNote, setStepNote] = useState("");
-  const [revising, setRevising] = useState(false);
-  const [revisionTasks, setRevisionTasks] = useState<string[]>([]);
-  const revisionInputRef = useRef<HTMLInputElement>(null);
 
   const archiveDoc = useMutation(api.documents.archive);
   const unarchiveDoc = useMutation(api.documents.unarchive);
@@ -570,134 +565,6 @@ export function DocumentDetailDialog({
                   </div>
                 ) : null}
 
-                {(documentOrNull.canUpdateStatus || documentOrNull.isRecipient) &&
-                documentOrNull.status !== "traite" ? (
-                  <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3 space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Renvoyer le fichier modifié
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Même dossier, même identifiant
-                      {documentOrNull.publicRef ? (
-                        <> (<span className="font-mono font-medium text-foreground">{documentOrNull.publicRef}</span>)</>
-                      ) : null}
-                      . Le système sait que c&apos;est la suite du suivi, pas un nouvel envoi.
-                    </p>
-                    <div className="space-y-1.5 rounded-md border border-border/60 bg-background/80 p-2">
-                      <p className="text-[11px] font-medium text-foreground">
-                        Tâches pour le prochain (optionnel)
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Comme à l&apos;envoi : ces cases s&apos;appliquent à la personne suivante du circuit.
-                      </p>
-                      <div className="grid max-h-36 grid-cols-1 gap-1 overflow-y-auto sm:grid-cols-2">
-                        {PREDEFINED_TASKS.map((task) => {
-                          const checked = revisionTasks.includes(task);
-                          return (
-                            <label
-                              key={task}
-                              className="flex cursor-pointer items-start gap-2 rounded px-1 py-0.5 text-[11px] hover:bg-muted/50"
-                            >
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={(v) => {
-                                  setRevisionTasks((prev) =>
-                                    v
-                                      ? [...prev, task]
-                                      : prev.filter((t) => t !== task),
-                                  );
-                                }}
-                                className="mt-0.5"
-                              />
-                              <span>{task}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                    {(documentOrNull.revisionCount ?? 0) > 0 ? (
-                      <p className="text-[11px] text-emerald-800">
-                        {documentOrNull.revisionCount} version(s) renvoyée(s)
-                        {documentOrNull.lastRevisedByName
-                          ? ` · dernière par ${documentOrNull.lastRevisedByName}`
-                          : ""}
-                      </p>
-                    ) : null}
-                    <input
-                      ref={revisionInputRef}
-                      type="file"
-                      className="hidden"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        e.target.value = "";
-                        if (!file || !documentId) return;
-                        setRevising(true);
-                        try {
-                          const uploadUrl = await generateUploadUrl();
-                          const response = await fetch(uploadUrl, {
-                            method: "POST",
-                            headers: {
-                              "Content-Type":
-                                file.type || "application/octet-stream",
-                            },
-                            body: file,
-                          });
-                          if (!response.ok) {
-                            throw new Error("Échec de l'envoi du fichier.");
-                          }
-                          const { storageId } = (await response.json()) as {
-                            storageId: Id<"_storage">;
-                          };
-                          const tasksSnapshot = [...revisionTasks];
-                          await attachRevision({
-                            documentId,
-                            storageId,
-                            fileName: file.name || "document-modifie.bin",
-                            contentType: file.type || undefined,
-                            size: file.size,
-                            tasksForNext:
-                              tasksSnapshot.length > 0
-                                ? tasksSnapshot
-                                : undefined,
-                          });
-                          setRevisionTasks([]);
-                          toast.success(
-                            tasksSnapshot.length > 0
-                              ? "Version renvoyée avec tâches pour le suivant"
-                              : "Version renvoyée — le suivi reste sur le même identifiant",
-                          );
-                        } catch (err) {
-                          toast.error(
-                            err instanceof Error
-                              ? err.message
-                              : "Impossible de renvoyer le fichier",
-                          );
-                        } finally {
-                          setRevising(false);
-                        }
-                      }}
-                    />
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="gap-1.5"
-                      disabled={revising || busy}
-                      onClick={() => revisionInputRef.current?.click()}
-                    >
-                      {revising ? (
-                        <Loader2 className="size-3.5 animate-spin" />
-                      ) : null}
-                      Joindre ma version modifiée
-                    </Button>
-                    <p className="text-[11px] text-muted-foreground">
-                      Ensuite, cliquez <strong>Traité (mon étape)</strong> pour
-                      passer au suivant (ou renvoyez le fichier avec le même
-                      identifiant).
-                    </p>
-                  </div>
-                ) : null}
-
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <span data-scandoc-tour="doc-status">Statut du traitement</span>
                 </h4>
@@ -705,7 +572,7 @@ export function DocumentDetailDialog({
                   {documentOrNull.hasCircuit
                     ? documentOrNull.isLastInCircuit
                       ? "Dernière étape : « Traité » clôture le dossier."
-                      : "« Traité (mon étape) » valide votre part et envoie automatiquement le dossier à la personne suivante. Vous pouvez aussi renvoyer un fichier modifié avec le même identifiant."
+                      : "« Traité (mon étape) » valide votre part et envoie automatiquement le dossier à la personne suivante."
                     : "L'émetteur voit ce statut en temps réel."}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">

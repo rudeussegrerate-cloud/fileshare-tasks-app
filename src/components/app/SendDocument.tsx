@@ -207,8 +207,7 @@ export function SendDocument({
       (d) =>
         selectedDirectionId &&
         d.parentId === selectedDirectionId &&
-        ((d as { kind?: string | null }).kind === "service" ||
-          (d as { kind?: string | null }).kind == null),
+        (d as { kind?: string | null }).kind === "service",
     )
     .slice()
     .sort((a, b) =>
@@ -605,7 +604,9 @@ export function SendDocument({
                       {directions.map((dir) => {
                         const active = destIds.includes(dir._id);
                         const svcCount = (departments ?? []).filter(
-                          (s) => s.parentId === dir._id,
+                          (s) =>
+                            s.parentId === dir._id &&
+                            (s as { kind?: string | null }).kind === "service",
                         ).length;
                         return (
                           <button
@@ -657,7 +658,9 @@ export function SendDocument({
                       {directions.map((dir) => {
                         const active = selectedDirectionId === dir._id;
                         const svcCount = (departments ?? []).filter(
-                          (s) => s.parentId === dir._id,
+                          (s) =>
+                            s.parentId === dir._id &&
+                            (s as { kind?: string | null }).kind === "service",
                         ).length;
                         if (svcCount === 0) return null;
                         return (
