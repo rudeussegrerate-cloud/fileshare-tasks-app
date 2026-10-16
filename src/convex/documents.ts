@@ -84,7 +84,7 @@ function displayName(user: { name?: string | null; email?: string | null }) {
 function generatePublicRef() {
   const y = new Date().getFullYear();
   const part = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `SD-${y}-${part}`;
+  return `REF-${y}-${part}`;
 }
 
 
@@ -480,7 +480,10 @@ export const send = mutation({
       size: args.size,
     });
 
-    const manualRef = (args.publicRef ?? "").trim().toUpperCase();
+    let manualRef = (args.publicRef ?? "").trim().toUpperCase();
+    if (manualRef && !manualRef.startsWith("REF-") && !manualRef.startsWith("SD-")) {
+      manualRef = `REF-${manualRef}`;
+    }
 
     // ——— CONTINUER un circuit existant via identifiant ———
     if (manualRef) {

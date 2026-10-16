@@ -61,6 +61,8 @@ export function SendDocument({
   const [extracting, setExtracting] = useState(false);
   /** Services destinataires (rattachés à une direction) */
   const [destIds, setDestIds] = useState<Id<"departments">[]>([]);
+  /** direction = envoi aux directions ; service = envoi aux services uniquement */
+  const [destMode, setDestMode] = useState<"direction" | "service">("direction");
   const [selectedDirectionId, setSelectedDirectionId] = useState<
     Id<"departments"> | null
   >(null);
@@ -204,13 +206,27 @@ export function SendDocument({
     setDestIds((prev) => prev.filter((x) => x !== id));
   };
 
-  const directions = (departments ?? []).filter((d) => {
-    const k = (d as { kind?: string | null }).kind;
-    return k !== "service"; // directions, DG, SG, organismes, DIR…
-  });
-  const servicesOfSelected = (departments ?? []).filter(
-    (d) => selectedDirectionId && d.parentId === selectedDirectionId,
-  );
+  const directions = (departments ?? [])
+    .filter((d) => {
+      const k = (d as { kind?: string | null }).kind;
+      return k !== "service";
+    })
+    .slice()
+    .sort((a, b) =>
+      (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
+    );
+  const servicesOfSelected = (departments ?? [])
+    .filter(
+      (d) =>
+        selectedDirectionId &&
+        d.parentId === selectedDirectionId &&
+        ((d as { kind?: string | null }).kind === "service" ||
+          (d as { kind?: string | null }).kind == null),
+    )
+    .slice()
+    .sort((a, b) =>
+      (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
+    );
   const selectedDirection = (departments ?? []).find(
     (d) => d._id === selectedDirectionId,
   );
@@ -220,6 +236,7 @@ export function SendDocument({
     setFiles([]);
     setDestIds([]);
     setAmpliationDestIds([]);
+    setDestMode("direction");
     setSelectedDirectionId(null);
     setExtractedText("");
     // destIds cleared above
@@ -326,7 +343,10 @@ export function SendDocument({
 
       for (let fi = 0; fi < uploaded.length; fi++) {
         const up = uploaded[fi]!;
-        const refBase = publicRef.trim();
+        let refBase = publicRef.trim().toUpperCase();
+        if (refBase && !refBase.startsWith("REF-") && !refBase.startsWith("SD-")) {
+          refBase = `REF-${refBase}`;
+        }
         const ref =
           refBase && uploaded.length === 1
             ? refBase
@@ -537,146 +557,113 @@ export function SendDocument({
           ) : null}
 
           {step === 1 ? (
-            <div className="space-y-4">
+            <div className="space-y-4" data-scandoc-tour="send-destination">
               <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
-                  <strong>1.</strong> Direction / département, puis{" "}
-                  <strong>2.</strong> service (optionnel). Vous pouvez en
-                  sélectionner <strong>plusieurs</strong>. Un seul dossier
-                  est créé : le statut « traité » par un membre vaut pour
-                  toute sa structure.
+                  Choisissez une ou plusieurs <strong>directions</strong>, ou
+                  uniquement des <strong>services</strong> à l&apos;intérieur
+                  d&apos;une direction. Cliquez à nouveau pour désélectionner.
+                  Au moins une destination est requise.
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  1 · Direction ou département
-                </p>
-                {departments === undefined ? (
-                  <div className="flex justify-center py-6">
-                    <Loader2 className="size-5 animate-spin text-muted-foreground" />
-                  </div>
-                ) : directions.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
-                    Aucune direction disponible. Le DG doit installer
-                    l&apos;arbre MNDPT ou créer les structures.
-                  </p>
-                ) : (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {directions.map((dir) => {
-                      const active = selectedDirectionId === dir._id;
-                      const serviceCount = (departments ?? []).filter(
-                        (s) => s.parentId === dir._id,
-                      ).length;
-                      const selectedInDir = (departments ?? []).filter(
-                        (s) =>
-                          s.parentId === dir._id && destIds.includes(s._id),
-                      ).length;
-                      return (
-                        <button
-                          key={dir._id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedDirectionId(dir._id);
-                            setRecipientId(null);
-                            setCircuitExtra([]);
-                          }}
-                          className={cn(
-                            "rounded-sm border p-3 text-left transition-all",
-                            active
-                              ? "border-brand bg-brand-soft"
-                              : "border-border bg-card hover:border-brand-sky/50",
-                          )}
-                        >
-                          <div className="flex items-center gap-2">
-                            <Building2 className="size-4 shrink-0 text-brand-sky" />
-                            <span className="text-sm font-semibold">
-                              {dir.code ? `${dir.code} — ` : ""}
-                              {dir.name}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-[11px] text-muted-foreground">
-                            {serviceCount} service
-                            {serviceCount !== 1 ? "s" : ""}
-                            {selectedInDir > 0
-                              ? ` · ${selectedInDir} sélectionné${selectedInDir > 1 ? "s" : ""}`
-                              : ""}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
+              {/* Mode */}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDestMode("direction");
+                    setDestIds([]);
+                    setSelectedDirectionId(null);
+                  }}
+                  className={cn(
+                    "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
+                    destMode === "direction"
+                      ? "border-brand bg-brand-soft text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                  )}
+                >
+                  Directions
+                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                    Toute la structure
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDestMode("service");
+                    setDestIds([]);
+                  }}
+                  className={cn(
+                    "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
+                    destMode === "service"
+                      ? "border-brand bg-brand-soft text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                  )}
+                >
+                  Services
+                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                    Un service précis
+                  </span>
+                </button>
               </div>
 
-              {selectedDirectionId ? (
-                <div className="space-y-2 border-t border-border pt-4">
+              {departments === undefined ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : destMode === "direction" ? (
+                <div className="space-y-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    2 · Service dans « {selectedDirection?.name} »
+                    Directions / structures
                   </p>
-                  {servicesOfSelected.length === 0 ? (
-                    <div className="rounded-sm border border-dashed border-border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
-                      Cette direction n&apos;a pas encore de service. Vous
-                      pouvez envoyer à la direction entière : les membres
-                      rattachés directement la recevront.
-                      <div className="mt-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant={
-                            destIds.includes(selectedDirectionId)
-                              ? "default"
-                              : "outline"
-                          }
-                          onClick={() => toggleDest(selectedDirectionId)}
-                        >
-                          {destIds.includes(selectedDirectionId)
-                            ? "Direction sélectionnée"
-                            : "Envoyer à toute la direction"}
-                        </Button>
-                      </div>
-                    </div>
+                  {directions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Aucune direction disponible. Demandez au DG
+                      d&apos;initialiser l&apos;arbre MNDPT.
+                    </p>
                   ) : (
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      {servicesOfSelected.map((svc) => {
-                        const active = destIds.includes(svc._id);
-                        const memberCount =
-                          "members" in svc && Array.isArray(svc.members)
-                            ? svc.members.length
-                            : null;
+                    <div className="grid max-h-72 gap-2 overflow-y-auto sm:grid-cols-2">
+                      {directions.map((dir) => {
+                        const active = destIds.includes(dir._id);
+                        const svcCount = (departments ?? []).filter(
+                          (s) => s.parentId === dir._id,
+                        ).length;
                         return (
                           <button
-                            key={svc._id}
+                            key={dir._id}
                             type="button"
-                            onClick={() => {
-                              toggleDest(svc._id);
-                              setRecipientId(null);
-                              setCircuitExtra([]);
-                            }}
+                            onClick={() => toggleDest(dir._id)}
                             className={cn(
                               "rounded-sm border p-3 text-left transition-all",
                               active
-                                ? "border-brand bg-brand-soft"
+                                ? "border-brand bg-brand-soft ring-1 ring-brand/30"
                                 : "border-border bg-card hover:border-brand-sky/50",
                             )}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span className="text-sm font-semibold">
-                                {svc.code ? `${svc.code} — ` : ""}
-                                {svc.name}
+                                {dir.code ? `${dir.code} — ` : ""}
+                                {dir.name}
                               </span>
-                              {active ? (
-                                <span className="text-[10px] font-medium text-brand">
-                                  ✓
-                                </span>
-                              ) : null}
+                              <span
+                                className={cn(
+                                  "flex size-5 shrink-0 items-center justify-center rounded border text-[10px]",
+                                  active
+                                    ? "border-brand bg-brand text-primary-foreground"
+                                    : "border-muted-foreground/30 text-transparent",
+                                )}
+                              >
+                                ✓
+                              </span>
                             </div>
-                            <p className="mt-1 text-[11px] text-muted-foreground">
-                              {memberCount !== null
-                                ? `${memberCount} membre${memberCount !== 1 ? "s" : ""} · recevront le document`
-                                : "Tous les membres du service recevront le document"}
-                            </p>
+                            {svcCount > 0 ? (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {svcCount} service{svcCount > 1 ? "s" : ""}{" "}
+                                rattaché{svcCount > 1 ? "s" : ""}
+                              </p>
+                            ) : null}
                           </button>
                         );
                       })}
@@ -684,48 +671,150 @@ export function SendDocument({
                   )}
                 </div>
               ) : (
-                <p className="text-xs text-muted-foreground">
-                  Sélectionnez d&apos;abord une direction pour afficher ses
-                  services.
-                </p>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      1 · Direction parente
+                    </p>
+                    <div className="grid max-h-40 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                      {directions.map((dir) => {
+                        const active = selectedDirectionId === dir._id;
+                        const svcCount = (departments ?? []).filter(
+                          (s) => s.parentId === dir._id,
+                        ).length;
+                        if (svcCount === 0) return null;
+                        return (
+                          <button
+                            key={dir._id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedDirectionId(dir._id);
+                              setDestIds([]);
+                            }}
+                            className={cn(
+                              "rounded-sm border px-3 py-2 text-left text-sm transition-all",
+                              active
+                                ? "border-brand bg-brand-soft font-medium"
+                                : "border-border bg-card hover:border-brand-sky/40",
+                            )}
+                          >
+                            {dir.code ?? dir.name}
+                            <span className="ml-1 text-[10px] text-muted-foreground">
+                              ({svcCount})
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {selectedDirectionId ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        2 · Services de{" "}
+                        {selectedDirection?.code ?? selectedDirection?.name}
+                      </p>
+                      {servicesOfSelected.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Aucun service rattaché à cette direction.
+                        </p>
+                      ) : (
+                        <div className="grid gap-2 sm:grid-cols-2">
+                          {servicesOfSelected.map((svc) => {
+                            const active = destIds.includes(svc._id);
+                            return (
+                              <button
+                                key={svc._id}
+                                type="button"
+                                onClick={() => toggleDest(svc._id)}
+                                className={cn(
+                                  "rounded-sm border p-3 text-left transition-all",
+                                  active
+                                    ? "border-brand bg-brand-soft ring-1 ring-brand/30"
+                                    : "border-border bg-card hover:border-brand-sky/50",
+                                )}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-semibold">
+                                    {svc.code ? `${svc.code} — ` : ""}
+                                    {svc.name}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "flex size-5 shrink-0 items-center justify-center rounded border text-[10px]",
+                                      active
+                                        ? "border-brand bg-brand text-primary-foreground"
+                                        : "border-muted-foreground/30 text-transparent",
+                                    )}
+                                  >
+                                    ✓
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Sélectionnez d&apos;abord la direction pour voir ses
+                      services.
+                    </p>
+                  )}
+                </div>
               )}
 
+              {/* Sélection actuelle — pastilles retirables */}
               {destIds.length > 0 ? (
-                <div className="rounded-sm border border-brand/30 bg-brand-soft/40 px-3 py-2 text-xs">
-                  <span className="font-semibold text-foreground">
-                    Traitement — {destIds.length} destination
-                    {destIds.length > 1 ? "s" : ""} :
-                  </span>{" "}
-                  {destIds
-                    .map((id) => {
+                <div className="space-y-2 rounded-sm border border-brand/25 bg-brand-soft/50 px-3 py-2">
+                  <p className="text-xs font-semibold text-foreground">
+                    Sélection ({destIds.length}) — cliquer × pour retirer
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {destIds.map((id) => {
                       const d = departments?.find((x) => x._id === id);
                       if (!d) return null;
-                      const parent = d.parentName
-                        ? `${d.parentName} → `
-                        : "";
-                      return parent + d.name;
-                    })
-                    .filter(Boolean)
-                    .join(" · ")}
+                      const label = d.code
+                        ? `${d.code}`
+                        : d.name.slice(0, 28);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleDest(id)}
+                          className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-card px-2.5 py-1 text-[11px] font-medium text-foreground"
+                        >
+                          {label}
+                          <span className="text-muted-foreground">×</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              ) : null}
+              ) : (
+                <p className="text-center text-xs text-muted-foreground">
+                  Aucune destination sélectionnée.
+                </p>
+              )}
+            </div>
+          ) : null}
 
-              {/* Ampliation : pour information */}
-              <div className="space-y-2 border-t border-border pt-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Ampliation (pour information, optionnel)
-                </p>
+          {step === 2 ? (
+            <div className="space-y-6">
+              {/* Ampliation optionnelle */}
+              <div className="space-y-2">
+                <Label>Ampliation (pour information)</Label>
                 <p className="text-[11px] text-muted-foreground">
-                  Ces structures reçoivent une copie : pas d&apos;obligation de
-                  traiter. Le dossier reste unique.
+                  Structures qui reçoivent une copie sans obligation de traiter.
                 </p>
-                <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+                <div className="flex max-h-32 flex-wrap gap-1.5 overflow-y-auto">
                   {(departments ?? [])
                     .filter((d) => {
                       const k = (d as { kind?: string | null }).kind;
                       return k !== "service" && !destIds.includes(d._id);
                     })
-                    .slice(0, 40)
+                    .slice(0, 36)
                     .map((d) => {
                       const active = ampliationDestIds.includes(d._id);
                       return (
@@ -740,24 +829,14 @@ export function SendDocument({
                               : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
                           )}
                         >
-                          {d.code ?? d.name}
+                          {d.code ?? d.name.slice(0, 20)}
                           {active ? " ✓" : ""}
                         </button>
                       );
                     })}
                 </div>
-                {ampliationDestIds.length > 0 ? (
-                  <p className="text-[11px] text-amber-800">
-                    Ampliation : {ampliationDestIds.length} structure
-                    {ampliationDestIds.length > 1 ? "s" : ""}
-                  </p>
-                ) : null}
               </div>
-            </div>
-          ) : null}
 
-          {step === 2 ? (
-            <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="publicRef">Identifiant du dossier</Label>
                 <Input
@@ -766,14 +845,13 @@ export function SendDocument({
                   onChange={(e) =>
                     setPublicRef(e.target.value.toUpperCase().trim())
                   }
-                  placeholder="Ex. SD-2026-BUDGET-01"
                   className="font-mono"
                   autoComplete="off"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Nouvel envoi : choisissez un identifiant unique. Continuation
-                  de circuit : saisissez l&apos;identifiant existant (le système
-                  propose le prochain destinataire).
+                  Laissez vide pour un identifiant automatique (REF-AAAA-XXXXXX).
+                  Ou saisissez une référence commençant par REF- pour un envoi
+                  manuel ou la continuation d&apos;un circuit.
                 </p>
                 {refLookup?.found && !refLookup.isClosed ? (
                   <div
@@ -834,7 +912,6 @@ export function SendDocument({
                   id="objet" data-scandoc-tour="send-objet"
                   value={objet}
                   onChange={(e) => setObjet(e.target.value)}
-                  placeholder="Ex : Transmission du rapport trimestriel pour validation et signature"
                   rows={2}
                 />
                 <p className="text-xs text-muted-foreground">
@@ -969,7 +1046,6 @@ export function SendDocument({
                         id="onBehalfName"
                         value={onBehalfName}
                         onChange={(e) => setOnBehalfName(e.target.value)}
-                        placeholder="Nom complet"
                       />
                     </div>
                     <div className="space-y-2">
@@ -978,7 +1054,6 @@ export function SendDocument({
                         id="onBehalfFunction"
                         value={onBehalfFunction}
                         onChange={(e) => setOnBehalfFunction(e.target.value)}
-                        placeholder="Ex : Directeur commercial"
                       />
                     </div>
                     <div className="space-y-2">
@@ -994,7 +1069,6 @@ export function SendDocument({
                         onChange={(e) =>
                           setOnBehalfDepartmentText(e.target.value)
                         }
-                        placeholder="Ex : Direction générale"
                       />
                     </div>
                   </div>
@@ -1009,7 +1083,6 @@ export function SendDocument({
                   id="observations" data-scandoc-tour="send-observations"
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
-                  placeholder="Ex. DTD : M'en parler"
                   rows={3}
                   className="resize-y"
                 />
@@ -1057,7 +1130,6 @@ export function SendDocument({
                     id="customTask"
                     value={customTask}
                     onChange={(e) => setCustomTask(e.target.value)}
-                    placeholder="Ex : Vérifier les annexes et renvoyer avant vendredi"
                   />
                 </div>
                 {effectiveTasks.length > 0 ? (
