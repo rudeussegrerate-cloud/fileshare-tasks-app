@@ -700,132 +700,139 @@ function EnterprisePanel({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
-        <div className="rounded-md bg-muted/40 px-2 py-1.5">
-          <span className="text-muted-foreground">Départements</span>
-          <span className="ml-1 font-semibold">
-            {overview.totals.departments}
-          </span>
-        </div>
-        <div className="rounded-md bg-muted/40 px-2 py-1.5">
-          <span className="text-muted-foreground">Utilisateurs</span>
-          <span className="ml-1 font-semibold">{overview.totals.users}</span>
-        </div>
-        <button
-          type="button"
-          className="rounded-md bg-muted/40 px-2 py-1.5 text-left hover:bg-muted"
-          onClick={() => onNavigate("accounts")}
-        >
-          <span className="text-muted-foreground">Comptes à valider</span>
-          <span className="ml-1 font-semibold">
-            {overview.totals.pendingAccounts}
-          </span>
-        </button>
-        <button
-          type="button"
-          className="rounded-md bg-muted/40 px-2 py-1.5 text-left hover:bg-muted"
-          onClick={() => onNavigate("departments")}
-        >
-          <span className="text-muted-foreground">Adhésions</span>
-          <span className="ml-1 font-semibold">
-            {overview.totals.pendingJoins}
-          </span>
-        </button>
+      {/* Synthèse organisation — compacte */}
+      <div className="flex flex-wrap gap-2 text-[11px]">
+        <span className="rounded-full border border-border bg-muted/30 px-2.5 py-1">
+          {overview.totals.departments} structures
+        </span>
+        <span className="rounded-full border border-border bg-muted/30 px-2.5 py-1">
+          {overview.totals.users} utilisateurs
+        </span>
+        {overview.totals.pendingAccounts > 0 ? (
+          <button
+            type="button"
+            className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-amber-900"
+            onClick={() => onNavigate("accounts")}
+          >
+            {overview.totals.pendingAccounts} compte
+            {overview.totals.pendingAccounts > 1 ? "s" : ""} à valider
+          </button>
+        ) : null}
+        {overview.totals.pendingJoins > 0 ? (
+          <button
+            type="button"
+            className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-sky-900"
+            onClick={() => onNavigate("departments")}
+          >
+            {overview.totals.pendingJoins} adhésion
+            {overview.totals.pendingJoins > 1 ? "s" : ""}
+          </button>
+        ) : null}
       </div>
 
       <div>
-        <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Suivi par département
-        </h4>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Structures à suivre
+          </h4>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 text-[11px]"
+            onClick={() => onNavigate("org3d")}
+          >
+            Organigramme
+          </Button>
+        </div>
         <p className="mb-2 text-[11px] text-muted-foreground">
-          Cliquez une ligne pour ouvrir le tableau de bord du service.
+          Priorité aux dossiers ouverts ou en retard. Toucher une ligne pour le détail.
         </p>
         {overview.departmentStats.length === 0 ? (
           <p className="text-xs text-muted-foreground">
-            Aucun département pour le moment.
+            Aucune structure pour le moment.
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-lg border border-border">
-            <table className="w-full min-w-[520px] text-left text-xs">
-              <thead className="bg-muted/50 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Département</th>
-                  <th className="px-2 py-2 font-medium">Membres</th>
-                  <th className="px-2 py-2 font-medium">Envoyés</th>
-                  <th className="px-2 py-2 font-medium">Reçus</th>
-                  <th className="px-2 py-2 font-medium">Ouverts</th>
-                  <th className="px-2 py-2 font-medium">Traités</th>
-                  <th className="px-2 py-2 font-medium">Retard</th>
-                </tr>
-              </thead>
-              <tbody>
-                {overview.departmentStats.map((row) => {
-                  const canOpen =
-                    row.departmentId !== "__none__" &&
-                    row.departmentId.length > 10;
-                  return (
-                    <tr
-                      key={row.departmentId}
-                      className={`border-t border-border/60 ${
-                        canOpen
-                          ? "cursor-pointer hover:bg-brand-soft/40"
-                          : "hover:bg-muted/30"
-                      }`}
+          <ul className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border">
+            {[...overview.departmentStats]
+              .filter((r) => r.departmentId !== "__none__")
+              .sort(
+                (a, b) =>
+                  b.overdue - a.overdue ||
+                  b.open - a.open ||
+                  a.name.localeCompare(b.name, "fr"),
+              )
+              .slice(0, 10)
+              .map((row) => {
+                const canOpen = row.departmentId.length > 10;
+                return (
+                  <li key={row.departmentId}>
+                    <button
+                      type="button"
+                      disabled={!canOpen}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/40 disabled:opacity-60"
                       onClick={() => {
                         if (!canOpen) return;
-                        onSelectDept(row.departmentId as Id<"departments">);
+                        onSelectDept(
+                          row.departmentId as Id<"departments">,
+                        );
                       }}
                     >
-                      <td className="px-3 py-2 font-medium">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">
+                          {row.name}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {row.members} membre
+                          {row.members !== 1 ? "s" : ""}
+                          {row.chiefs > 0
+                            ? ` · ${row.chiefs} chef${row.chiefs > 1 ? "s" : ""}`
+                            : ""}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-2 text-center text-[10px]">
                         <span
                           className={
-                            canOpen
-                              ? "text-brand underline-offset-2 hover:underline"
-                              : ""
+                            row.open > 0
+                              ? "font-semibold text-amber-800"
+                              : "text-muted-foreground"
                           }
                         >
-                          {row.name}
-                        </span>
-                        {row.chiefs > 0 ? (
-                          <span className="ml-1 text-[10px] text-muted-foreground">
-                            · {row.chiefs} chef{row.chiefs > 1 ? "s" : ""}
+                          {row.open}
+                          <span className="block font-normal text-muted-foreground">
+                            ouv.
                           </span>
-                        ) : null}
-                      </td>
-                      <td className="px-2 py-2 tabular-nums">{row.members}</td>
-                      <td className="px-2 py-2 tabular-nums">{row.sent}</td>
-                      <td className="px-2 py-2 tabular-nums">{row.received}</td>
-                      <td className="px-2 py-2 tabular-nums text-amber-800">
-                        {row.open}
-                      </td>
-                      <td className="px-2 py-2 tabular-nums text-emerald-800">
-                        {row.traite}
-                      </td>
-                      <td
-                        className={`px-2 py-2 tabular-nums ${
-                          row.overdue > 0 ? "font-semibold text-red-700" : ""
-                        }`}
-                      >
-                        {row.overdue}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </span>
+                        <span
+                          className={
+                            row.overdue > 0
+                              ? "font-semibold text-red-700"
+                              : "text-muted-foreground"
+                          }
+                        >
+                          {row.overdue}
+                          <span className="block font-normal text-muted-foreground">
+                            retard
+                          </span>
+                        </span>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+          </ul>
         )}
       </div>
 
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Derniers échanges
+          Derniers dossiers
         </h4>
         {overview.recent.length === 0 ? (
           <p className="text-xs text-muted-foreground">Aucun document.</p>
         ) : (
           <ul className="divide-y divide-border/60 rounded-lg border border-border">
-            {overview.recent.slice(0, 8).map((doc) => (
+            {overview.recent.slice(0, 5).map((doc) => (
               <li key={doc._id}>
                 <button
                   type="button"

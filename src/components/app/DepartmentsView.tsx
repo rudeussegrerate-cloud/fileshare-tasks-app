@@ -588,18 +588,9 @@ export function DepartmentsView() {
           Départements & groupes
         </h2>
         <p className="text-sm text-muted-foreground">
-          Structure de l&apos;organisation. Le chef valide les adhésions, gère
-          les membres et le logo. Le DG crée les départements.
+          Directions et services MNDPT. Affectez les membres, nommez les chefs,
+          validez les demandes d&apos;adhésion.
         </p>
-      </div>
-      <div className="rounded-xl border border-dashed border-border bg-card/80 p-4 text-xs text-muted-foreground">
-        <p className="mb-1 font-medium text-foreground">Comment ça marche ?</p>
-        <ul className="list-inside list-disc space-y-1">
-          <li>Demande d&apos;adhésion → notification au chef → acceptation ou refus</li>
-          <li>Invitation par e-mail ou depuis la liste des utilisateurs</li>
-          <li>Sous-groupes : le chef peut y inviter les membres du département parent</li>
-          <li>Logo : visible par tous une fois défini par le chef</li>
-        </ul>
       </div>
 
       {me.isAdmin ? (

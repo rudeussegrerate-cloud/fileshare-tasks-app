@@ -88,9 +88,9 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       { key: "send", label: "Nouvel envoi", icon: Upload },
       { key: "inbox", label: "Boîte de réception", icon: Inbox },
       { key: "sent", label: "Envoyés", icon: Send },
-      { key: "suivi", label: "Suivi & circuits", icon: Route },
+      { key: "suivi", label: "Suivi des dossiers", icon: Route },
       { key: "transmissions", label: "Transmissions", icon: Share2 },
-      { key: "fichiers", label: "Recherche fichiers", icon: FolderOpen },
+      { key: "fichiers", label: "Fichiers", icon: FolderOpen },
     ],
   },
   {
@@ -104,7 +104,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Organisation",
     items: [
-      { key: "departments", label: "Départements", icon: Building2 },
+      { key: "departments", label: "Structures", icon: Building2 },
       { key: "accounts", label: "Comptes", icon: UserCheck, adminOnly: true },
       {
         key: "org3d",

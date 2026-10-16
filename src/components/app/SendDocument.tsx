@@ -390,8 +390,8 @@ export function SendDocument({
         title="Aucun département pour l'instant"
         description={
           me?.isAdmin
-            ? "Créez d'abord les départements de l'entreprise puis nommez leurs chefs. Vous pourrez ensuite transmettre des documents."
-            : "Le DG doit encore créer les départements et nommer leurs chefs. Revenez un peu plus tard."
+            ? "Installez d'abord l'arbre MNDPT (menu Départements) ou créez les structures, puis nommez les chefs."
+            : "Le DG doit encore installer les directions et services. Revenez un peu plus tard."
         }
         action={
           me?.isAdmin ? (
@@ -412,7 +412,7 @@ export function SendDocument({
           Envoyer des documents
         </h2>
         <p className="text-xs text-muted-foreground">
-          Transmettez un ou plusieurs fichiers vers une ou plusieurs directions/services ; précisez l&apos;objet, la personne au nom de
+          Envoi vers une ou plusieurs directions ou services. Indiquez l&apos;objet et la personne au nom de
           qui vous envoyez et les tâches à réaliser.
         </p>
       </div>
