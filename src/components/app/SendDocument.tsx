@@ -72,6 +72,10 @@ export function SendDocument({
   >([]);
   /** Autres directions/services destinataires (en plus de la destination principale) */
   const [extraDestIds, setExtraDestIds] = useState<Id<"departments">[]>([]);
+  /** Ampliation : pour information uniquement (pas d'obligation de traiter) */
+  const [ampliationDestIds, setAmpliationDestIds] = useState<
+    Id<"departments">[]
+  >([]);
 
   // Objet de l'envoi
   const [objet, setObjet] = useState("");
@@ -189,11 +193,21 @@ export function SendDocument({
     setDestIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
+    // Retirer de l'ampliation si on passe en traitement
+    setAmpliationDestIds((prev) => prev.filter((x) => x !== id));
   };
 
-  const directions = (departments ?? []).filter(
-    (d) => !d.parentId && (d as { kind?: string | null }).kind !== "service",
-  );
+  const toggleAmpliation = (id: Id<"departments">) => {
+    setAmpliationDestIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+    setDestIds((prev) => prev.filter((x) => x !== id));
+  };
+
+  const directions = (departments ?? []).filter((d) => {
+    const k = (d as { kind?: string | null }).kind;
+    return k !== "service"; // directions, DG, SG, organismes, DIR…
+  });
   const servicesOfSelected = (departments ?? []).filter(
     (d) => selectedDirectionId && d.parentId === selectedDirectionId,
   );
@@ -205,6 +219,7 @@ export function SendDocument({
     setStep(0);
     setFiles([]);
     setDestIds([]);
+    setAmpliationDestIds([]);
     setSelectedDirectionId(null);
     setExtractedText("");
     // destIds cleared above
@@ -294,56 +309,71 @@ export function SendDocument({
 
       let lastId: Id<"documents"> | undefined;
       let count = 0;
-      // Chaque fichier × chaque destination structurelle
-      for (const up of uploaded) {
-        for (let di = 0; di < destIds.length; di++) {
-          const dest = destIds[di]!;
-          const isFirstDest = di === 0;
-          const refBase = publicRef.trim();
-          const ref =
-            refBase && destIds.length === 1 && uploaded.length === 1
-              ? refBase
-              : refBase
-                ? `${refBase}-${di + 1}${uploaded.length > 1 ? `-${count + 1}` : ""}`
-                : undefined;
-          lastId = await sendDocument({
-            storageId: up.storageId,
-            fileName: up.fileName,
-            contentType: up.contentType,
-            size: up.size,
-            objet: objet.trim(),
-            observations: observations.trim() || undefined,
-            tasks: effectiveTasks,
-            extractedText: isFirstDest ? extractedText || undefined : undefined,
-            recipientDepartmentId: dest,
-            recipientId: isFirstDest ? recipientId ?? undefined : undefined,
-            publicRef: ref,
-            stepDeadlineHours: stepDeadlineHours,
-            circuitAssigneeIds:
-              isFirstDest && circuitExtra.length > 0
-                ? circuitExtra.map((c) => c.userId)
-                : undefined,
-            onBehalfOfType: onBehalfType,
-            onBehalfOfUserId: resolvedOnBehalfUserId,
-            onBehalfOfName:
-              onBehalfType === "external" ? onBehalfName.trim() : undefined,
-            onBehalfOfFunction:
-              onBehalfType === "external"
-                ? onBehalfFunction.trim() || undefined
-                : undefined,
-            onBehalfOfDepartment:
-              onBehalfType === "external"
-                ? onBehalfDepartmentText.trim() || undefined
-                : undefined,
-          });
-          count += 1;
-        }
+
+      // Destinations : traitement + ampliation (document unique par fichier)
+      const recipientTargets = [
+        ...destIds.map((departmentId) => ({
+          departmentId,
+          kind: "traitement" as const,
+        })),
+        ...ampliationDestIds
+          .filter((id) => !destIds.includes(id))
+          .map((departmentId) => ({
+            departmentId,
+            kind: "ampliation" as const,
+          })),
+      ];
+
+      for (let fi = 0; fi < uploaded.length; fi++) {
+        const up = uploaded[fi]!;
+        const refBase = publicRef.trim();
+        const ref =
+          refBase && uploaded.length === 1
+            ? refBase
+            : refBase
+              ? `${refBase}-${fi + 1}`
+              : undefined;
+        lastId = await sendDocument({
+          storageId: up.storageId,
+          fileName: up.fileName,
+          contentType: up.contentType,
+          size: up.size,
+          objet: objet.trim(),
+          observations: observations.trim() || undefined,
+          tasks: effectiveTasks,
+          extractedText: fi === 0 ? extractedText || undefined : undefined,
+          recipientDepartmentId: destIds[0],
+          recipientTargets,
+          recipientId: fi === 0 ? recipientId ?? undefined : undefined,
+          publicRef: ref,
+          stepDeadlineHours: stepDeadlineHours,
+          circuitAssigneeIds:
+            fi === 0 && circuitExtra.length > 0
+              ? circuitExtra.map((c) => c.userId)
+              : undefined,
+          onBehalfOfType: onBehalfType,
+          onBehalfOfUserId: resolvedOnBehalfUserId,
+          onBehalfOfName:
+            onBehalfType === "external" ? onBehalfName.trim() : undefined,
+          onBehalfOfFunction:
+            onBehalfType === "external"
+              ? onBehalfFunction.trim() || undefined
+              : undefined,
+          onBehalfOfDepartment:
+            onBehalfType === "external"
+              ? onBehalfDepartmentText.trim() || undefined
+              : undefined,
+        });
+        count += 1;
       }
 
+      const nDest = destIds.length + ampliationDestIds.filter((id) => !destIds.includes(id)).length;
       toast.success(
         count === 1
-          ? "Document transmis à la structure destinataire."
-          : `${count} envois effectués (${uploaded.length} fichier${uploaded.length > 1 ? "s" : ""} × ${destIds.length} destination${destIds.length > 1 ? "s" : ""}).`,
+          ? nDest > 1
+            ? `Document transmis à ${nDest} structures (dossier unique).`
+            : "Document transmis à la structure destinataire."
+          : `${count} dossier(s) créé(s) pour ${nDest} destination(s).`,
       );
       reset();
       onSent(lastId);
@@ -511,11 +541,11 @@ export function SendDocument({
               <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
-                  <strong>1.</strong> Choisissez d&apos;abord la{" "}
-                  <strong>direction / le département</strong>, puis{" "}
-                  <strong>2.</strong> le <strong>service</strong> à
-                  l&apos;intérieur. Tous les membres rattachés à ce service
-                  recevront le document.
+                  <strong>1.</strong> Direction / département, puis{" "}
+                  <strong>2.</strong> service (optionnel). Vous pouvez en
+                  sélectionner <strong>plusieurs</strong>. Un seul dossier
+                  est créé : le statut « traité » par un membre vaut pour
+                  toute sa structure.
                 </p>
               </div>
 
@@ -663,7 +693,7 @@ export function SendDocument({
               {destIds.length > 0 ? (
                 <div className="rounded-sm border border-brand/30 bg-brand-soft/40 px-3 py-2 text-xs">
                   <span className="font-semibold text-foreground">
-                    {destIds.length} destination
+                    Traitement — {destIds.length} destination
                     {destIds.length > 1 ? "s" : ""} :
                   </span>{" "}
                   {destIds
@@ -679,6 +709,50 @@ export function SendDocument({
                     .join(" · ")}
                 </div>
               ) : null}
+
+              {/* Ampliation : pour information */}
+              <div className="space-y-2 border-t border-border pt-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Ampliation (pour information, optionnel)
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Ces structures reçoivent une copie : pas d&apos;obligation de
+                  traiter. Le dossier reste unique.
+                </p>
+                <div className="flex max-h-40 flex-wrap gap-2 overflow-y-auto">
+                  {(departments ?? [])
+                    .filter((d) => {
+                      const k = (d as { kind?: string | null }).kind;
+                      return k !== "service" && !destIds.includes(d._id);
+                    })
+                    .slice(0, 40)
+                    .map((d) => {
+                      const active = ampliationDestIds.includes(d._id);
+                      return (
+                        <button
+                          key={d._id}
+                          type="button"
+                          onClick={() => toggleAmpliation(d._id)}
+                          className={cn(
+                            "rounded-full border px-2.5 py-1 text-[11px] transition-all",
+                            active
+                              ? "border-amber-600/50 bg-amber-50 text-amber-900"
+                              : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                          )}
+                        >
+                          {d.code ?? d.name}
+                          {active ? " ✓" : ""}
+                        </button>
+                      );
+                    })}
+                </div>
+                {ampliationDestIds.length > 0 ? (
+                  <p className="text-[11px] text-amber-800">
+                    Ampliation : {ampliationDestIds.length} structure
+                    {ampliationDestIds.length > 1 ? "s" : ""}
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : null}
 

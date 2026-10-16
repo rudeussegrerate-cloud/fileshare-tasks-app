@@ -275,6 +275,35 @@ const schema = defineSchema(
       .index("by_assignee", ["assigneeId", "status"]),
 
 
+    /**
+     * Transmissions structurelles : un document unique, plusieurs destinataires
+     * (directions/services). Le statut est partagé au niveau de la structure.
+     */
+    documentTransmissions: defineTable({
+      documentId: v.id("documents"),
+      departmentId: v.id("departments"),
+      departmentName: v.string(),
+      departmentCode: v.optional(v.string()),
+      /** traitement = doit traiter ; ampliation = pour information */
+      kind: v.union(v.literal("traitement"), v.literal("ampliation")),
+      status: v.union(
+        v.literal("envoye"),
+        v.literal("consulte"),
+        v.literal("en_cours"),
+        v.literal("traite"),
+        v.literal("retourne"),
+      ),
+      actedByUserId: v.optional(v.id("users")),
+      actedByName: v.optional(v.string()),
+      actedAt: v.optional(v.number()),
+      note: v.optional(v.string()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_document", ["documentId"])
+      .index("by_department", ["departmentId"])
+      .index("by_department_status", ["departmentId", "status"]),
+
     // Demandes d'intégration dans un département (utilisateur → chef)
     departmentJoinRequests: defineTable({
       userId: v.id("users"),

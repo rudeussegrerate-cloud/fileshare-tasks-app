@@ -184,32 +184,45 @@ async function collectInboxDocuments(
     /* table absente ou index : ignorer */
   }
 
-  // Envoi structurel :
-  // - membre d'un service → docs de son service + de sa direction parente
-  // - membre d'une direction → docs adressés à cette direction
+  // Envoi structurel + transmissions multi-destinataires
   if (me?.departmentId) {
     const myDeptId = String(me.departmentId);
     const allDepts = await ctx.db.query("departments").collect();
     const relevant = new Set<string>([myDeptId]);
     const mine = allDepts.find((d) => String(d._id) === myDeptId);
     if (mine?.parentId) relevant.add(String(mine.parentId));
+    for (const d of allDepts) {
+      if (d.parentId && String(d.parentId) === myDeptId) {
+        relevant.add(String(d._id));
+      }
+    }
 
     for (const rid of relevant) {
       try {
         const structural = await ctx.db
           .query("documents")
           .withIndex("by_recipient_department", (q) =>
-            q.eq(
-              "recipientDepartmentId",
-              rid as Id<"departments">,
-            ),
+            q.eq("recipientDepartmentId", rid as Id<"departments">),
           )
           .collect();
-        for (const d of structural) {
-          map.set(String(d._id), d);
+        for (const d of structural) map.set(String(d._id), d);
+      } catch {
+        /* ignore */
+      }
+      try {
+        const txs = await ctx.db
+          .query("documentTransmissions")
+          .withIndex("by_department", (q) =>
+            q.eq("departmentId", rid as Id<"departments">),
+          )
+          .collect();
+        for (const tx of txs) {
+          if (map.has(String(tx.documentId))) continue;
+          const d = await ctx.db.get(tx.documentId);
+          if (d) map.set(String(d._id), d);
         }
       } catch {
-        /* index / schéma : ignorer */
+        /* table absente */
       }
     }
   }
@@ -422,6 +435,19 @@ export const send = mutation({
     recipientDepartmentId: v.optional(v.id("departments")),
     /** Circuit de structures (après la 1re), optionnel */
     circuitDepartmentIds: v.optional(v.array(v.id("departments"))),
+    /**
+     * Destinations multiples (directions/services).
+     * kind: traitement (doit traiter) | ampliation (pour info).
+     * Si fourni, prioritaire sur recipientDepartmentId seul.
+     */
+    recipientTargets: v.optional(
+      v.array(
+        v.object({
+          departmentId: v.id("departments"),
+          kind: v.union(v.literal("traitement"), v.literal("ampliation")),
+        }),
+      ),
+    ),
     onBehalfOfType: v.union(v.literal("internal"), v.literal("external")),
     onBehalfOfUserId: v.optional(v.id("users")),
     onBehalfOfName: v.optional(v.string()),
@@ -845,6 +871,57 @@ export const send = mutation({
         dueAt: isFirst ? now + stepHours * 3600 * 1000 : undefined,
         createdAt: now,
       });
+    }
+
+    // ——— Transmissions structurelles (document unique, multi-destinataires) ———
+    try {
+      type Target = {
+        departmentId: Id<"departments">;
+        kind: "traitement" | "ampliation";
+      };
+      const targets: Target[] = [];
+      const seen = new Set<string>();
+      const pushTarget = (
+        id: Id<"departments">,
+        kind: "traitement" | "ampliation",
+      ) => {
+        const k = String(id);
+        if (seen.has(k)) return;
+        seen.add(k);
+        targets.push({ departmentId: id, kind });
+      };
+
+      if (args.recipientTargets && args.recipientTargets.length > 0) {
+        for (const rt of args.recipientTargets) {
+          pushTarget(rt.departmentId, rt.kind);
+        }
+      } else {
+        if (recipientDeptId) pushTarget(recipientDeptId, "traitement");
+        for (const did of args.circuitDepartmentIds ?? []) {
+          pushTarget(did, "traitement");
+        }
+      }
+      // Garantir au moins la destination principale
+      if (targets.length === 0 && recipientDeptId) {
+        pushTarget(recipientDeptId, "traitement");
+      }
+
+      for (const tr of targets) {
+        const dep = await ctx.db.get(tr.departmentId);
+        if (!dep) continue;
+        await ctx.db.insert("documentTransmissions", {
+          documentId,
+          departmentId: tr.departmentId,
+          departmentName: dep.name,
+          departmentCode: dep.code,
+          kind: tr.kind,
+          status: "envoye",
+          createdAt: now,
+          updatedAt: now,
+        });
+      }
+    } catch (e) {
+      console.error("[send] transmissions:", e);
     }
 
     // Secondaires : ne doivent jamais faire échouer l'envoi (transaction unique)
@@ -1333,6 +1410,25 @@ export const markViewed = mutation({
 });
 
 /** The receiver updates the treatment status the sender can follow. */
+
+/** Transmissions d'un document (statuts par structure). */
+export const listTransmissions = query({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    try {
+      const rows = await ctx.db
+        .query("documentTransmissions")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      return rows.sort((a, b) => a.createdAt - b.createdAt);
+    } catch {
+      return [];
+    }
+  },
+});
+
 export const setStatus = mutation({
   args: {
     documentId: v.id("documents"),
@@ -1365,8 +1461,112 @@ export const setStatus = mutation({
 
     const isAssignee = steps.some((s) => String(s.assigneeId) === uid);
     const isRecipient = String(document.recipientId) === uid;
-    if (!isRecipient && !isAssignee && !isAdminRole(user?.role)) {
+
+    // Transmissions : membre de la structure destinataire
+    let myTransmission: Doc<"documentTransmissions"> | null = null;
+    let allTransmissions: Doc<"documentTransmissions">[] = [];
+    try {
+      allTransmissions = await ctx.db
+        .query("documentTransmissions")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      if (user?.departmentId) {
+        const myDept = String(user.departmentId);
+        const allDepts = await ctx.db.query("departments").collect();
+        const mine = allDepts.find((d) => String(d._id) === myDept);
+        const matchIds = new Set<string>([myDept]);
+        if (mine?.parentId) matchIds.add(String(mine.parentId));
+        myTransmission =
+          allTransmissions.find(
+            (tr) =>
+              matchIds.has(String(tr.departmentId)) &&
+              tr.kind === "traitement",
+          ) ??
+          allTransmissions.find((tr) =>
+            matchIds.has(String(tr.departmentId)),
+          ) ??
+          null;
+      }
+    } catch {
+      /* table absente */
+    }
+
+    const isStructureMember = Boolean(myTransmission);
+    if (
+      !isRecipient &&
+      !isAssignee &&
+      !isStructureMember &&
+      !isAdminRole(user?.role)
+    ) {
       throw new Error("Vous ne pouvez pas modifier le statut de ce document.");
+    }
+
+    // ——— Statut partagé au niveau structure (transmission) ———
+    if (myTransmission) {
+      const txStatus =
+        args.status === "traite"
+          ? "traite"
+          : args.status === "en_cours"
+            ? "en_cours"
+            : args.status === "consulte"
+              ? "consulte"
+              : "envoye";
+      await ctx.db.patch(myTransmission._id, {
+        status: txStatus,
+        actedByUserId: userId,
+        actedByName: actorLabel,
+        actedAt: now,
+        updatedAt: now,
+      });
+
+      // Document global = traité seulement si toutes les transmissions "traitement" sont traitées
+      const refreshed = await ctx.db
+        .query("documentTransmissions")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      const needTreat = refreshed.filter((tr) => tr.kind === "traitement");
+      const allDone =
+        needTreat.length > 0 &&
+        needTreat.every((tr) => tr.status === "traite");
+
+      if (allDone) {
+        await ctx.db.patch(args.documentId, {
+          status: "traite",
+          updatedAt: now,
+          viewedAt: document.viewedAt ?? now,
+        });
+      } else if (args.status !== "traite") {
+        await ctx.db.patch(args.documentId, {
+          status: args.status,
+          updatedAt: now,
+          viewedAt:
+            args.status === "consulte" || args.status === "en_cours"
+              ? (document.viewedAt ?? now)
+              : document.viewedAt,
+        });
+      } else {
+        // Une structure a traité mais pas toutes
+        await ctx.db.patch(args.documentId, {
+          status: "en_cours",
+          updatedAt: now,
+          viewedAt: document.viewedAt ?? now,
+        });
+      }
+
+      try {
+        await writeAudit(ctx, {
+          action: "document.status",
+          actorId: userId,
+          actorName: actorLabel,
+          documentId: args.documentId,
+          details: `${myTransmission.departmentCode ?? myTransmission.departmentName}: ${txStatus}`,
+        });
+      } catch {}
+
+      // Si circuit personnes en parallèle, continuer le flux circuit si besoin
+      if (!(args.status === "traite" && steps.length > 0)) {
+        return args.documentId;
+      }
     }
 
     // ——— Traité dans un circuit multi-étapes ———
