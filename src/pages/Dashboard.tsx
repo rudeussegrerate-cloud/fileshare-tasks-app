@@ -4,6 +4,7 @@ import { AccountsView } from "@/components/app/AccountsView";
 import { AppShell, type AppView } from "@/components/app/AppShell";
 import { DashboardHome } from "@/components/app/DashboardHome";
 import { DepartmentsView } from "@/components/app/DepartmentsView";
+import { Org3DView } from "@/components/app/Org3DView";
 import { DocumentDetailDialog } from "@/components/app/DocumentDetailDialog";
 import { DocumentsList } from "@/components/app/DocumentsList";
 import { ProfileSetup } from "@/components/app/ProfileSetup";
@@ -202,6 +203,12 @@ export default function Dashboard() {
       {view === "accounts" ? (
         <ViewErrorBoundary label="les comptes">
           <AccountsView />
+        </ViewErrorBoundary>
+      ) : null}
+
+      {view === "org3d" ? (
+        <ViewErrorBoundary label="l'organigramme 3D">
+          <Org3DView />
         </ViewErrorBoundary>
       ) : null}
 

@@ -106,20 +106,20 @@ export function DashboardHome({
   const showDeptPanel = Boolean(selectedDeptId);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8" data-scandoc-tour="home-stats">
+    <div className="mx-auto max-w-3xl space-y-6" data-scandoc-tour="home-stats">
       {/* —— En-tête —— */}
-      <header className="space-y-1">
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Bonjour{firstName ? `, ${firstName}` : ""}
-        </h2>
-        <p className="text-sm text-muted-foreground">{roleLine}</p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div className="space-y-0.5">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Bonjour{firstName ? `, ${firstName}` : ""}
+          </h2>
+          <p className="text-sm text-muted-foreground">{roleLine}</p>
+        </div>
+        <Button onClick={onSend} className="h-10 gap-2" data-scandoc-tour="home-actions">
+          <Send className="size-4" />
+          Nouvel envoi
+        </Button>
       </header>
-
-      {/* —— Action principale —— */}
-      <Button onClick={onSend} size="lg" className="h-11 w-full gap-2 sm:w-auto" data-scandoc-tour="home-actions">
-        <Send className="size-4" />
-        Envoyer un document
-      </Button>
 
       {/* —— Alertes (toutes rôles, compact) —— */}
       <AlertsBlock
@@ -262,6 +262,14 @@ export function DashboardHome({
             desc={isChef || isDg ? "Organisation et membres" : "Consulter"}
             onClick={() => onNavigate("departments")}
           />
+          {isDg ? (
+            <QuickLink
+              icon={BarChart3}
+              title="Organigramme 3D"
+              desc="Vue structure & circulation"
+              onClick={() => onNavigate("org3d")}
+            />
+          ) : null}
           <QuickLink
             icon={MessageCircle}
             title="Messages"

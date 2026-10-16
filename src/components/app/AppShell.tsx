@@ -23,6 +23,7 @@ import {
   Share2,
   Inbox,
   LayoutDashboard,
+  Network,
   LogOut,
   Megaphone,
   Newspaper,
@@ -57,6 +58,7 @@ export type AppView =
   | "announcements"
   | "departments"
   | "accounts"
+  | "org3d"
   | "settings";
 
 type NavItem = {
@@ -104,6 +106,12 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { key: "departments", label: "Départements", icon: Building2 },
       { key: "accounts", label: "Comptes", icon: UserCheck, adminOnly: true },
+      {
+        key: "org3d",
+        label: "Organigramme 3D",
+        icon: Network,
+        adminOnly: true,
+      },
     ],
   },
   {
