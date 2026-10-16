@@ -864,7 +864,7 @@ export function SendDocument({
 
               <div className="space-y-3">
                 <Label>De la part de qui</Label>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => {
@@ -874,13 +874,13 @@ export function SendDocument({
                       setOnBehalfDepartmentText("");
                     }}
                     className={cn(
-                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      "flex-1 rounded-sm border px-3 py-2 text-xs font-medium transition-colors",
                       onBehalfType === "internal"
                         ? "border-brand bg-brand text-primary-foreground"
-                        : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                        : "border-border bg-card text-muted-foreground",
                     )}
                   >
-                    Personne du service
+                    Interne
                   </button>
                   <button
                     type="button"
@@ -890,98 +890,111 @@ export function SendDocument({
                       setOnBehalfUserId(null);
                     }}
                     className={cn(
-                      "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+                      "flex-1 rounded-sm border px-3 py-2 text-xs font-medium transition-colors",
                       onBehalfType === "external"
                         ? "border-brand bg-brand text-primary-foreground"
-                        : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                        : "border-border bg-card text-muted-foreground",
                     )}
                   >
-                    Personne externe / autre
+                    Externe
                   </button>
                 </div>
 
                 {onBehalfType === "internal" ? (
-                  <div className="space-y-3 rounded-sm border border-border bg-card p-4">
-                    <div className="space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground">
-                        1. Département
-                      </p>
-                      {departments === undefined ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                          {departments.map((d) => (
-                            <button
-                              key={d._id}
-                              type="button"
-                              onClick={() => {
-                                setOnBehalfDepartmentId(d._id);
-                                setOnBehalfUserId(null);
-                              }}
-                              className={cn(
-                                "rounded-sm border px-3 py-1.5 text-xs transition-colors",
-                                onBehalfDepartmentId === d._id
-                                  ? "border-brand bg-brand-soft text-brand"
-                                  : "border-border hover:border-brand-sky/50",
-                              )}
-                            >
-                              {d.name}
-                            </button>
-                          ))}
-                        </div>
+                  <div className="space-y-3 rounded-sm border border-border bg-card p-3">
+                    {/* Raccourci : moi-même */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOnBehalfUserId(me?.user._id ?? null);
+                        setOnBehalfDepartmentId(
+                          me?.user.departmentId ?? null,
+                        );
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-sm border px-3 py-2 text-left text-sm transition-all",
+                        onBehalfUserId === me?.user._id
+                          ? "border-brand bg-brand-soft font-medium"
+                          : "border-border hover:border-brand-sky/40",
                       )}
+                    >
+                      <UserRound className="size-4 shrink-0 text-brand" />
+                      Moi-même
+                      {me?.user.name ? (
+                        <span className="truncate text-xs text-muted-foreground">
+                          ({me.user.name})
+                        </span>
+                      ) : null}
+                    </button>
+
+                    <div className="space-y-1.5">
+                      <p className="text-[11px] font-medium text-muted-foreground">
+                        Ou une autre personne
+                      </p>
+                      <select
+                        className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
+                        value={onBehalfDepartmentId ?? ""}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setOnBehalfDepartmentId(
+                            v ? (v as Id<"departments">) : null,
+                          );
+                          setOnBehalfUserId(null);
+                        }}
+                      >
+                        <option value="">Structure…</option>
+                        {(departments ?? [])
+                          .slice()
+                          .sort((a, b) =>
+                            (a.code ?? a.name).localeCompare(
+                              b.code ?? b.name,
+                              "fr",
+                            ),
+                          )
+                          .map((d) => (
+                            <option key={d._id} value={d._id}>
+                              {d.code
+                                ? `${d.code} — ${d.name}`
+                                : d.name}
+                            </option>
+                          ))}
+                      </select>
                     </div>
+
                     {onBehalfDepartmentId ? (
-                      <div className="space-y-2">
-                        <p className="text-xs font-medium text-muted-foreground">
-                          2. Personne
-                        </p>
+                      <div className="space-y-1.5">
                         {onBehalfMembers.length === 0 ? (
                           <p className="text-xs text-muted-foreground">
-                            Aucun membre dans ce département.
+                            Aucun membre dans cette structure.
                           </p>
                         ) : (
-                          <ul className="max-h-40 space-y-1 overflow-y-auto">
-                            {onBehalfMembers.map((member) => {
-                              const active = member._id === onBehalfUserId;
-                              return (
-                                <li key={member._id}>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setOnBehalfUserId(member._id)
-                                    }
-                                    className={cn(
-                                      "flex w-full items-center gap-2 rounded-sm border px-3 py-2 text-left text-sm transition-all",
-                                      active
-                                        ? "border-brand bg-brand-soft"
-                                        : "border-border hover:border-brand-sky/50",
-                                    )}
-                                  >
-                                    <span className="flex size-7 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-primary-foreground">
-                                      {initialsOf(member.name)}
-                                    </span>
-                                    <span className="min-w-0 flex-1 truncate">
-                                      {member.name}
-                                      {member.fonction
-                                        ? ` · ${member.fonction}`
-                                        : ""}
-                                    </span>
-                                    {active ? (
-                                      <CheckCircle2 className="size-4 shrink-0 text-brand" />
-                                    ) : null}
-                                  </button>
-                                </li>
+                          <select
+                            className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
+                            value={onBehalfUserId ?? ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setOnBehalfUserId(
+                                v ? (v as Id<"users">) : null,
                               );
-                            })}
-                          </ul>
+                            }}
+                          >
+                            <option value="">Personne…</option>
+                            {onBehalfMembers.map((member) => (
+                              <option key={member._id} value={member._id}>
+                                {member.name}
+                                {member.fonction
+                                  ? ` · ${member.fonction}`
+                                  : ""}
+                              </option>
+                            ))}
+                          </select>
                         )}
                       </div>
                     ) : null}
                   </div>
                 ) : (
-                  <div className="space-y-3 rounded-sm border border-border bg-card p-4">
-                    <div className="space-y-2">
+                  <div className="space-y-3 rounded-sm border border-border bg-card p-3">
+                    <div className="space-y-1.5">
                       <Label htmlFor="onBehalfName">
                         Nom <span className="text-destructive">*</span>
                       </Label>
@@ -991,32 +1004,32 @@ export function SendDocument({
                         onChange={(e) => setOnBehalfName(e.target.value)}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="onBehalfFunction">Fonction</Label>
-                      <Input
-                        id="onBehalfFunction"
-                        value={onBehalfFunction}
-                        onChange={(e) => setOnBehalfFunction(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="onBehalfDept">
-                        Département{" "}
-                        <span className="text-muted-foreground">
-                          (optionnel)
-                        </span>
-                      </Label>
-                      <Input
-                        id="onBehalfDept"
-                        value={onBehalfDepartmentText}
-                        onChange={(e) =>
-                          setOnBehalfDepartmentText(e.target.value)
-                        }
-                      />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="onBehalfFunction">Fonction</Label>
+                        <Input
+                          id="onBehalfFunction"
+                          value={onBehalfFunction}
+                          onChange={(e) =>
+                            setOnBehalfFunction(e.target.value)
+                          }
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="onBehalfDept">Structure</Label>
+                        <Input
+                          id="onBehalfDept"
+                          value={onBehalfDepartmentText}
+                          onChange={(e) =>
+                            setOnBehalfDepartmentText(e.target.value)
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
+
 
               <div className="space-y-3">
                 <Label>
