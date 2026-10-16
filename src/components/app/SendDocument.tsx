@@ -787,6 +787,7 @@ export function SendDocument({
                   onChange={(e) =>
                     setPublicRef(e.target.value.toUpperCase().trim())
                   }
+                  placeholder="REF-XXX"
                   className="font-mono"
                   autoComplete="off"
                 />
