@@ -49,7 +49,7 @@ import {
   X,
 } from "lucide-react";
 import { MndptLoader } from "@/components/MndptLoader";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, initialsOf } from "./shared";
 
@@ -62,6 +62,7 @@ type AssignablePerson = {
   fonction: string | null;
   departmentRole: string | null;
   isCurrentMember: boolean;
+  currentDepartment?: string | null;
 };
 
 const EMPTY_PEOPLE =
@@ -89,7 +90,11 @@ function PersonSelect({
             {person.name}
             {person.fonction ? ` — ${person.fonction}` : ""}
             {person.email ? ` · ${person.email}` : ""}
-            {person.isCurrentMember ? " (déjà membre)" : ""}
+            {person.isCurrentMember
+              ? " (déjà ici)"
+              : person.currentDepartment
+                ? ` · ${person.currentDepartment}`
+                : ""}
           </SelectItem>
         ))}
       </SelectContent>
@@ -101,71 +106,187 @@ function AssignPersonDialog({
   mode,
   departmentId,
   departmentName,
+  departments,
   onOpenChange,
 }: {
   mode: PersonMode | null;
   departmentId: Id<"departments"> | null;
   departmentName?: string;
+  departments: Array<{
+    _id: Id<"departments">;
+    name: string;
+    code?: string | null;
+    kind?: string | null;
+    parentId?: Id<"departments"> | null;
+  }>;
   onOpenChange: (open: boolean) => void;
 }) {
-  const people = useQuery(
-    api.workspace.listAssignablePeople,
-    departmentId ? { departmentId } : "skip",
-  );
   const addMember = useMutation(api.workspace.addMember);
   const addChief = useMutation(api.workspace.addChief);
+
+  const directions = departments
+    .filter((d) => (d as { kind?: string | null }).kind !== "service")
+    .slice()
+    .sort((a, b) =>
+      ((a as { code?: string }).code ?? a.name).localeCompare(
+        (b as { code?: string }).code ?? b.name,
+        "fr",
+      ),
+    );
+
+  const seedDir = (() => {
+    if (!departmentId) return "";
+    const d = departments.find((x) => x._id === departmentId);
+    if (!d) return "";
+    if ((d as { kind?: string }).kind === "service" && d.parentId)
+      return String(d.parentId);
+    return String(d._id);
+  })();
+  const seedSvc = (() => {
+    if (!departmentId) return "";
+    const d = departments.find((x) => x._id === departmentId);
+    if (d && (d as { kind?: string }).kind === "service") return String(d._id);
+    return "";
+  })();
+
+  const [directionId, setDirectionId] = useState(seedDir);
+  const [serviceId, setServiceId] = useState(seedSvc);
   const [selectedId, setSelectedId] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Reset structure when dialog opens with a department context
+  useEffect(() => {
+    if (!mode) return;
+    setDirectionId(seedDir);
+    setServiceId(seedSvc);
+    setSelectedId("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, departmentId]);
+
+  const targetDeptId = (serviceId || directionId || departmentId || "") as
+    | Id<"departments">
+    | "";
+
+  const people = useQuery(
+    api.workspace.listAssignablePeople,
+    mode && targetDeptId
+      ? { departmentId: targetDeptId as Id<"departments"> }
+      : mode
+        ? {}
+        : "skip",
+  );
+
+  const servicesOfDir = departments
+    .filter(
+      (d) =>
+        directionId &&
+        d.parentId === directionId &&
+        (d as { kind?: string }).kind === "service",
+    )
+    .slice()
+    .sort((a, b) =>
+      ((a as { code?: string }).code ?? a.name).localeCompare(
+        (b as { code?: string }).code ?? b.name,
+        "fr",
+      ),
+    );
+
+  const list = (people ?? []) as AssignablePerson[];
+
   const submit = async () => {
-    if (!departmentId || !selectedId) return;
+    const dept = (serviceId || directionId || departmentId) as
+      | Id<"departments">
+      | null;
+    if (!mode || !dept || !selectedId) return;
     setSaving(true);
     try {
       if (mode === "chief") {
         await addChief({
-          departmentId,
+          departmentId: dept,
           chiefId: selectedId as Id<"users">,
         });
-        toast.success("Chef de département nommé.");
+        toast.success("Chef nommé.");
       } else {
         await addMember({
-          departmentId,
+          departmentId: dept,
           memberId: selectedId as Id<"users">,
         });
-        toast.success("Membre ajouté au département.");
+        toast.success("Membre ajouté à la structure.");
       }
       setSelectedId("");
       onOpenChange(false);
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Impossible d'ajouter cette personne.",
+        error instanceof Error
+          ? error.message
+          : "Impossible d'ajouter cette personne.",
       );
     } finally {
       setSaving(false);
     }
   };
 
-  const list = (people ?? []) as AssignablePerson[];
-
   return (
     <Dialog open={mode !== null} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {mode === "chief"
-              ? "Nommer un chef de département"
-              : "Ajouter un membre"}
+            {mode === "chief" ? "Nommer un chef" : "Ajouter un membre"}
           </DialogTitle>
           <DialogDescription>
-            {mode === "chief"
-              ? `Le chef de ${departmentName ?? "ce département"} doit déjà avoir un compte ScanDoc avec ses informations renseignées.`
-              : `Sélectionnez un compte existant à rattacher au département ${departmentName ?? ""}.`}
+            Direction → service (optionnel) → personne
+            {departmentName ? ` · contexte : ${departmentName}` : ""}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">
-          <div className="space-y-2">
-            <Label>Compte à sélectionner</Label>
+          <div className="space-y-1.5">
+            <Label>1. Direction / structure</Label>
+            <select
+              className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
+              value={directionId}
+              onChange={(e) => {
+                setDirectionId(e.target.value);
+                setServiceId("");
+                setSelectedId("");
+              }}
+            >
+              <option value="">Choisir…</option>
+              {directions.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {(d as { code?: string }).code
+                    ? `${(d as { code?: string }).code} — ${d.name}`
+                    : d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {directionId && servicesOfDir.length > 0 ? (
+            <div className="space-y-1.5">
+              <Label>2. Service (optionnel)</Label>
+              <select
+                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
+                value={serviceId}
+                onChange={(e) => {
+                  setServiceId(e.target.value);
+                  setSelectedId("");
+                }}
+              >
+                <option value="">Toute la direction</option>
+                {servicesOfDir.map((s) => (
+                  <option key={s._id} value={s._id}>
+                    {(s as { code?: string }).code
+                      ? `${(s as { code?: string }).code} — ${s.name}`
+                      : s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          <div className="space-y-1.5">
+            <Label>3. Personne</Label>
             {people === undefined ? (
               <div className="flex h-9 items-center justify-center rounded-md border">
                 <Loader2 className="size-4 animate-spin text-muted-foreground" />
@@ -189,12 +310,20 @@ function AssignPersonDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={saving}>
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            disabled={saving}
+          >
             Annuler
           </Button>
           <Button
             onClick={() => void submit()}
-            disabled={saving || !selectedId}
+            disabled={
+              saving ||
+              !selectedId ||
+              !(serviceId || directionId || departmentId)
+            }
             className="gap-2"
           >
             {saving ? (
@@ -474,24 +603,49 @@ export function DepartmentsView() {
       </div>
 
       {me.isAdmin ? (
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            void seedMndptTree({})
-              .then((r: { count: number }) => toast.success("Arbre MNDPT installé (" + r.count + " entités)"))
-              .catch((e: unknown) =>
-                toast.error(e instanceof Error ? e.message : "Échec du seed"),
-              );
-          }}
-        >
-          Installer arbre MNDPT
-        </Button>
-      ) : null}
-      {me.isAdmin ? (
-        <div className="flex justify-end">
-          <Button onClick={() => setCreating(true)} className="gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            size="sm"
+            className="gap-2"
+            onClick={() =>
+              setPersonDialog({
+                mode: "member",
+                departmentId: departments[0]!._id,
+                departmentName: "Organisation",
+              })
+            }
+            disabled={departments.length === 0}
+          >
+            <UserPlus className="size-4" />
+            Ajouter un membre
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              void seedMndptTree({})
+                .then((r: { count: number }) =>
+                  toast.success(
+                    "Arbre MNDPT installé (" + r.count + " entités)",
+                  ),
+                )
+                .catch((e: unknown) =>
+                  toast.error(
+                    e instanceof Error ? e.message : "Échec du seed",
+                  ),
+                );
+            }}
+          >
+            Installer arbre MNDPT
+          </Button>
+          <Button
+            onClick={() => setCreating(true)}
+            size="sm"
+            variant="outline"
+            className="gap-2"
+          >
             <Plus className="size-4" />
             Nouveau département
           </Button>
@@ -1010,6 +1164,13 @@ export function DepartmentsView() {
         mode={personDialog?.mode ?? null}
         departmentId={personDialog?.departmentId ?? null}
         departmentName={personDialog?.departmentName}
+        departments={(departments ?? []).map((d) => ({
+          _id: d._id,
+          name: d.name,
+          code: (d as { code?: string | null }).code ?? null,
+          kind: (d as { kind?: string | null }).kind ?? null,
+          parentId: d.parentId ?? null,
+        }))}
         onOpenChange={(open) => {
           if (!open) setPersonDialog(null);
         }}

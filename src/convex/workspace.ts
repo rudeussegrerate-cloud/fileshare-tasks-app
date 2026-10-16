@@ -49,12 +49,28 @@ async function requireManager(
   departmentId: Id<"departments">,
 ) {
   const user = await requireUser(ctx);
+  if (isAdminRole(user.role)) {
+    return { user, isAdmin: true };
+  }
   const isChef =
     user.departmentRole === "chef" && user.departmentId === departmentId;
-  if (!isAdminRole(user.role) && !isChef) {
-    throw new Error("Seul le DG ou le chef du département peut faire cela.");
+  // Chef d'une direction : peut gérer les services enfants
+  let isParentChef = false;
+  if (!isChef && user.departmentRole === "chef" && user.departmentId) {
+    const target = await ctx.db.get(departmentId);
+    if (
+      target?.parentId &&
+      String(target.parentId) === String(user.departmentId)
+    ) {
+      isParentChef = true;
+    }
   }
-  return { user, isAdmin: isAdminRole(user.role) };
+  if (!isChef && !isParentChef) {
+    throw new Error(
+      "Seul le DG ou le chef de la structure (ou de la direction parente) peut faire cela.",
+    );
+  }
+  return { user, isAdmin: false };
 }
 
 /**
@@ -79,10 +95,14 @@ async function assignPerson(
   if (!person.profileCompletedAt) {
     throw new Error("Cette personne doit d'abord compléter ses informations.");
   }
+  // Réaffectation : réservée au DG (sinon il faut d'abord retirer le membre)
   if (person.departmentId && person.departmentId !== args.departmentId) {
-    throw new Error(
-      "Cette personne est déjà affectée à un département. Renvoyez-la de son département avant de l'affecter ailleurs.",
-    );
+    const actor = await requireUser(ctx);
+    if (!isAdminRole(actor.role)) {
+      throw new Error(
+        "Cette personne est déjà affectée à une structure. Le DG peut la réaffecter, ou retirez-la d'abord.",
+      );
+    }
   }
 
   await ctx.db.patch(args.userId, {
@@ -253,32 +273,47 @@ export const listAssignablePeople = query({
   args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    const isAdmin = isAdminRole(user.role);
     const canManage =
-      isAdminRole(user.role) ||
-      (user.departmentRole === "chef" && user.departmentId === args.departmentId);
+      isAdmin ||
+      (user.departmentRole === "chef" &&
+        args.departmentId &&
+        user.departmentId === args.departmentId) ||
+      // Chef sans departmentId précis : peut lister pour sa propre structure
+      (user.departmentRole === "chef" && !args.departmentId);
     if (!canManage) return [];
 
     const users = await ctx.db.query("users").collect();
+    const departments = await ctx.db.query("departments").collect();
+    const depName = (id: typeof users[0]["departmentId"]) => {
+      if (!id) return null;
+      const d = departments.find((x) => x._id === id);
+      return d ? (d.code ? `${d.code} — ${d.name}` : d.name) : null;
+    };
+
     return users
-      // Only accounts the DG has approved can be placed in a department.
       .filter((candidate) => candidate.accountStatus === "valide")
       .filter((candidate) => Boolean(candidate.profileCompletedAt))
-      // A person already in another department is filtered out here; the
-      // mutation refuses them too, so the rule holds even outside the UI.
-      .filter(
-        (candidate) =>
-          !candidate.departmentId ||
-          candidate.departmentId === args.departmentId,
-      )
+      .filter((candidate) => {
+        if (isAdmin) return true; // DG voit tout (réaffectation possible)
+        if (!candidate.departmentId) return true;
+        if (args.departmentId && candidate.departmentId === args.departmentId)
+          return true;
+        // Chef : aussi les membres sans structure
+        return false;
+      })
       .map((candidate) => ({
         _id: candidate._id,
         name: displayName(candidate),
         email: candidate.email ?? null,
         fonction: candidate.fonction ?? null,
         departmentRole: candidate.departmentRole ?? null,
-        isCurrentMember: candidate.departmentId === args.departmentId,
+        currentDepartment: depName(candidate.departmentId),
+        isCurrentMember:
+          Boolean(args.departmentId) &&
+          candidate.departmentId === args.departmentId,
       }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => a.name.localeCompare(b.name, "fr"));
   },
 });
 
