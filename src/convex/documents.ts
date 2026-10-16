@@ -3328,20 +3328,26 @@ export const signalChief = mutation({
     ).sort((a, b) => a.stepIndex - b.stepIndex);
     const active = steps.find((s) => s.status === "active");
 
-    let targetUserId: Id<"users"> | null = active?.assigneeId ?? doc.recipientId;
+    let targetUserId: Id<"users"> | null =
+      active?.assigneeId ?? doc.recipientId ?? null;
     let targetName = active?.assigneeName ?? doc.recipientName;
     let chiefId: Id<"users"> | null = null;
     let chiefName: string | null = null;
     let deptName: string | null = active?.assigneeDepartmentName ?? null;
 
-    const holder = await ctx.db.get(targetUserId);
-    if (holder?.departmentId) {
-      const dep = await ctx.db.get(holder.departmentId);
+    // Chef via détenteur nommé, sinon via structure destinataire
+    let holderDeptId = doc.recipientDepartmentId ?? null;
+    if (targetUserId) {
+      const holder = await ctx.db.get(targetUserId);
+      if (holder?.departmentId) holderDeptId = holder.departmentId;
+    }
+    if (holderDeptId) {
+      const dep = await ctx.db.get(holderDeptId);
       deptName = dep?.name ?? deptName;
       const chefs = (await ctx.db.query("users").collect()).filter(
         (u) =>
           u.departmentId &&
-          String(u.departmentId) === String(holder.departmentId) &&
+          String(u.departmentId) === String(holderDeptId) &&
           u.departmentRole === "chef",
       );
       if (chefs[0]) {

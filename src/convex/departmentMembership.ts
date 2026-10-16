@@ -650,20 +650,26 @@ export const departmentActivity = query({
     for (const d of docs) {
       // Visibles si expéditeur/destinataire dans mon département, ou moi, ou admin
       const sender = await ctx.db.get(d.senderId);
-      const recipient = await ctx.db.get(d.recipientId);
+      const recipient = d.recipientId
+        ? await ctx.db.get(d.recipientId)
+        : null;
       const sameDept =
         me.departmentId &&
         (sender?.departmentId === me.departmentId ||
-          recipient?.departmentId === me.departmentId);
+          recipient?.departmentId === me.departmentId ||
+          (d.recipientDepartmentId &&
+            String(d.recipientDepartmentId) === String(me.departmentId)));
       const involved =
-        d.senderId === userId || d.recipientId === userId || isAdminRole(me.role);
+        d.senderId === userId ||
+        (d.recipientId != null && d.recipientId === userId) ||
+        isAdminRole(me.role);
       if (!sameDept && !involved) continue;
 
       events.push({
         id: `doc-${d._id}`,
         kind: "document",
         title: d.objet || d.fileName,
-        body: `${d.senderName} → ${recipient?.name ?? "destinataire"} · ${
+        body: `${d.senderName} → ${recipient?.name ?? d.recipientName ?? "structure"} · ${
           Array.isArray(d.tasks) ? d.tasks.slice(0, 2).join(", ") : d.task ?? ""
         }`,
         createdAt: d._creationTime,
