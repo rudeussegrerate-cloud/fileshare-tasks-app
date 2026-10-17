@@ -31,12 +31,77 @@ import {
 
 type Mode = "inbox" | "sent";
 
+function isImageFile(name: string, contentType?: string | null) {
+  const ct = (contentType ?? "").toLowerCase();
+  if (ct.startsWith("image/")) return true;
+  return /\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(name);
+}
+
+function isPdfFile(name: string, contentType?: string | null) {
+  const ct = (contentType ?? "").toLowerCase();
+  if (ct.includes("pdf")) return true;
+  return /\.pdf$/i.test(name);
+}
+
+/** Miniature type aperçu document (image réelle ou carte PDF). */
+function FileThumb({
+  fileName,
+  contentType,
+  fileUrl,
+}: {
+  fileName: string;
+  contentType?: string | null;
+  fileUrl?: string | null;
+}) {
+  if (fileUrl && isImageFile(fileName, contentType)) {
+    return (
+      <div className="relative size-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted shadow-sm">
+        <img
+          src={fileUrl}
+          alt=""
+          className="size-full object-cover"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+  if (fileUrl && isPdfFile(fileName, contentType)) {
+    return (
+      <div className="relative size-14 shrink-0 overflow-hidden rounded-md border border-border bg-white shadow-sm">
+        <iframe
+          src={`${fileUrl}#page=1&view=FitH`}
+          title=""
+          className="pointer-events-none absolute -left-2 -top-1 h-[120%] w-[140%] origin-top-left scale-[0.55] border-0"
+          tabIndex={-1}
+        />
+        <span className="absolute bottom-0.5 left-0.5 rounded bg-red-600 px-1 text-[8px] font-bold text-white">
+          PDF
+        </span>
+      </div>
+    );
+  }
+  const Icon = fileIconFor(fileName);
+  return (
+    <div className="flex size-14 shrink-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border border-border bg-white p-1 shadow-sm">
+      <div className="h-7 w-9 rounded-sm border border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100 p-0.5">
+        <div className="space-y-0.5">
+          <div className="h-0.5 w-full rounded bg-slate-300" />
+          <div className="h-0.5 w-4/5 rounded bg-slate-200" />
+          <div className="h-0.5 w-full rounded bg-slate-200" />
+          <div className="h-0.5 w-3/5 rounded bg-slate-200" />
+        </div>
+      </div>
+      <Icon className="size-3 text-brand" />
+    </div>
+  );
+}
+
 const FILTERS: Array<{ key: "all" | DocumentStatus; label: string }> = [
   { key: "all", label: "Tous" },
   { key: "envoye", label: "Envoyé" },
   { key: "consulte", label: "Consulté" },
   { key: "en_cours", label: "En cours" },
-  { key: "traite", label: "Traité" },
+  { key: "traite", label: "Classé" },
 ];
 
 export function DocumentsList({
@@ -52,26 +117,32 @@ export function DocumentsList({
   const [filter, setFilter] = useState<"all" | DocumentStatus>("all");
   const [showArchived, setShowArchived] = useState(false);
 
-  // Recherche côté serveur — pas de pagination cumulée pour simplifier
+  // Liste complète (sans filtre statut) pour compteurs + filtre local fiable
   const result = useQuery(
     mode === "inbox" ? api.documents.inbox : api.documents.sent,
     {
       search: query.trim() || undefined,
-      status: filter === "all" ? undefined : filter,
       includeArchived: showArchived,
-      limit: 50,
+      limit: 80,
     },
   );
 
-  const documents = Array.isArray(result) ? result : undefined;
+  const allDocuments = Array.isArray(result) ? result : undefined;
 
   const counts = useMemo(() => {
-    const base = { all: documents?.length ?? 0 } as Record<string, number>;
+    const base = { all: allDocuments?.length ?? 0 } as Record<string, number>;
     for (const key of Object.keys(STATUS_META) as DocumentStatus[]) {
-      base[key] = documents?.filter((d) => d.status === key).length ?? 0;
+      base[key] =
+        allDocuments?.filter((d) => d.status === key).length ?? 0;
     }
     return base;
-  }, [documents]);
+  }, [allDocuments]);
+
+  const documents = useMemo(() => {
+    if (!allDocuments) return undefined;
+    if (filter === "all") return allDocuments;
+    return allDocuments.filter((d) => d.status === filter);
+  }, [allDocuments, filter]);
 
   const exportCsv = () => {
     if (!documents || documents.length === 0) {
@@ -247,28 +318,32 @@ export function DocumentsList({
         <>
           <ul className="space-y-2">
             {documents.map((document) => {
-              const Icon = fileIconFor(document.fileName);
               const counterpart =
                 mode === "inbox"
                   ? structureSender(document)
                   : structureRecipient(document);
+              const title =
+                (document.objet && document.objet.trim()) || document.fileName;
+              const fileUrl = (document as { fileUrl?: string | null }).fileUrl;
               return (
                 <li key={document._id}>
                   <button
                     type="button"
                     onClick={() => onOpen(document._id)}
                     className={cn(
-                      "group flex w-full items-start gap-4 rounded-sm border border-border bg-card p-4 text-left transition-all hover:border-brand-sky/50",
+                      "group flex w-full items-start gap-3 rounded-sm border border-border bg-card p-3 text-left transition-all hover:border-brand-sky/50 sm:gap-4 sm:p-4",
                       document.archivedAt && "opacity-70",
                     )}
                   >
-                    <div className="flex size-10 shrink-0 items-center justify-center rounded-sm bg-brand-soft text-brand">
-                      <Icon className="size-5" />
-                    </div>
+                    <FileThumb
+                      fileName={document.fileName}
+                      contentType={document.contentType}
+                      fileUrl={fileUrl}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-sm font-semibold text-foreground">
-                          {document.fileName}
+                          {title}
                         </p>
                         <StatusBadge
                           status={

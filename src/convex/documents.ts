@@ -284,16 +284,28 @@ async function collectInboxDocuments(
 
 async function decorate(ctx: DbCtx, documents: Doc<"documents">[]) {
   return await Promise.all(
-    documents.map(async (document) => ({
-      ...document,
-      summary: document.summary ?? null,
-      summarySource: document.summarySource ?? null,
-      senderDepartmentName: await departmentName(ctx, document.senderDepartmentId),
-      recipientDepartmentName: await departmentName(
-        ctx,
-        document.recipientDepartmentId,
-      ),
-    })),
+    documents.map(async (document) => {
+      let fileUrl: string | null = null;
+      try {
+        fileUrl = await ctx.storage.getUrl(document.storageId);
+      } catch {
+        fileUrl = null;
+      }
+      return {
+        ...document,
+        summary: document.summary ?? null,
+        summarySource: document.summarySource ?? null,
+        senderDepartmentName: await departmentName(
+          ctx,
+          document.senderDepartmentId,
+        ),
+        recipientDepartmentName: await departmentName(
+          ctx,
+          document.recipientDepartmentId,
+        ),
+        fileUrl,
+      };
+    }),
   );
 }
 
