@@ -244,15 +244,7 @@ export default function Dashboard() {
         </ViewErrorBoundary>
       ) : null}
 
-      <ViewErrorBoundary label="l'assistant">
-        <FloatingAssistant />
-      </ViewErrorBoundary>
-      <ViewErrorBoundary label="les alertes">
-        <SmartTips />
-      </ViewErrorBoundary>
-      <ViewErrorBoundary label="les automatisations">
-        <SmartAutomations />
-      </ViewErrorBoundary>
+      {/* Assistant, tips et automatisations retirés — hors périmètre courrier */}
 
       <ViewErrorBoundary label="la fiche document">
         <DocumentDetailDialog

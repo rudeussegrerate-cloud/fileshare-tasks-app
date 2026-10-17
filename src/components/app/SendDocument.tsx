@@ -411,7 +411,7 @@ export function SendDocument({
     return (
       <EmptyState
         icon={Building2}
-        title="Aucun département pour l'instant"
+        title="Aucune structure pour l'instant"
         description={
           me?.isAdmin
             ? "Installez d'abord l'arbre MNDPT (menu Départements) ou créez les structures, puis nommez les chefs."
@@ -421,7 +421,7 @@ export function SendDocument({
           me?.isAdmin ? (
             <Button onClick={onManageDepartments} className="gap-2">
               <Building2 className="size-4" />
-              Gérer les départements
+              Gérer les structures
             </Button>
           ) : undefined
         }

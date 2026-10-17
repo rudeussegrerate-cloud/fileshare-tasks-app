@@ -33,12 +33,12 @@ export const STATUS_META: Record<
     icon: Eye,
   },
   en_cours: {
-    label: "En cours de traitement",
+    label: "En cours",
     className: "border-indigo-200 bg-indigo-50 text-indigo-700",
     icon: Loader2,
   },
   traite: {
-    label: "Traité",
+    label: "Classé",
     className: "border-emerald-200 bg-emerald-50 text-emerald-700",
     icon: CheckCircle2,
   },

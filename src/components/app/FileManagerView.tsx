@@ -62,7 +62,7 @@ export function FileManagerView({
         <div>
           <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
             <FileSearch className="size-5 text-brand" />
-            Gestionnaire de fichiers
+            Recherche de courriers
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Recherchez par <strong>identifiant REF-</strong>, objet ou fichier.
@@ -71,7 +71,7 @@ export function FileManagerView({
         </div>
         <Button type="button" className="gap-1.5" onClick={onSend}>
           <Upload className="size-4" />
-          Nouvel envoi
+          Nouveau courrier
         </Button>
       </div>
 
@@ -108,7 +108,7 @@ export function FileManagerView({
         </div>
       ) : rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-12 text-center text-sm text-muted-foreground">
-          Aucun document trouvé
+          Aucun courrier trouvé
           {debounced ? ` pour « ${debounced} »` : ""}.
         </p>
       ) : (
@@ -128,7 +128,7 @@ export function FileManagerView({
                     {doc.objet || doc.fileName}
                   </p>
                   <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
-                    {doc.publicRef ?? "Sans identifiant"} · {doc.fileName}
+                    {doc.publicRef ?? "Sans N°"} · {doc.fileName}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {structureSender(doc)} → {structureRecipient(doc)}
@@ -185,7 +185,7 @@ export function FileManagerView({
                         await archive({
                           documentId: doc._id as Id<"documents">,
                         });
-                        toast.success("Document archivé");
+                        toast.success("Courrier archivé");
                       } catch (e) {
                         toast.error(
                           e instanceof Error ? e.message : "Archivage impossible",
@@ -236,7 +236,7 @@ export function FileManagerView({
                     onClick={async () => {
                       if (
                         !confirm(
-                          "Supprimer définitivement ce document ? Cette action est irréversible.",
+                          "Supprimer définitivement ce courrier ? Cette action est irréversible.",
                         )
                       )
                         return;

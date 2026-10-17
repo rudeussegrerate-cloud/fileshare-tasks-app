@@ -519,19 +519,19 @@ const stats = useQuery(api.documents.stats);
           ) : null}
           <ActionRow
             icon={Upload}
-            title="Nouveau document"
-            description="Envoyer un fichier à un collègue"
+            title="Nouveau courrier"
+            description="Envoyer un courrier"
             onClick={() => go("send")}
           />
           <ActionRow
             icon={Inbox}
-            title="Documents reçus"
-            description="Consulter et traiter vos documents"
+            title="Courriers reçus"
+            description="Consulter et traiter vos courriers"
             onClick={() => go("inbox")}
           />
           <ActionRow
             icon={Send}
-            title="Documents envoyés"
+            title="Courriers envoyés"
             description="Suivre l'état de vos envois"
             onClick={() => go("sent")}
           />
@@ -553,19 +553,19 @@ const stats = useQuery(api.documents.stats);
         <CardContent className="space-y-2">
           <ActionRow
             icon={Upload}
-            title="Nouveau document"
-            description="Envoyer un fichier à un collègue"
+            title="Nouveau courrier"
+            description="Envoyer un courrier"
             onClick={() => go("send")}
           />
           <ActionRow
             icon={Inbox}
-            title="Documents reçus"
+            title="Courriers reçus"
             description="Consulter et traiter vos réceptions"
             onClick={() => go("inbox")}
           />
           <ActionRow
             icon={Send}
-            title="Documents envoyés"
+            title="Courriers envoyés"
             description="Suivre l'état de vos envois"
             onClick={() => go("sent")}
           />
@@ -655,7 +655,7 @@ const stats = useQuery(api.documents.stats);
             />
             <ActionRow
               icon={FileText}
-              title="Documents de l'organisation"
+              title="Courriers de l'organisation"
               description="Vue d'ensemble via le tableau de bord et les listes"
               onClick={() => go("home")}
             />

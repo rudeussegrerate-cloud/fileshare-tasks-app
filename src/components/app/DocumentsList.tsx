@@ -75,7 +75,7 @@ export function DocumentsList({
 
   const exportCsv = () => {
     if (!documents || documents.length === 0) {
-      toast.error("Aucun document à exporter.");
+      toast.error("Aucun courrier à exporter.");
       return;
     }
     try {
@@ -150,12 +150,12 @@ export function DocumentsList({
           </div>
           <div>
             <h2 className="text-lg font-semibold tracking-tight">
-              {mode === "inbox" ? "Documents reçus" : "Documents envoyés"}
+              {mode === "inbox" ? "Courriers reçus" : "Courriers envoyés"}
             </h2>
             <p className="text-xs text-muted-foreground">
               {mode === "inbox"
-                ? "Consultez, traitez et suivez les documents qui vous sont adressés."
-                : "Suivez où en sont les documents que vous avez transmis."}
+                ? "Courriers adressés à votre structure — consultez, répondez ou classez."
+                : "Courriers que vous avez émis — suivez leur état."}
             </p>
           </div>
         </div>
@@ -222,23 +222,23 @@ export function DocumentsList({
           icon={mode === "inbox" ? Inbox : Send}
           title={
             showArchived
-              ? "Aucun document archivé"
+              ? "Aucun courrier archivé"
               : mode === "inbox"
-                ? "Aucun document reçu"
-                : "Aucun document envoyé"
+                ? "Aucun courrier reçu"
+                : "Aucun courrier envoyé"
           }
           description={
             showArchived
-              ? "Les documents archivés apparaîtront ici."
+              ? "Les courriers archivés apparaîtront ici."
               : mode === "inbox"
-                ? "Les documents que vos collègues vous adressent apparaîtront ici avec leur résumé automatique."
+                ? "Les courriers destinés à votre structure apparaîtront ici."
                 : "Transmettez un fichier avec la tâche à réaliser pour le voir apparaître ici."
           }
           action={
             !showArchived && onCreate ? (
               <Button onClick={onCreate} className="gap-2">
                 <Send className="size-4" />
-                Envoyer un document
+                Nouveau courrier
               </Button>
             ) : undefined
           }

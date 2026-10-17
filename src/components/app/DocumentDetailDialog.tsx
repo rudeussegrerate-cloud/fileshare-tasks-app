@@ -129,7 +129,7 @@ export function DocumentDetailDialog({
       const res = await setStatus({ documentId, status });
       if (res && typeof res === "object" && "outcome" in res) {
         if (res.outcome === "circuit_complete") {
-          toast.success("Document entièrement traité — l'émetteur est notifié");
+          toast.success("Courrier classé — l'émetteur est notifié");
         } else if (res.outcome === "step_advanced") {
           toast.success(
             `Votre étape est terminée → transmis à ${(res as { nextAssignee?: string }).nextAssignee ?? "la suite"}`,
@@ -152,7 +152,7 @@ export function DocumentDetailDialog({
     setBusy(true);
     try {
       await archiveDoc({ documentId });
-      toast.success("Document archivé");
+      toast.success("Courrier archivé");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Impossible d'archiver.",
@@ -167,7 +167,7 @@ export function DocumentDetailDialog({
     setBusy(true);
     try {
       await unarchiveDoc({ documentId });
-      toast.success("Document désarchivé");
+      toast.success("Courrier désarchivé");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Impossible de désarchiver.",
@@ -188,7 +188,7 @@ export function DocumentDetailDialog({
     setBusy(true);
     try {
       await removeDoc({ documentId });
-      toast.success("Document supprimé définitivement");
+      toast.success("Courrier supprimé définitivement");
       onOpenChange(false);
     } catch (error) {
       toast.error(
@@ -605,14 +605,14 @@ export function DocumentDetailDialog({
                 ) : null}
 
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span data-scandoc-tour="doc-status">Statut du traitement</span>
+                  <span data-scandoc-tour="doc-status">Statut du courrier</span>
                 </h4>
                 <p className="mt-1 text-xs text-muted-foreground">
                   {documentOrNull.hasCircuit
                     ? documentOrNull.isLastInCircuit
                       ? "Dernière étape : « Traité » clôture le dossier."
-                      : "« Traité (mon étape) » valide votre part et envoie automatiquement le dossier à la personne suivante."
-                    : "L'émetteur voit ce statut en temps réel."}
+                      : "« Classé (mon étape) » valide votre part et envoie automatiquement le dossier à la personne suivante."
+                    : "L'émetteur voit l'état du courrier en temps réel."}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2">
                   {(["consulte", "en_cours", "traite"] as DocumentStatus[]).map(
@@ -623,7 +623,7 @@ export function DocumentDetailDialog({
                         status === "traite" &&
                         documentOrNull.hasCircuit &&
                         !documentOrNull.isLastInCircuit
-                          ? "Traité (mon étape)"
+                          ? "Classé (mon étape)"
                           : STATUS_META[status].label;
                       return (
                         <Button

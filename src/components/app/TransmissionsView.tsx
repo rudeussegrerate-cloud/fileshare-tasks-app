@@ -97,7 +97,7 @@ export function TransmissionsView() {
         routingMode: "direct",
         comment: note.trim() || undefined,
       });
-      toast.success("Document transmis plus loin");
+      toast.success("Courrier transmis");
       setNote("");
       setForwardEntity("");
     } catch (e: unknown) {

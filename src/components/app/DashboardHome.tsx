@@ -23,7 +23,6 @@ import {
 import { MndptLoader } from "@/components/MndptLoader";
 import { useEffect, useState } from "react";
 import type { AppView } from "@/components/app/AppShell";
-import { SmartInsights } from "./SmartInsights";
 import {
   StatusBadge,
   fileIconFor,
@@ -132,8 +131,7 @@ export function DashboardHome({
         onNavigate={onNavigate}
       />
 
-      <SmartInsights onNavigate={onNavigate} />
-
+      
       {/* ========== BLOC DG : entreprise ========== */}
       {showEnterprise ? (
         <Section
@@ -169,8 +167,8 @@ export function DashboardHome({
           }
           subtitle={
             isChef
-              ? "Membres, activité et documents de votre service"
-              : "Détail et activité du service sélectionné"
+              ? "Membres et courriers de votre structure"
+              : "Courriers et membres de la structure"
           }
           action={
             isDg ? (
@@ -211,14 +209,14 @@ export function DashboardHome({
       {/* ========== Mes documents (tous rôles) ========== */}
       <Section
         icon={Inbox}
-        title="Mes documents"
-        subtitle="Vos échanges personnels"
+        title="Mes courriers"
+        subtitle="Courriers qui vous concernent"
       >
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatTile
             label="À traiter"
             value={awaiting}
-            hint="Reçus non traités"
+            hint="Courriers non classés"
             onClick={() => onNavigate("inbox")}
           />
           <StatTile
@@ -243,67 +241,42 @@ export function DashboardHome({
       </Section>
 
       {/* ========== Raccourcis ========== */}
-      <Section title="Raccourcis" subtitle="Accès rapide">
+            <Section title="Accès rapide">
         <div className="grid gap-2 sm:grid-cols-2">
           <QuickLink
             icon={Inbox}
-            title="Documents reçus"
-            desc="Traiter vos dossiers"
+            title="Courriers reçus"
+            desc="À traiter dans votre structure"
             onClick={() => onNavigate("inbox")}
           />
           <QuickLink
             icon={Send}
-            title="Documents envoyés"
-            desc="Suivi et circuits"
+            title="Courriers envoyés"
+            desc="Courriers émis"
             onClick={() => onNavigate("sent")}
           />
           <QuickLink
             icon={Building2}
-            title="Départements"
-            desc={isChef || isDg ? "Organisation et membres" : "Consulter"}
+            title="Structures"
+            desc="Directions et services"
             onClick={() => onNavigate("departments")}
-          />
-          {isDg ? (
-            <QuickLink
-              icon={BarChart3}
-              title="Organigramme 3D"
-              desc="Vue structure & circulation"
-              onClick={() => onNavigate("org3d")}
-            />
-          ) : null}
-          <QuickLink
-            icon={MessageCircle}
-            title="Messages"
-            desc="Messagerie interne"
-            onClick={() => onNavigate("messages")}
-          />
-          <QuickLink
-            icon={Newspaper}
-            title="Actualités"
-            desc="Fil interne"
-            onClick={() => onNavigate("actualites")}
-          />
-          <QuickLink
-            icon={Megaphone}
-            title="Annonces"
-            desc="Communications"
-            onClick={() => onNavigate("announcements")}
           />
           {isDg ? (
             <QuickLink
               icon={UserCheck}
               title="Comptes"
-              desc="Validation des inscrits"
+              desc="Validation des inscriptions"
               onClick={() => onNavigate("accounts")}
             />
           ) : null}
         </div>
       </Section>
 
+
       {/* ========== Derniers reçus ========== */}
       <Section
         title="Derniers reçus"
-        subtitle="Ouvrir un document"
+        subtitle="Ouvrir un courrier"
         action={
           <Button
             type="button"
@@ -317,7 +290,7 @@ export function DashboardHome({
       >
         {recent.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">
-            Aucun document reçu pour le moment.
+            Aucun courrier reçu pour le moment.
           </p>
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
@@ -446,8 +419,8 @@ function AlertsBlock({
   if (awaiting > 0) {
     items.push({
       key: "inbox",
-      title: `${awaiting} document${awaiting > 1 ? "s" : ""} à traiter`,
-      subtitle: "Reçus non encore traités",
+      title: `${awaiting} courrier${awaiting > 1 ? "s" : ""} à traiter`,
+      subtitle: "Courriers reçus non classés",
       onClick: () => onNavigate("inbox"),
       tone: "blue",
       icon: Inbox,
@@ -747,7 +720,7 @@ function EnterprisePanel({
           </Button>
         </div>
         <p className="mb-2 text-[11px] text-muted-foreground">
-          Priorité aux dossiers ouverts ou en retard. Toucher une ligne pour le détail.
+          Priorité aux courriers ouverts ou en retard. Toucher une ligne pour le détail.
         </p>
         {overview.departmentStats.length === 0 ? (
           <p className="text-xs text-muted-foreground">
@@ -827,10 +800,10 @@ function EnterprisePanel({
 
       <div>
         <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Derniers dossiers
+          Derniers courriers
         </h4>
         {overview.recent.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Aucun document.</p>
+          <p className="text-xs text-muted-foreground">Aucun courrier.</p>
         ) : (
           <ul className="divide-y divide-border/60 rounded-lg border border-border">
             {overview.recent.slice(0, 5).map((doc) => (
@@ -998,7 +971,7 @@ function DepartmentPanel({
 
       {detail.totals.circuitActive > 0 ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          {detail.totals.circuitActive} document
+          {detail.totals.circuitActive} courrier
           {detail.totals.circuitActive > 1 ? "s" : ""} en circuit chez un membre
           de ce département
         </p>

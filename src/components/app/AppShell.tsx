@@ -83,22 +83,12 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
     ],
   },
   {
-    title: "Documents",
+    title: "Courrier",
     items: [
       { key: "send", label: "Nouveau courrier", icon: Upload },
       { key: "inbox", label: "Courriers reçus", icon: Inbox },
       { key: "sent", label: "Courriers envoyés", icon: Send },
-      { key: "suivi", label: "Suivi des dossiers", icon: Route },
-      { key: "transmissions", label: "Transmissions", icon: Share2 },
-      { key: "fichiers", label: "Fichiers", icon: FolderOpen },
-    ],
-  },
-  {
-    title: "Échanges",
-    items: [
-      { key: "messages", label: "Messagerie", icon: MessageCircle },
-      { key: "actualites", label: "Actualités", icon: Newspaper },
-      { key: "announcements", label: "Publier une annonce", icon: Megaphone },
+      { key: "fichiers", label: "Recherche", icon: FolderOpen },
     ],
   },
   {
@@ -106,12 +96,6 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
     items: [
       { key: "departments", label: "Structures", icon: Building2 },
       { key: "accounts", label: "Comptes", icon: UserCheck, adminOnly: true },
-      {
-        key: "org3d",
-        label: "Organigramme 3D",
-        icon: Network,
-        adminOnly: true,
-      },
     ],
   },
   {

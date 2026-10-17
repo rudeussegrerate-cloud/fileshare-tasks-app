@@ -54,8 +54,8 @@ export function SmartAutomations() {
         });
       }
       if ((stats?.awaiting ?? 0) > 0) {
-        toast.message("Documents à traiter", {
-          description: `${stats!.awaiting} document${stats!.awaiting > 1 ? "s" : ""} en attente dans Reçus.`,
+        toast.message("Courriers à traiter", {
+          description: `${stats!.awaiting} courrier${stats!.awaiting > 1 ? "s" : ""} en attente.`,
         });
       }
       if ((notifCount ?? 0) > 0) {
