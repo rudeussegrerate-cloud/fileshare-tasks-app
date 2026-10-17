@@ -39,17 +39,71 @@ type SeedNode = {
 };
 
 /**
- * Hiérarchie MNDPT pour le N° de courrier :
- * N°{seq}-{année}/MNDPT/{codes du sommet vers la feuille}
- * Ex. DTD sous DGDN sous SG → N°071-2026/MNDPT/SG/DGDN/DTD
+ * Organigramme MNDPT (classement hiérarchique pour le N° de courrier).
+ * Chemin : MNDPT / SG / … / direction émettrice
+ * Ex. DTD → N°071-2026/MNDPT/SG/DGDN/DTD
  */
 const MNDPT_TREE: SeedNode[] = [
-  { code: "CAB", name: "Cabinet du Ministre", kind: "cabinet" },
+  // —— Organismes sous tutelle (rattachement ministériel) ——
+  { code: "PAOMA", name: "PAOSITRA Malagasy", kind: "organisme" },
+  {
+    code: "ARTEC",
+    name: "Autorité de Régulation des Technologies de Communication",
+    kind: "organisme",
+  },
+  {
+    code: "ARSP",
+    name: "Autorité de Régulation du Secteur Postal",
+    kind: "organisme",
+  },
+  {
+    code: "INDP",
+    name: "Institut National de Digitalisation des Postes",
+    kind: "organisme",
+  },
+
+  // —— Cabinet du Ministre ——
+  {
+    code: "CAB",
+    name: "Cabinet du Ministre",
+    kind: "cabinet",
+    children: [
+      {
+        code: "DCP",
+        name: "Direction de la Communication et du Partenariat",
+        kind: "direction",
+      },
+      {
+        code: "PRMP",
+        name: "Personne Responsable des Marchés Publics",
+        kind: "cellule",
+      },
+      { code: "CAC", name: "Cellule Anti-Corruption", kind: "cellule" },
+      { code: "SAI", name: "Service de l'Audit Interne", kind: "service" },
+    ],
+  },
+
+  // —— Secrétariat Général ——
   {
     code: "SG",
     name: "Secrétariat Général",
     kind: "sg",
     children: [
+      {
+        code: "SCE",
+        name: "Service de la Conservation de l'Environnement",
+        kind: "service",
+      },
+      {
+        code: "SSP",
+        name: "Service de Secrétariat Particulier",
+        kind: "service",
+        children: [
+          { code: "SAG", name: "Service Administratif Général", kind: "service" },
+        ],
+      },
+
+      // Directions générales
       {
         code: "DGDN",
         name: "Direction Générale du Développement Numérique",
@@ -59,53 +113,73 @@ const MNDPT_TREE: SeedNode[] = [
             code: "DTD",
             name: "Direction de la Transformation Digitale",
             kind: "direction",
-            children: [
-              { code: "DTD-ETUDES", name: "Service des Études", kind: "service" },
-              { code: "DTD-PROJ", name: "Service des Projets", kind: "service" },
-            ],
           },
           {
-            code: "DNGRC",
-            name: "Direction Nationale de la Gouvernance et de la Régulation des Communications",
+            code: "DEG",
+            name: "Direction de l'E-Gouvernance",
+            kind: "direction",
+          },
+          {
+            code: "DAF",
+            name: "Direction Administrative et Financière",
+            kind: "direction",
+          },
+          {
+            code: "DRH",
+            name: "Direction des Ressources Humaines",
+            kind: "direction",
+          },
+          {
+            code: "DAJ",
+            name: "Direction des Affaires Juridiques",
+            kind: "direction",
+          },
+          {
+            code: "DRSP",
+            name: "Direction de la Régulation du Secteur Postal",
+            kind: "direction",
+          },
+          {
+            code: "DSI",
+            name: "Direction du Système d'Information",
+            kind: "direction",
+          },
+          {
+            code: "DLP",
+            name: "Direction de la Logistique et des Patrimoines",
+            kind: "direction",
+          },
+          {
+            code: "DIR-INTER",
+            name: "Direction Interrégionales",
+            kind: "interregion",
+          },
+          {
+            code: "DIN",
+            name: "Direction de l'Intégration du Numérique",
+            kind: "direction",
+          },
+          {
+            code: "DCC",
+            name: "Direction en Conduite du Changement",
+            kind: "direction",
+          },
+          {
+            code: "DP",
+            name: "Direction des Projets",
             kind: "direction",
           },
         ],
       },
       {
-        code: "DAF",
-        name: "Direction des Affaires Financières",
-        kind: "direction",
-        children: [
-          { code: "DAF-COMPTA", name: "Service de la Comptabilité", kind: "service" },
-          { code: "DAF-BUDGET", name: "Service du Budget", kind: "service" },
-        ],
-      },
-      {
-        code: "DRH",
-        name: "Direction des Ressources Humaines",
-        kind: "direction",
-        children: [
-          {
-            code: "DRH-CARR",
-            name: "Service Formation et Gestion des Carrières",
-            kind: "service",
-          },
-          { code: "DRH-PERS", name: "Service du Personnel", kind: "service" },
-        ],
-      },
-      {
-        code: "DSI",
-        name: "Direction des Systèmes d'Information",
+        code: "DGOVT",
+        name: "Direction Générale des Opérations de la Vulgarisation des TICs",
         kind: "direction",
       },
-      { code: "DIR1", name: "Direction Interrégionale 1", kind: "interregion" },
-      { code: "DIR2", name: "Direction Interrégionale 2", kind: "interregion" },
-      { code: "DIR3", name: "Direction Interrégionale 3", kind: "interregion" },
     ],
   },
-  { code: "PAOMA", name: "PAOMA (organisme sous tutelle)", kind: "organisme" },
-  { code: "ARTEC", name: "ARTEC (organisme sous tutelle)", kind: "organisme" },
 ];
+
 
 async function insertNode(
   ctx: MutationCtx,
