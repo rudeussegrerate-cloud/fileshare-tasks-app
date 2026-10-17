@@ -60,6 +60,7 @@ export function SendDocument({
 }) {
   const me = useQuery(api.workspace.me);
   const departments = useQuery(api.workspace.listDepartments);
+  const receivedRefs = useQuery(api.documents.listReceivedRefs);
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const sendDocument = useMutation(api.documents.send);
 
@@ -828,13 +829,57 @@ export function SendDocument({
                 </p>
                 <div className="space-y-2 pt-2">
                   <Label htmlFor="referenceText">Réf.</Label>
+                  {receivedRefs && receivedRefs.length > 0 ? (
+                    <select
+                      className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
+                      value={
+                        receivedRefs.some(
+                          (r) =>
+                            referenceText === r.publicRef ||
+                            referenceText ===
+                              `Votre correspondance ${r.publicRef}`,
+                        )
+                          ? receivedRefs.find(
+                              (r) =>
+                                referenceText === r.publicRef ||
+                                referenceText ===
+                                  `Votre correspondance ${r.publicRef}`,
+                            )!.publicRef
+                          : ""
+                      }
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (!v) return;
+                        setReferenceText(`Votre correspondance ${v}`);
+                      }}
+                    >
+                      <option value="">
+                        Choisir un N° parmi les courriers reçus…
+                      </option>
+                      {receivedRefs.map((r) => (
+                        <option key={r.documentId} value={r.publicRef}>
+                          {r.publicRef}
+                          {r.objet ? ` — ${r.objet.slice(0, 40)}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  ) : null}
                   <Input
                     id="referenceText"
                     value={referenceText}
                     onChange={(e) => setReferenceText(e.target.value)}
+                    list="received-refs-datalist"
+                    placeholder="Ou saisissez la référence manuellement"
                   />
+                  <datalist id="received-refs-datalist">
+                    {(receivedRefs ?? []).map((r) => (
+                      <option key={r.documentId} value={r.publicRef}>
+                        {r.objet}
+                      </option>
+                    ))}
+                  </datalist>
                   <p className="text-[11px] text-muted-foreground">
-                    Référence au courrier d&apos;origine (si réponse).
+                    Sélectionnez un N° déjà reçu, ou saisissez la Réf. librement.
                   </p>
                 </div>
                 <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm">

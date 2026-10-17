@@ -1274,6 +1274,42 @@ export const sent = query({
   },
 });
 
+
+/** N° des courriers reçus (pour le champ Réf. à l'envoi / réponse). */
+export const listReceivedRefs = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    try {
+      const docs = await collectInboxDocuments(ctx, userId, false);
+      const seen = new Set<string>();
+      const out: Array<{
+        publicRef: string;
+        objet: string;
+        documentId: Id<"documents">;
+        createdAt: number;
+      }> = [];
+      for (const d of docs.sort(sortByDateDesc)) {
+        const ref = (d.publicRef ?? "").trim();
+        if (!ref || seen.has(ref)) continue;
+        seen.add(ref);
+        out.push({
+          publicRef: ref,
+          objet: d.objet || d.fileName,
+          documentId: d._id,
+          createdAt: d.createdAt,
+        });
+        if (out.length >= 80) break;
+      }
+      return out;
+    } catch (e) {
+      console.error("[listReceivedRefs]", e);
+      return [];
+    }
+  },
+});
+
 /** Compatibilité : anciennes queries sans args (utilisées par le dashboard) */
 export const inboxAll = query({
   args: {},
