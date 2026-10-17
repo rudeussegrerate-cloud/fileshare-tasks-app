@@ -114,14 +114,14 @@ export function DocumentDetailDialog({
 
   // Opening a courrier counts as consulting it for the sender.
   useEffect(() => {
-    if (!document?.isRecipient && !document?.canUpdateStatus) return;
-    if (document.status !== "envoye") return;
-    if (viewedRef.current === document._id) return;
-    viewedRef.current = document._id;
-    void markViewed({ documentId: document._id }).catch(() => {
+    if (!courrier?.isRecipient && !courrier?.canUpdateStatus) return;
+    if (courrier.status !== "envoye") return;
+    if (viewedRef.current === courrier._id) return;
+    viewedRef.current = courrier._id;
+    void markViewed({ documentId: courrier._id }).catch(() => {
       /* ne bloque pas l'ouverture */
     });
-  }, [document, markViewed]);
+  }, [courrier, markViewed]);
 
   const handleStatus = async (status: DocumentStatus) => {
     if (!documentId) return;
@@ -199,7 +199,7 @@ export function DocumentDetailDialog({
     }
   };
 
-  const documentOrNull = document;
+  const documentOrNull = courrier;
   // Ne pas utiliser React.ComponentType sans import React (crash runtime).
   const Icon = documentOrNull ? fileIconFor(documentOrNull.fileName) : FileText;
 
@@ -309,7 +309,7 @@ export function DocumentDetailDialog({
                 )}
                 <p className="mt-2 text-xs">
                   {documentOrNull.relativeTracking.isMyTurn
-                    ? "C'est votre tour de traiter ce document."
+                    ? "C'est votre tour de traiter ce courrier."
                     : documentOrNull.relativeTracking.waitingForPrevious
                       ? "En attente de la personne précédente."
                       : documentOrNull.relativeTracking.myStatus === "done"
