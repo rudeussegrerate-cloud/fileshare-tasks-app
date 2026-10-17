@@ -873,17 +873,15 @@ export const moveDepartment = mutation({
       const parent = await ctx.db.get(args.parentId);
       if (!parent) throw new Error("Parent introuvable.");
       // Anti-cycle
-      let cur: Id<"departments"> | null = args.parentId;
-      let guard = 0;
-      while (cur && guard < 20) {
-        guard += 1;
-        if (cur === args.departmentId) {
+      let walkId: Id<"departments"> | undefined = args.parentId;
+      for (let guard = 0; walkId && guard < 20; guard++) {
+        if (walkId === args.departmentId) {
           throw new Error(
             "Déplacement impossible : cela créerait une boucle dans la hiérarchie.",
           );
         }
-        const node = await ctx.db.get(cur);
-        cur = node && node.parentId ? node.parentId : null;
+        const walkNode: Doc<"departments"> | null = await ctx.db.get(walkId);
+        walkId = walkNode?.parentId;
       }
     }
     await ctx.db.patch(args.departmentId, {
