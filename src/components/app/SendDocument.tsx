@@ -270,6 +270,7 @@ export function SendDocument({
 
   const directions = (departments ?? [])
     .filter((d) => {
+      if ((d as { active?: boolean }).active === false) return false;
       const k = (d as { kind?: string | null }).kind;
       return k !== "service";
     })

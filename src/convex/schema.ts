@@ -155,6 +155,8 @@ const schema = defineSchema(
       createdAt: v.number(),
       parentId: v.optional(v.id("departments")),
       logoStorageId: v.optional(v.id("_storage")),
+      /** false = désactivé (n'apparaît plus à l'envoi) */
+      active: v.optional(v.boolean()),
     })
       .index("by_parent", ["parentId"])
       .index("by_code", ["code"]),

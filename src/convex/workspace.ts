@@ -385,6 +385,7 @@ export const listDepartments = query({
         chief: members.find((m) => m.departmentRole === "chef") ?? null,
         members,
         logoUrl,
+        active: department.active !== false,
       });
     }
     // Directions / racines d'abord, puis services sous leur parent
@@ -622,15 +623,45 @@ export const createDepartment = mutation({
     name: v.string(),
     description: v.optional(v.string()),
     chiefId: v.optional(v.id("users")),
+    code: v.optional(v.string()),
+    kind: v.optional(
+      v.union(
+        v.literal("direction"),
+        v.literal("service"),
+        v.literal("organisme"),
+        v.literal("cabinet"),
+        v.literal("sg"),
+        v.literal("interregion"),
+        v.literal("cellule"),
+        v.literal("autre"),
+      ),
+    ),
+    parentId: v.optional(v.id("departments")),
   },
   handler: async (ctx, args) => {
     const admin = await requireAdmin(ctx);
     const name = args.name.trim();
-    if (!name) throw new Error("Le nom du département est obligatoire.");
+    if (!name) throw new Error("Le nom de la structure est obligatoire.");
+    const code = args.code?.trim().toUpperCase() || undefined;
+    if (code) {
+      const clash = await ctx.db
+        .query("departments")
+        .withIndex("by_code", (q) => q.eq("code", code))
+        .first();
+      if (clash) throw new Error(`Le code « ${code} » est déjà utilisé.`);
+    }
+    if (args.parentId) {
+      const parent = await ctx.db.get(args.parentId);
+      if (!parent) throw new Error("Structure parente introuvable.");
+    }
 
     const departmentId = await ctx.db.insert("departments", {
       name,
+      code,
+      kind: args.kind ?? (args.parentId ? "service" : "direction"),
       description: args.description?.trim() || undefined,
+      parentId: args.parentId,
+      active: true,
       createdBy: admin._id,
       createdAt: Date.now(),
     });
@@ -775,6 +806,105 @@ export const removeMember = mutation({
       departmentRole: undefined,
     });
     return null;
+  },
+});
+
+
+/** DG : modifier nom, code, type, description. */
+export const updateDepartment = mutation({
+  args: {
+    departmentId: v.id("departments"),
+    name: v.string(),
+    code: v.optional(v.string()),
+    kind: v.optional(
+      v.union(
+        v.literal("direction"),
+        v.literal("service"),
+        v.literal("organisme"),
+        v.literal("cabinet"),
+        v.literal("sg"),
+        v.literal("interregion"),
+        v.literal("cellule"),
+        v.literal("autre"),
+      ),
+    ),
+    description: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const dep = await ctx.db.get(args.departmentId);
+    if (!dep) throw new Error("Structure introuvable.");
+    const name = args.name.trim();
+    if (!name) throw new Error("Le nom est obligatoire.");
+    const code = args.code?.trim().toUpperCase() || undefined;
+    if (code && code !== (dep.code ?? "").toUpperCase()) {
+      const clash = await ctx.db
+        .query("departments")
+        .withIndex("by_code", (q) => q.eq("code", code))
+        .first();
+      if (clash && clash._id !== args.departmentId) {
+        throw new Error(`Le code « ${code} » est déjà utilisé.`);
+      }
+    }
+    await ctx.db.patch(args.departmentId, {
+      name,
+      code,
+      kind: args.kind ?? dep.kind,
+      description: args.description?.trim() || undefined,
+    });
+    return args.departmentId;
+  },
+});
+
+/** DG : rattacher à un autre parent (hiérarchie). */
+export const moveDepartment = mutation({
+  args: {
+    departmentId: v.id("departments"),
+    parentId: v.optional(v.id("departments")),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const dep = await ctx.db.get(args.departmentId);
+    if (!dep) throw new Error("Structure introuvable.");
+    if (args.parentId) {
+      if (args.parentId === args.departmentId) {
+        throw new Error("Une structure ne peut pas être son propre parent.");
+      }
+      const parent = await ctx.db.get(args.parentId);
+      if (!parent) throw new Error("Parent introuvable.");
+      // Anti-cycle
+      let cur: Id<"departments"> | null = args.parentId;
+      let guard = 0;
+      while (cur && guard < 20) {
+        guard += 1;
+        if (cur === args.departmentId) {
+          throw new Error(
+            "Déplacement impossible : cela créerait une boucle dans la hiérarchie.",
+          );
+        }
+        const node = await ctx.db.get(cur);
+        cur = node && node.parentId ? node.parentId : null;
+      }
+    }
+    await ctx.db.patch(args.departmentId, {
+      parentId: args.parentId,
+    });
+    return args.departmentId;
+  },
+});
+
+/** DG : activer / désactiver (masqué à l'envoi si inactif). */
+export const setDepartmentActive = mutation({
+  args: {
+    departmentId: v.id("departments"),
+    active: v.boolean(),
+  },
+  handler: async (ctx, args) => {
+    await requireAdmin(ctx);
+    const dep = await ctx.db.get(args.departmentId);
+    if (!dep) throw new Error("Structure introuvable.");
+    await ctx.db.patch(args.departmentId, { active: args.active });
+    return args.departmentId;
   },
 });
 

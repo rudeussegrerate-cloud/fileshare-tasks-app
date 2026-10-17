@@ -52,6 +52,7 @@ import { MndptLoader } from "@/components/MndptLoader";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { EmptyState, initialsOf } from "./shared";
+import { HierarchyAdmin } from "./HierarchyAdmin";
 
 type PersonMode = "member" | "chief";
 
@@ -642,6 +643,8 @@ export function DepartmentsView() {
           </Button>
         </div>
       ) : null}
+
+      {me.isAdmin ? <HierarchyAdmin /> : null}
 
       <JoinGroupsPanel />
       <MembershipPanel />
