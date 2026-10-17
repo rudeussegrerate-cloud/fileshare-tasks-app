@@ -24,7 +24,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PresenceDot } from "./PresenceDot";
 import { EmptyState, StepDots, formatBytes, initialsOf , PREDEFINED_TASKS } from "./shared";
@@ -92,12 +92,25 @@ export function SendDocument({
   );
   const [observations, setObservations] = useState("");
   const [referenceText, setReferenceText] = useState(
-    replyTo?.publicRef
-      ? `Votre correspondance ${replyTo.publicRef}`
-      : "",
+    replyTo?.publicRef ? replyTo.publicRef : "",
   );
   const [requiresResponse, setRequiresResponse] = useState(false);
+  const [refPickerOpen, setRefPickerOpen] = useState(false);
   const [publicRef, setPublicRef] = useState(initialPublicRef ?? "");
+  const filteredReceivedRefs = useMemo(() => {
+    const list = receivedRefs ?? [];
+    const q = referenceText.trim().toLowerCase();
+    // Afficher les N° bruts même si la valeur stockée est "Votre correspondance N°..."
+    const qNorm = q.replace(/^votre correspondance\s+/i, "");
+    if (!qNorm) return list.slice(0, 40);
+    return list
+      .filter(
+        (r) =>
+          r.publicRef.toLowerCase().includes(qNorm) ||
+          r.objet.toLowerCase().includes(qNorm),
+      )
+      .slice(0, 40);
+  }, [receivedRefs, referenceText]);
   /** SLA par étape (heures) pour un nouveau circuit */
   const [stepDeadlineHours, setStepDeadlineHours] = useState(48);
   const refLookup = useQuery(
@@ -827,58 +840,68 @@ export function SendDocument({
                 <p className="text-[11px] text-muted-foreground">
                   Laissez vide pour un N° automatique (ex. N°071-2026/MNDPT/DTD).
                 </p>
-                <div className="space-y-2 pt-2 rounded-sm border border-border bg-muted/20 p-3">
-                  <Label htmlFor="refSelect">Réf. — courrier référencé</Label>
-                  <select
-                    id="refSelect"
-                    className="flex h-11 w-full rounded-sm border border-input bg-background px-3 text-sm"
-                    disabled={receivedRefs === undefined}
-                    value={(() => {
-                      if (!receivedRefs?.length) return "";
-                      const hit = receivedRefs.find(
-                        (r) =>
-                          referenceText === r.publicRef ||
-                          referenceText ===
-                            `Votre correspondance ${r.publicRef}` ||
-                          referenceText.includes(r.publicRef),
-                      );
-                      return hit?.publicRef ?? "";
-                    })()}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      if (!v) {
-                        setReferenceText("");
-                        return;
-                      }
-                      setReferenceText(`Votre correspondance ${v}`);
-                    }}
-                  >
-                    <option value="">
-                      {receivedRefs === undefined
-                        ? "Chargement des courriers reçus…"
-                        : receivedRefs.length === 0
-                          ? "Aucun courrier reçu pour l’instant"
-                          : "Choisir un N° parmi vos courriers reçus…"}
-                    </option>
-                    {(receivedRefs ?? []).map((r) => (
-                      <option key={r.documentId} value={r.publicRef}>
-                        {r.publicRef}
-                        {r.objet ? ` — ${r.objet.slice(0, 48)}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <Label htmlFor="referenceText" className="pt-1">
-                    Ou saisie libre
-                  </Label>
+                <div className="relative space-y-1.5 pt-2">
+                  <Label htmlFor="referenceText">Réf.</Label>
                   <Input
                     id="referenceText"
                     value={referenceText}
-                    onChange={(e) => setReferenceText(e.target.value)}
-                    placeholder="Ex. : Votre correspondance N°071-2026/…"
+                    onChange={(e) => {
+                      setReferenceText(e.target.value);
+                      setRefPickerOpen(true);
+                    }}
+                    onFocus={() => setRefPickerOpen(true)}
+                    onBlur={() => {
+                      // délai pour laisser le clic sur une option
+                      window.setTimeout(() => setRefPickerOpen(false), 180);
+                    }}
+                    placeholder={
+                      receivedRefs === undefined
+                        ? "Chargement…"
+                        : "Rechercher un N° de courrier reçu…"
+                    }
+                    autoComplete="off"
+                    className="font-mono text-sm"
                   />
+                  {refPickerOpen ? (
+                    <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-sm border border-border bg-card shadow-md">
+                      {receivedRefs === undefined ? (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">
+                          Chargement des courriers reçus…
+                        </p>
+                      ) : filteredReceivedRefs.length === 0 ? (
+                        <p className="px-3 py-2 text-xs text-muted-foreground">
+                          {(receivedRefs?.length ?? 0) === 0
+                            ? "Aucun courrier reçu — impossible de référencer."
+                            : "Aucun N° ne correspond à la recherche."}
+                        </p>
+                      ) : (
+                        <ul className="py-1">
+                          {filteredReceivedRefs.map((r) => (
+                            <li key={r.documentId}>
+                              <button
+                                type="button"
+                                className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted/60"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  setReferenceText(r.publicRef);
+                                  setRefPickerOpen(false);
+                                }}
+                              >
+                                <span className="font-mono text-xs font-medium">
+                                  {r.publicRef}
+                                </span>
+                                <span className="line-clamp-1 text-[11px] text-muted-foreground">
+                                  {r.objet}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  ) : null}
                   <p className="text-[11px] text-muted-foreground">
-                    La liste contient les N° des courriers déjà reçus par votre
-                    structure. Vous pouvez aussi taper la Réf. à la main.
+                    Uniquement les N° des courriers que vous avez reçus.
                   </p>
                 </div>
                 <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm">
