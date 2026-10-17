@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { cn } from "@/lib/utils";
 import { useAction, useMutation, useQuery } from "convex/react";
-import { Loader2, Settings2, Sparkles, X } from "lucide-react";
+import { Loader2, Mail, Settings2, Sparkles, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -77,7 +77,7 @@ const MOODS = [
 ];
 
 
-/** Palette métal / LED du robot 3D */
+/** Couleurs du guide courrier */
 const ROBOT: Record<
   string,
   { body: string; bodyDark: string; accent: string; led: string; panel: string }
@@ -130,8 +130,7 @@ const COLORS: Record<string, string> = {
 type IdleEmotion = "idle" | "wave" | "look" | "sleep" | "excited" | "think" | "happy" | "sad" | "curious";
 
 /**
- * Avatar robot 3D (SVG + ombres / reflets).
- * Expressions via LED yeux / antenne selon humeur.
+ * Avatar guide courrier — style application professionnelle (pas un robot).
  */
 function BotAvatar({
   color,
@@ -150,261 +149,42 @@ function BotAvatar({
   photoUrl?: string | null;
   gender?: "male" | "female" | "neutral";
 }) {
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const eyeLRef = useRef<SVGRectElement | null>(null);
-  const eyeRRef = useRef<SVGRectElement | null>(null);
+  void gender;
+  void emotion;
   const dim =
-    size === "lg" ? "size-[80px]" : size === "sm" ? "size-11" : "size-[60px]";
+    size === "lg" ? "size-[72px]" : size === "sm" ? "size-10" : "size-14";
   const palette = ROBOT[color] ?? ROBOT.navy!;
 
-  const happy =
-    mood === "joyeux" ||
-    mood === "blagueur" ||
-    emotion === "excited" ||
-    emotion === "wave" ||
-    emotion === "happy";
-  const serious =
-    (mood === "sérieux" && emotion === "idle") || emotion === "sad";
-  const sleepy = emotion === "sleep";
-  const thinking = emotion === "think" || emotion === "curious";
-  const looking = emotion === "look" || emotion === "curious";
-
-  const eyeColor = sleepy
-    ? "#64748b"
-    : serious
-      ? "#f87171"
-      : happy
-        ? palette.led
-        : thinking
-          ? "#fbbf24"
-          : palette.led;
-
-  const eyeY = looking ? 36 : sleepy ? 39 : 34;
-  const eyeH = sleepy ? 1.5 : happy ? 9 : serious ? 5 : 7;
-  const mouthPath = sleepy
-    ? "M50 56 H70"
-    : happy
-      ? "M48 54 Q60 66 72 54"
-      : serious
-        ? "M52 58 H68"
-        : thinking
-          ? "M52 56 Q60 60 70 54"
-          : "M50 56 Q60 62 70 56";
-
-  // Respiration + clignement (anime.js)
-  useEffect(() => {
-    const el = rootRef.current;
-    if (!el || photoUrl) return;
-    const breath = animate(el, {
-      scale: [1, 1.03, 1],
-      duration: 2800,
-      ease: "inOutSine",
-      loop: true,
-    });
-    let blinkTimer: number | undefined;
-    const blink = () => {
-      const eyes = [eyeLRef.current, eyeRRef.current].filter(Boolean);
-      if (!eyes.length || sleepy) return;
-      animate(eyes as SVGRectElement[], {
-        scaleY: [1, 0.08, 1],
-        duration: 180,
-        ease: "inOutQuad",
-      });
-      blinkTimer = window.setTimeout(blink, 2800 + Math.random() * 3200);
-    };
-    blinkTimer = window.setTimeout(blink, 1600);
-    return () => {
-      try {
-        (breath as { pause?: () => void }).pause?.();
-      } catch {
-        /* ignore */
-      }
-      if (blinkTimer) window.clearTimeout(blinkTimer);
-    };
-  }, [photoUrl, sleepy, color]);
-
-  const gestureClass =
-    emotion === "wave"
-      ? "bot-gesture-wave"
-      : emotion === "happy" || emotion === "excited"
-        ? "bot-gesture-celebrate"
-        : emotion === "sad"
-          ? "bot-gesture-shake"
-          : emotion === "think" || emotion === "curious"
-            ? "bot-gesture-think"
-            : emotion === "look"
-              ? "bot-gesture-nod"
-              : "";
+  if (photoUrl) {
+    return (
+      <div
+        className={`${dim} overflow-hidden rounded-full border-2 border-white shadow-lg ring-2 ring-brand/30 ${bounce ? "animate-soft-pulse" : ""}`}
+      >
+        <img src={photoUrl} alt="" className="size-full object-cover" />
+      </div>
+    );
+  }
 
   return (
     <div
-      ref={rootRef}
-      className={cn(
-        "relative select-none will-change-transform",
-        dim,
-        bounce && "animate-bounce",
-        emotion === "wave" && "animate-soft-pulse",
-        gestureClass,
-      )}
+      className={`${dim} relative flex items-center justify-center rounded-full shadow-lg ${bounce ? "animate-soft-pulse" : ""}`}
       style={{
-        filter:
-          "drop-shadow(0 8px 14px rgba(0,0,0,0.4)) drop-shadow(0 0 12px rgba(56,189,248,0.15))",
-        transformStyle: "preserve-3d",
-        transform: "perspective(520px) rotateY(-12deg) rotateX(8deg)",
+        background: `linear-gradient(145deg, ${palette.accent}, ${palette.bodyDark})`,
+        boxShadow: `0 8px 20px ${palette.bodyDark}55`,
       }}
       aria-hidden
     >
-      <div
-        className="pointer-events-none absolute inset-0 z-[2] rounded-2xl opacity-40"
-        style={{
-          background:
-            "linear-gradient(145deg, rgba(255,255,255,0.55) 0%, transparent 42%, rgba(0,0,0,0.25) 100%)",
-        }}
+      <Mail
+        className={
+          size === "sm" ? "size-4 text-white" : size === "lg" ? "size-8 text-white" : "size-6 text-white"
+        }
+        strokeWidth={2}
       />
-
-      {photoUrl ? (
-        <div className="relative h-full w-full overflow-hidden rounded-2xl border-2 border-cyan-400/30 bg-slate-900 shadow-inner">
-          <img src={photoUrl} alt="" className="h-full w-full object-cover" />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent py-0.5 text-center text-[8px] font-medium text-cyan-200">
-            BOT
-          </div>
-        </div>
-      ) : (
-        <svg viewBox="0 0 120 145" className="h-full w-full" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id={`rb-${color}`} x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor={palette.body} />
-              <stop offset="40%" stopColor={palette.bodyDark} />
-              <stop offset="100%" stopColor={palette.body} />
-            </linearGradient>
-            <linearGradient id={`metal-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.5)" />
-              <stop offset="40%" stopColor="rgba(255,255,255,0.05)" />
-              <stop offset="100%" stopColor="rgba(0,0,0,0.35)" />
-            </linearGradient>
-            <filter id={`glow-${color}`}>
-              <feGaussianBlur stdDeviation="1.8" result="b" />
-              <feMerge>
-                <feMergeNode in="b" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-            <radialGradient id={`led-${color}`} cx="50%" cy="40%" r="60%">
-              <stop offset="0%" stopColor="#fff" stopOpacity="0.9" />
-              <stop offset="40%" stopColor={palette.led} />
-              <stop offset="100%" stopColor={palette.led} stopOpacity="0.2" />
-            </radialGradient>
-          </defs>
-
-          <ellipse cx="60" cy="136" rx="30" ry="6" fill="rgba(0,0,0,0.35)" />
-
-          {/* Antenne */}
-          <line x1="60" y1="10" x2="60" y2="24" stroke={palette.bodyDark} strokeWidth="3.5" strokeLinecap="round" />
-          <circle cx="60" cy="7" r="5.5" fill={`url(#led-${color})`} filter={`url(#glow-${color})`}>
-            {happy ? (
-              <animate attributeName="opacity" values="1;0.35;1" dur="1.1s" repeatCount="indefinite" />
-            ) : null}
-          </circle>
-
-          {/* Tête */}
-          <rect x="26" y="24" width="68" height="54" rx="16" fill={`url(#rb-${color})`} stroke={palette.bodyDark} strokeWidth="2" />
-          <rect x="26" y="24" width="68" height="54" rx="16" fill={`url(#metal-${color})`} />
-          {/* Visage écran */}
-          <rect x="33" y="31" width="54" height="38" rx="10" fill={palette.panel} stroke="rgba(255,255,255,0.12)" />
-          <rect x="33" y="31" width="54" height="14" rx="10" fill="rgba(255,255,255,0.08)" />
-
-          {/* Yeux */}
-          <rect
-            ref={eyeLRef as never}
-            x="42"
-            y={eyeY}
-            width="13"
-            height={eyeH}
-            rx="3"
-            fill={eyeColor}
-            filter={`url(#glow-${color})`}
-            style={{ transformOrigin: "48px 38px" }}
-          />
-          <rect
-            ref={eyeRRef as never}
-            x="65"
-            y={eyeY}
-            width="13"
-            height={eyeH}
-            rx="3"
-            fill={eyeColor}
-            filter={`url(#glow-${color})`}
-            style={{ transformOrigin: "71px 38px" }}
-          />
-
-          <path
-            d={mouthPath}
-            stroke={eyeColor}
-            strokeWidth="2.4"
-            fill="none"
-            strokeLinecap="round"
-            filter={`url(#glow-${color})`}
-          />
-
-          {/* Cou */}
-          <rect x="52" y="76" width="16" height="9" rx="3" fill={palette.bodyDark} />
-          <rect x="52" y="76" width="16" height="4" fill="rgba(255,255,255,0.12)" />
-
-          {/* Torse */}
-          <rect x="30" y="82" width="60" height="40" rx="12" fill={`url(#rb-${color})`} stroke={palette.bodyDark} strokeWidth="2" />
-          <rect x="30" y="82" width="60" height="40" rx="12" fill={`url(#metal-${color})`} opacity="0.7" />
-          <rect x="42" y="90" width="36" height="20" rx="5" fill={palette.panel} stroke="rgba(255,255,255,0.1)" />
-          <circle cx="50" cy="100" r="3.2" fill={palette.accent} opacity="0.95" />
-          <circle cx="60" cy="100" r="3.2" fill={palette.led} filter={`url(#glow-${color})`}>
-            <animate attributeName="opacity" values="0.95;0.25;0.95" dur="2.2s" repeatCount="indefinite" />
-          </circle>
-          <circle cx="70" cy="100" r="3.2" fill={palette.accent} opacity="0.7" />
-
-          {/* Bras */}
-          <g className={emotion === "wave" ? "origin-center" : undefined}>
-            <rect
-              x="12"
-              y="88"
-              width="17"
-              height="11"
-              rx="5"
-              fill={palette.body}
-              stroke={palette.bodyDark}
-              strokeWidth="1.5"
-              transform={emotion === "wave" ? "rotate(-32 20 93)" : emotion === "happy" ? "rotate(-12 20 93)" : ""}
-            />
-            <rect
-              x="91"
-              y="88"
-              width="17"
-              height="11"
-              rx="5"
-              fill={palette.body}
-              stroke={palette.bodyDark}
-              strokeWidth="1.5"
-            />
-          </g>
-
-          <text x="60" y="128" textAnchor="middle" fontSize="6.5" fill="rgba(255,255,255,0.35)" fontFamily="system-ui">
-            {gender === "male" ? "R-01" : gender === "female" ? "R-02" : "AI"}
-          </text>
-        </svg>
-      )}
-
-      {emotion === "excited" || emotion === "happy" ? (
-        <span className="absolute -right-1 -top-1 text-sm">⚡</span>
-      ) : null}
-      {emotion === "think" || emotion === "curious" ? (
-        <span className="absolute -right-0.5 -top-2 text-xs">💭</span>
-      ) : null}
-      {emotion === "sad" ? (
-        <span className="absolute -right-1 -top-1 text-sm">💧</span>
-      ) : null}
-      {emotion === "wave" ? (
-        <span className="absolute -left-1 top-0 text-sm">👋</span>
-      ) : null}
-      {emotion === "sleep" ? (
-        <span className="absolute -right-1 top-0 text-[10px] text-cyan-400/80">zzz</span>
+      <span className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-white text-[9px] font-bold text-brand shadow">
+        ?
+      </span>
+      {mood === "joyeux" ? (
+        <span className="sr-only">Guide courrier</span>
       ) : null}
     </div>
   );
@@ -441,7 +221,7 @@ export function FloatingAssistant() {
   const [settings, setSettings] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [name, setName] = useState("Aide");
+  const [name, setName] = useState("Guide courrier");
   const [mood, setMood] = useState("calme");
   const [personality, setPersonality] = useState("");
   const [color, setColor] = useState("navy");
@@ -655,7 +435,7 @@ export function FloatingAssistant() {
             dragging ? "cursor-grabbing" : cn("cursor-grab animate-soft-pulse bot-alive", speaking && "bot-speaking", listening && "bot-speaking")
           }`}
           style={{ left: pos.x, top: pos.y }}
-          title={`${botName} — glisser pour déplacer, cliquer pour parler`}
+          title={`${botName} — aide courrier (glisser pour déplacer)`}
           onPointerDown={(e) => {
             if (e.button !== 0) return;
             e.currentTarget.setPointerCapture(e.pointerId);
@@ -754,7 +534,7 @@ export function FloatingAssistant() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{botName}</p>
               <p className="text-[10px] text-muted-foreground">
-                Assistant ScanDoc · {botMood}
+                Guide d'envoi de courrier · {botMood}
               </p>
             </div>
             <Button
@@ -935,12 +715,12 @@ export function FloatingAssistant() {
             <Input
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Question ou : Apprends : quand je dis X, fais Y"
+              placeholder="Ex. : Comment répondre à un courrier ?"
               className="h-9 text-sm"
               disabled={busy}
             />
             <Button type="button"
-                  title="Parler au robot"
+                  title="Dictée vocale"
                   variant="outline"
                   size="icon"
                   disabled={busy || listening}
@@ -1045,15 +825,14 @@ export function FloatingAssistant() {
                   ))}
                 </div>
                 <p className="text-[11px] text-muted-foreground">
-                  Homme / femme : variantes du robot 3D. Ou importez une photo pour l'écran du robot
-                  (écran robot).
+                  Optionnel. Vous pouvez aussi importer une photo pour personnaliser le guide.
                 </p>
               </div>
               <div className="flex items-center justify-between gap-2 rounded-lg border border-border p-3">
                 <div>
                   <p className="text-sm font-medium">Réponses vocales (optionnel)</p>
                   <p className="text-[11px] text-muted-foreground">
-                    Désactivé par défaut. Activez pour que le robot lise ses réponses.
+                    Désactivé par défaut. Activez pour que le guide lise ses réponses.
                   </p>
                 </div>
                 <Button
@@ -1078,7 +857,7 @@ export function FloatingAssistant() {
 
               <Label>Photo de l&apos;assistant (avatar)</Label>
               <p className="text-[11px] text-muted-foreground">
-                Importez une photo : elle s'affiche sur l'écran du robot 3D.
+                Importez une photo : elle s'affiche sur l'avatar du guide.
               </p>
               <div className="flex flex-wrap gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs font-medium hover:bg-muted">

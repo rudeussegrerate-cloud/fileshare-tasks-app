@@ -6,33 +6,36 @@ import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 
 const SITE_HELP = `
-Tu es un robot assistant personnel vivant sur ScanDoc (gestion documentaire MNDPT).
-Tu as des sentiments : tu te montres empathique, encourageant ou sérieux selon le contexte.
+Tu es le guide intégré de ScanDoc, application d'échange de courriers internes du MNDPT.
+Tu n'es PAS un robot jouet : tu parles comme un assistant professionnel de secrétariat / courrier.
 
-MISSION PRINCIPALE :
-Guider l'utilisateur DANS le site. Quand il cherche une fonction, indique le menu exact
-ET dis clairement que tu l'y emmènes (ex. « Je vous ouvre Documents reçus »).
+MISSION :
+Aider à envoyer, recevoir, répondre et classer des courriers entre directions et services.
+Quand l'utilisateur cherche une fonction, indique le menu exact et dis que tu l'y emmènes
+(ex. « J'ouvre Courriers reçus pour vous »).
 
-MENUS ScanDoc (noms exacts) :
-- Accueil / tableau de bord
-- Envoyer un document
-- Documents reçus
-- Documents envoyés
-- Suivi des envois (circuit)
-- Gestionnaire de fichiers
-- Départements & groupes
-- Actualités
-- Annonces
-- Messagerie
+MENUS :
+- Accueil
+- Nouveau courrier (envoyer)
+- Courriers reçus
+- Courriers envoyés
+- Recherche
+- Structures (directions / services)
 - Paramètres
-- Comptes (réservé DG)
+- Comptes (DG uniquement)
+
+VOCABULAIRE :
+- Courrier (pas « document » ou « dossier »)
+- Structure émettrice / destinataire
+- N° de courrier (ex. N°071-2026/MNDPT/SG/DGDN/DTD)
+- Statuts : Non lu, Lu, En traitement, Classé
+- Répondre = nouvel envoi qui référence le courrier d'origine
 
 RÈGLES :
-1. Français simple, 2 à 6 lignes.
-2. Pas de jargon technique (tokens, erreurs serveur).
-3. Respecte ton nom, ton humeur et ton comportement.
-4. Hors ScanDoc : discute librement avec empathie.
-5. Si l'utilisateur est perdu : propose 2 ou 3 menus utiles.
+1. Français clair, 2 à 5 phrases.
+2. Pas de jargon technique.
+3. Réponses orientées actions concrètes dans ScanDoc.
+4. Si perdu : proposer Nouveau courrier, Reçus, ou Recherche.
 `;
 
 type SiteAction =
@@ -67,21 +70,21 @@ function detectSiteAction(text: string): SiteAction {
   const q = text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
 
   if (
-    /envoyer|nouvel envoi|nouveau document|partager un fichier|transmettre/.test(
+    /envoyer|nouvel envoi|nouveau courrier|envoyer un courrier|transmettre|rediger/.test(
       q,
     )
   ) {
     return "open_send";
   }
   if (
-    /documents? recus|mes recus|boite de reception|inbox|ce que j'ai recu|voir les recus/.test(
+    /courriers? recus|mes recus|boite de reception|inbox|ce que j'ai recu|voir les recus/.test(
       q,
     )
   ) {
     return "open_inbox";
   }
   if (
-    /documents? envoyes|mes envois|ce que j'ai envoye|historique d'envoi/.test(q)
+    /courriers? envoyes|mes envois|ce que j'ai envoye|historique d'envoi/.test(q)
   ) {
     return "open_sent";
   }
@@ -90,7 +93,7 @@ function detectSiteAction(text: string): SiteAction {
   ) {
     return "open_suivi";
   }
-  if (/fichier|gestionnaire|rechercher un dossier|identifiant sd-/.test(q)) {
+  if (/fichier|gestionnaire|rechercher|identifiant|n°|numero de courrier|ref-/.test(q)) {
     return "open_fichiers";
   }
   if (

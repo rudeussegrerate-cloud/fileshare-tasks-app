@@ -53,7 +53,7 @@ export function SmartTips() {
           <li className="flex gap-3 rounded-md border border-border p-3">
             <Send className="mt-0.5 size-4 shrink-0 text-brand" />
             <div>
-              <p className="font-medium">Envoyer un document</p>
+              <p className="font-medium">Envoyer un courrier</p>
               <p className="text-xs text-muted-foreground">
                 Menu <strong>Envoyer</strong> — fichier, destinataire, objet et
                 tâches.

@@ -244,7 +244,8 @@ export default function Dashboard() {
         </ViewErrorBoundary>
       ) : null}
 
-      {/* Assistant, tips et automatisations retirés — hors périmètre courrier */}
+      <FloatingAssistant />
+      <SmartTips />
 
       <ViewErrorBoundary label="la fiche document">
         <DocumentDetailDialog
