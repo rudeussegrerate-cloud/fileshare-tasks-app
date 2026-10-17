@@ -512,6 +512,8 @@ export const send = mutation({
     parentCourrierId: v.optional(v.id("documents")),
     referenceText: v.optional(v.string()),
     requiresResponse: v.optional(v.boolean()),
+    /** Structure qui émet le courrier (pour le N° hiérarchique) */
+    emittingDepartmentId: v.optional(v.id("departments")),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -863,16 +865,29 @@ export const send = mutation({
     let onBehalfOfUserId = args.onBehalfOfUserId;
 
     if (args.onBehalfOfType === "internal") {
-      if (!onBehalfOfUserId) {
-        throw new Error("Choisissez la personne au nom de qui vous envoyez.");
+      if (onBehalfOfUserId) {
+        const onBehalfUser = await ctx.db.get(onBehalfOfUserId);
+        if (!onBehalfUser) throw new Error("Personne introuvable.");
+        onBehalfOfName = displayName(onBehalfUser);
+        onBehalfOfFunction = onBehalfUser.fonction ?? undefined;
+        if (onBehalfUser.departmentId) {
+          const dept = await ctx.db.get(onBehalfUser.departmentId);
+          onBehalfOfDepartment = dept?.name ?? undefined;
+        }
       }
-      const onBehalfUser = await ctx.db.get(onBehalfOfUserId);
-      if (!onBehalfUser) throw new Error("Personne introuvable.");
-      onBehalfOfName = displayName(onBehalfUser);
-      onBehalfOfFunction = onBehalfUser.fonction ?? undefined;
-      if (onBehalfUser.departmentId) {
-        const dept = await ctx.db.get(onBehalfUser.departmentId);
-        onBehalfOfDepartment = dept?.name ?? undefined;
+      if (!onBehalfOfDepartment && args.emittingDepartmentId) {
+        const ed = await ctx.db.get(args.emittingDepartmentId);
+        if (ed) {
+          onBehalfOfDepartment = ed.code
+            ? `${ed.code} — ${ed.name}`
+            : ed.name;
+        }
+      }
+      // Structure émettrice suffit pour l'envoi interne
+      if (!args.emittingDepartmentId && !onBehalfOfUserId) {
+        throw new Error(
+          "Choisissez la structure qui émet le courrier (étape Émetteur).",
+        );
       }
     } else {
       if (!onBehalfOfName) {
@@ -899,9 +914,12 @@ export const send = mutation({
       }
     }
 
+    const emittingDeptId =
+      args.emittingDepartmentId ?? sender.departmentId ?? undefined;
+
     let finalRef = manualRef;
     if (!finalRef) {
-      finalRef = await generateOfficialNumero(ctx, sender.departmentId);
+      finalRef = await generateOfficialNumero(ctx, emittingDeptId);
     }
 
     const now = Date.now();
@@ -923,7 +941,7 @@ export const send = mutation({
       summaryStatus: "en_attente",
       senderId: userId,
       senderName: displayName(sender),
-      senderDepartmentId: sender.departmentId,
+      senderDepartmentId: emittingDeptId ?? sender.departmentId,
       recipientId: recipient?._id,
       recipientName: recipientDept
         ? `${recipientDept.code ? recipientDept.code + " — " : ""}${recipientDept.name}`

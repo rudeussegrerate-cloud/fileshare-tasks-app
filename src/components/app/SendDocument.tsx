@@ -24,7 +24,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PresenceDot } from "./PresenceDot";
 import { EmptyState, StepDots, formatBytes, initialsOf , PREDEFINED_TASKS } from "./shared";
@@ -35,7 +35,7 @@ function isOnline(lastSeenAt?: number | null) {
 }
 
 
-const STEPS = ["Courrier", "Direction & service", "Détails"];
+const STEPS = ["Courrier", "Destinataires", "Émetteur", "Détails"];
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
@@ -128,6 +128,7 @@ export function SendDocument({
   );
   const [onBehalfDepartmentId, setOnBehalfDepartmentId] =
     useState<Id<"departments"> | null>(null);
+  // initialisé quand me charge
   const [onBehalfUserId, setOnBehalfUserId] = useState<Id<"users"> | null>(
     null,
   );
@@ -168,6 +169,31 @@ export function SendDocument({
   const selectedOnBehalfUser = onBehalfMembers.find(
     (m) => m._id === onBehalfUserId,
   );
+
+  useEffect(() => {
+    if (onBehalfDepartmentId) return;
+    if (me?.user?.departmentId) {
+      setOnBehalfDepartmentId(me.user.departmentId as Id<"departments">);
+    }
+  }, [me?.user?.departmentId, onBehalfDepartmentId]);
+
+  /** Aperçu du chemin N° selon la structure émettrice */
+  const emittingPathPreview = useMemo(() => {
+    if (!onBehalfDepartmentId || !departments) return null;
+    const byId = new Map(departments.map((d) => [String(d._id), d]));
+    const codes: string[] = [];
+    let cur: string | null = String(onBehalfDepartmentId);
+    let guard = 0;
+    while (cur && guard < 12) {
+      guard += 1;
+      const d = byId.get(cur);
+      if (!d) break;
+      const code = (d.code ?? "").trim();
+      if (code && code.toUpperCase() !== "MNDPT") codes.unshift(code);
+      cur = d.parentId ? String(d.parentId) : null;
+    }
+    return codes.length ? `MNDPT/${codes.join("/")}` : "MNDPT";
+  }, [onBehalfDepartmentId, departments]);
 
   const toggleTask = (task: string) => {
     setSelectedTasks((prev) =>
@@ -277,13 +303,13 @@ export function SendDocument({
       ? files.length > 0
       : step === 1
         ? destIds.length > 0
-        : (() => {
+        : step === 2
+          ? Boolean(onBehalfDepartmentId) ||
+            (onBehalfType === "external" && onBehalfName.trim().length > 0)
+          : (() => {
               if (!objet.trim()) return false;
               if (selectedTasks.length === 0 && !customTask.trim()) return false;
-              if (onBehalfType === "internal") {
-                return Boolean(onBehalfUserId || me?.user._id);
-              }
-              return onBehalfName.trim().length > 0;
+              return true;
             })();
 
   const handleSend = async () => {
@@ -296,8 +322,8 @@ export function SendDocument({
       toast.error("Sélectionnez au moins une tâche.");
       return;
     }
-    if (onBehalfType === "internal" && !onBehalfUserId && !me?.user._id) {
-      toast.error("Choisissez la personne « de la part de ».");
+    if (!onBehalfDepartmentId && onBehalfType === "internal") {
+      toast.error("Choisissez la structure qui émet le courrier.");
       return;
     }
     setSending(true);
@@ -306,6 +332,7 @@ export function SendDocument({
         onBehalfType === "internal"
           ? (onBehalfUserId ?? me?.user._id ?? undefined)
           : undefined;
+      // Structure émettrice obligatoire (N° hiérarchique)
 
       const uploaded: Array<{
         storageId: Id<"_storage">;
@@ -382,6 +409,7 @@ export function SendDocument({
           parentCourrierId: replyTo?.documentId,
           referenceText: referenceText.trim() || undefined,
           requiresResponse: requiresResponse ? true : undefined,
+          emittingDepartmentId: onBehalfDepartmentId ?? undefined,
           circuitAssigneeIds:
             fi === 0 && circuitExtra.length > 0
               ? circuitExtra.map((c) => c.userId)
@@ -825,7 +853,81 @@ export function SendDocument({
             </div>
           ) : null}
 
+          
           {step === 2 ? (
+            <div className="space-y-5">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold">Structure émettrice</h3>
+                <p className="text-xs text-muted-foreground">
+                  Choisissez la direction ou le service qui envoie le courrier.
+                  Le N° reprendra la hiérarchie jusqu&apos;aux autorités
+                  supérieures (ex. MNDPT/SG/DGDN/DTD).
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  Direction / service qui envoie{" "}
+                  <span className="text-destructive">*</span>
+                </Label>
+                <select
+                  className="flex h-11 w-full rounded-sm border border-input bg-background px-3 text-sm"
+                  value={onBehalfDepartmentId ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setOnBehalfDepartmentId(
+                      v ? (v as Id<"departments">) : null,
+                    );
+                    setOnBehalfUserId(null);
+                    setOnBehalfType("internal");
+                  }}
+                >
+                  <option value="">Choisir la structure émettrice…</option>
+                  {(departments ?? [])
+                    .slice()
+                    .sort((a, b) =>
+                      (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
+                    )
+                    .map((d) => (
+                      <option key={d._id} value={d._id}>
+                        {d.code ? `${d.code} — ${d.name}` : d.name}
+                      </option>
+                    ))}
+                </select>
+                {emittingPathPreview ? (
+                  <p className="rounded-sm border border-brand/20 bg-brand-soft/40 px-3 py-2 font-mono text-xs">
+                    Aperçu du chemin N° : …/{emittingPathPreview}
+                  </p>
+                ) : null}
+              </div>
+              <div className="space-y-2">
+                <Label>Personne (optionnel)</Label>
+                {onBehalfDepartmentId && onBehalfMembers.length > 0 ? (
+                  <select
+                    className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
+                    value={onBehalfUserId ?? ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setOnBehalfUserId(v ? (v as Id<"users">) : null);
+                    }}
+                  >
+                    <option value="">Non précisé / moi-même</option>
+                    {onBehalfMembers.map((member) => (
+                      <option key={member._id} value={member._id}>
+                        {member.name}
+                        {member.fonction ? ` · ${member.fonction}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Sélectionnez d&apos;abord une structure.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+{step === 3 ? (
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="publicRef">N° du courrier</Label>
@@ -977,181 +1079,11 @@ export function SendDocument({
                 </p>
               </div>
 
-              <div className="space-y-3">
-                <Label>De la part de qui</Label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOnBehalfType("internal");
-                      setOnBehalfName("");
-                      setOnBehalfFunction("");
-                      setOnBehalfDepartmentText("");
-                    }}
-                    className={cn(
-                      "flex-1 rounded-sm border px-3 py-2 text-xs font-medium transition-colors",
-                      onBehalfType === "internal"
-                        ? "border-brand bg-brand text-primary-foreground"
-                        : "border-border bg-card text-muted-foreground",
-                    )}
-                  >
-                    Interne
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setOnBehalfType("external");
-                      setOnBehalfDepartmentId(null);
-                      setOnBehalfUserId(null);
-                    }}
-                    className={cn(
-                      "flex-1 rounded-sm border px-3 py-2 text-xs font-medium transition-colors",
-                      onBehalfType === "external"
-                        ? "border-brand bg-brand text-primary-foreground"
-                        : "border-border bg-card text-muted-foreground",
-                    )}
-                  >
-                    Externe
-                  </button>
-                </div>
-
-                {onBehalfType === "internal" ? (
-                  <div className="space-y-3 rounded-sm border border-border bg-card p-3">
-                    {/* Raccourci : moi-même */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setOnBehalfUserId(me?.user._id ?? null);
-                        setOnBehalfDepartmentId(
-                          me?.user.departmentId ?? null,
-                        );
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-sm border px-3 py-2 text-left text-sm transition-all",
-                        onBehalfUserId === me?.user._id
-                          ? "border-brand bg-brand-soft font-medium"
-                          : "border-border hover:border-brand-sky/40",
-                      )}
-                    >
-                      <UserRound className="size-4 shrink-0 text-brand" />
-                      Moi-même
-                      {me?.user.name ? (
-                        <span className="truncate text-xs text-muted-foreground">
-                          ({me.user.name})
-                        </span>
-                      ) : null}
-                    </button>
-
-                    <div className="space-y-1.5">
-                      <p className="text-[11px] font-medium text-muted-foreground">
-                        Ou une autre personne
-                      </p>
-                      <select
-                        className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
-                        value={onBehalfDepartmentId ?? ""}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setOnBehalfDepartmentId(
-                            v ? (v as Id<"departments">) : null,
-                          );
-                          setOnBehalfUserId(null);
-                        }}
-                      >
-                        <option value="">Structure…</option>
-                        {(departments ?? [])
-                          .slice()
-                          .sort((a, b) =>
-                            (a.code ?? a.name).localeCompare(
-                              b.code ?? b.name,
-                              "fr",
-                            ),
-                          )
-                          .map((d) => (
-                            <option key={d._id} value={d._id}>
-                              {d.code
-                                ? `${d.code} — ${d.name}`
-                                : d.name}
-                            </option>
-                          ))}
-                      </select>
-                    </div>
-
-                    {onBehalfDepartmentId ? (
-                      <div className="space-y-1.5">
-                        {onBehalfMembers.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">
-                            Aucun membre dans cette structure.
-                          </p>
-                        ) : (
-                          <select
-                            className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
-                            value={onBehalfUserId ?? ""}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setOnBehalfUserId(
-                                v ? (v as Id<"users">) : null,
-                              );
-                            }}
-                          >
-                            <option value="">Personne…</option>
-                            {onBehalfMembers.map((member) => (
-                              <option key={member._id} value={member._id}>
-                                {member.name}
-                                {member.fonction
-                                  ? ` · ${member.fonction}`
-                                  : ""}
-                              </option>
-                            ))}
-                          </select>
-                        )}
-                      </div>
-                    ) : null}
-                  </div>
-                ) : (
-                  <div className="space-y-3 rounded-sm border border-border bg-card p-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="onBehalfName">
-                        Nom <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="onBehalfName"
-                        value={onBehalfName}
-                        onChange={(e) => setOnBehalfName(e.target.value)}
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1.5">
-                        <Label htmlFor="onBehalfFunction">Fonction</Label>
-                        <Input
-                          id="onBehalfFunction"
-                          value={onBehalfFunction}
-                          onChange={(e) =>
-                            setOnBehalfFunction(e.target.value)
-                          }
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label htmlFor="onBehalfDept">Structure</Label>
-                        <Input
-                          id="onBehalfDept"
-                          value={onBehalfDepartmentText}
-                          onChange={(e) =>
-                            setOnBehalfDepartmentText(e.target.value)
-                          }
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-
-              <div className="space-y-3">
-                <Label>
               <div className="space-y-2">
                 <Label htmlFor="observations">Observations / instructions</Label>
                 <Textarea
-                  id="observations" data-scandoc-tour="send-observations"
+                  id="observations"
+                  data-scandoc-tour="send-observations"
                   value={observations}
                   onChange={(e) => setObservations(e.target.value)}
                   rows={3}
@@ -1162,7 +1094,9 @@ export function SendDocument({
                 </p>
               </div>
 
-                  <span data-scandoc-tour="send-tasks">Tâches à réaliser{" "}</span>
+              <div className="space-y-3">
+                <Label>
+                  <span data-scandoc-tour="send-tasks">Tâches à réaliser </span>
                   <span className="font-normal text-muted-foreground">
                     (plusieurs choix possibles)
                   </span>
