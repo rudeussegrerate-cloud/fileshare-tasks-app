@@ -77,6 +77,10 @@ export function SendDocument({
   const [selectedDirectionId, setSelectedDirectionId] = useState<
     Id<"departments"> | null
   >(null);
+  const [emitMode, setEmitMode] = useState<"direction" | "service">("direction");
+  const [emitParentDirectionId, setEmitParentDirectionId] = useState<
+    Id<"departments"> | null
+  >(null);
   const departmentId = destIds[0] ?? null;
   const [recipientId, setRecipientId] = useState<Id<"users"> | null>(null);
   /** Intervenants suivants dans le circuit (après le destinataire principal) */
@@ -273,6 +277,18 @@ export function SendDocument({
     .sort((a, b) =>
       (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
     );
+  const emitServicesOfParent = (departments ?? [])
+    .filter(
+      (d) =>
+        emitParentDirectionId &&
+        d.parentId === emitParentDirectionId &&
+        (d as { kind?: string | null }).kind === "service",
+    )
+    .slice()
+    .sort((a, b) =>
+      (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
+    );
+
   const servicesOfSelected = (departments ?? [])
     .filter(
       (d) =>
@@ -872,75 +888,284 @@ export function SendDocument({
 
           
           {step === 2 ? (
-            <div className="space-y-5">
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold">Structure émettrice</h3>
-                <p className="text-xs text-muted-foreground">
-                  Choisissez la direction ou le service qui envoie le courrier.
-                  Le N° reprendra la hiérarchie jusqu&apos;aux autorités
-                  supérieures (ex. MNDPT/SG/DGDN/DTD).
+            <div className="space-y-4" data-scandoc-tour="send-emitter">
+              <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
+                <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
+                <p className="font-medium text-foreground">
+                  Choisissez la <strong>direction</strong> ou le{" "}
+                  <strong>service</strong> qui <strong>envoie</strong> le
+                  courrier. Le N° reprendra automatiquement la hiérarchie
+                  (ex. MNDPT/SG/DGDN/DTD). Une seule structure émettrice.
                 </p>
               </div>
-              <div className="space-y-2">
-                <Label>
-                  Direction / service qui envoie{" "}
-                  <span className="text-destructive">*</span>
-                </Label>
-                <select
-                  className="flex h-11 w-full rounded-sm border border-input bg-background px-3 text-sm"
-                  value={onBehalfDepartmentId ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setOnBehalfDepartmentId(
-                      v ? (v as Id<"departments">) : null,
-                    );
-                    setOnBehalfUserId(null);
-                    setOnBehalfType("internal");
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmitMode("direction");
+                    setEmitParentDirectionId(null);
                   }}
+                  className={cn(
+                    "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
+                    emitMode === "direction"
+                      ? "border-brand bg-brand-soft text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                  )}
                 >
-                  <option value="">Choisir la structure émettrice…</option>
-                  {(departments ?? [])
-                    .slice()
-                    .sort((a, b) =>
-                      (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
-                    )
-                    .map((d) => (
-                      <option key={d._id} value={d._id}>
-                        {d.code ? `${d.code} — ${d.name}` : d.name}
-                      </option>
-                    ))}
-                </select>
-                {emittingPathPreview ? (
-                  <p className="rounded-sm border border-brand/20 bg-brand-soft/40 px-3 py-2 font-mono text-xs">
-                    Aperçu du chemin N° : …/{emittingPathPreview}
-                  </p>
-                ) : null}
+                  Directions
+                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                    Toute la structure
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmitMode("service");
+                    setOnBehalfDepartmentId(null);
+                  }}
+                  className={cn(
+                    "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
+                    emitMode === "service"
+                      ? "border-brand bg-brand-soft text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                  )}
+                >
+                  Services
+                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                    Un service précis
+                  </span>
+                </button>
               </div>
-              <div className="space-y-2">
-                <Label>Personne (optionnel)</Label>
-                {onBehalfDepartmentId && onBehalfMembers.length > 0 ? (
-                  <select
-                    className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
-                    value={onBehalfUserId ?? ""}
-                    onChange={(e) => {
-                      const v = e.target.value;
-                      setOnBehalfUserId(v ? (v as Id<"users">) : null);
-                    }}
-                  >
-                    <option value="">Non précisé / moi-même</option>
+
+              {departments === undefined ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : emitMode === "direction" ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Directions / structures
+                  </p>
+                  {directions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      Aucune direction disponible. Demandez au DG
+                      d&apos;initialiser l&apos;arbre MNDPT.
+                    </p>
+                  ) : (
+                    <div className="grid max-h-72 gap-2 overflow-y-auto sm:grid-cols-2">
+                      {directions.map((dir) => {
+                        const active = onBehalfDepartmentId === dir._id;
+                        const svcCount = (departments ?? []).filter(
+                          (s) =>
+                            s.parentId === dir._id &&
+                            (s as { kind?: string | null }).kind === "service",
+                        ).length;
+                        return (
+                          <button
+                            key={dir._id}
+                            type="button"
+                            onClick={() => {
+                              setOnBehalfDepartmentId(dir._id);
+                              setOnBehalfUserId(null);
+                              setOnBehalfType("internal");
+                            }}
+                            className={cn(
+                              "rounded-sm border px-3 py-3 text-left transition-all",
+                              active
+                                ? "border-brand bg-brand-soft shadow-sm"
+                                : "border-border bg-card hover:border-brand-sky/50",
+                            )}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold">
+                                {dir.code ? `${dir.code} — ` : ""}
+                                {dir.name}
+                              </span>
+                              <span
+                                className={cn(
+                                  "flex size-5 shrink-0 items-center justify-center rounded border text-[10px]",
+                                  active
+                                    ? "border-brand bg-brand text-primary-foreground"
+                                    : "border-muted-foreground/30 text-transparent",
+                                )}
+                              >
+                                ✓
+                              </span>
+                            </div>
+                            {svcCount > 0 ? (
+                              <p className="mt-1 text-[11px] text-muted-foreground">
+                                {svcCount} service{svcCount > 1 ? "s" : ""}{" "}
+                                rattaché{svcCount > 1 ? "s" : ""}
+                              </p>
+                            ) : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      1 · Direction parente
+                    </p>
+                    <div className="grid max-h-40 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                      {directions.map((dir) => {
+                        const active = emitParentDirectionId === dir._id;
+                        const svcCount = (departments ?? []).filter(
+                          (s) =>
+                            s.parentId === dir._id &&
+                            (s as { kind?: string | null }).kind === "service",
+                        ).length;
+                        if (svcCount === 0) return null;
+                        return (
+                          <button
+                            key={dir._id}
+                            type="button"
+                            onClick={() => {
+                              setEmitParentDirectionId(dir._id);
+                              setOnBehalfDepartmentId(null);
+                              setOnBehalfUserId(null);
+                            }}
+                            className={cn(
+                              "rounded-sm border px-3 py-2 text-left text-sm transition-all",
+                              active
+                                ? "border-brand bg-brand-soft font-medium"
+                                : "border-border bg-card hover:border-brand-sky/40",
+                            )}
+                          >
+                            {dir.code ? `${dir.code} — ` : ""}
+                            {dir.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {emitParentDirectionId ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        2 · Service émetteur
+                      </p>
+                      {emitServicesOfParent.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          Aucun service rattaché.
+                        </p>
+                      ) : (
+                        <div className="grid max-h-48 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                          {emitServicesOfParent.map((svc) => {
+                            const active = onBehalfDepartmentId === svc._id;
+                            return (
+                              <button
+                                key={svc._id}
+                                type="button"
+                                onClick={() => {
+                                  setOnBehalfDepartmentId(svc._id);
+                                  setOnBehalfUserId(null);
+                                  setOnBehalfType("internal");
+                                }}
+                                className={cn(
+                                  "rounded-sm border px-3 py-2.5 text-left transition-all",
+                                  active
+                                    ? "border-brand bg-brand-soft shadow-sm"
+                                    : "border-border bg-card hover:border-brand-sky/50",
+                                )}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="text-sm font-medium">
+                                    {svc.code ? `${svc.code} — ` : ""}
+                                    {svc.name}
+                                  </span>
+                                  <span
+                                    className={cn(
+                                      "flex size-5 shrink-0 items-center justify-center rounded border text-[10px]",
+                                      active
+                                        ? "border-brand bg-brand text-primary-foreground"
+                                        : "border-muted-foreground/30 text-transparent",
+                                    )}
+                                  >
+                                    ✓
+                                  </span>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Sélectionnez d&apos;abord la direction pour voir ses
+                      services.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {onBehalfDepartmentId ? (
+                <div className="space-y-2 rounded-sm border border-brand/25 bg-brand-soft/50 px-3 py-2">
+                  <p className="text-xs font-semibold text-foreground">
+                    Structure émettrice sélectionnée
+                  </p>
+                  <p className="text-sm font-medium">
+                    {(() => {
+                      const d = departments?.find(
+                        (x) => x._id === onBehalfDepartmentId,
+                      );
+                      if (!d) return "—";
+                      return d.code ? `${d.code} — ${d.name}` : d.name;
+                    })()}
+                  </p>
+                  {emittingPathPreview ? (
+                    <p className="font-mono text-[11px] text-muted-foreground">
+                      Chemin N° : {emittingPathPreview}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {onBehalfDepartmentId && onBehalfMembers.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Personne (optionnel)
+                  </p>
+                  <div className="grid max-h-40 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={() => setOnBehalfUserId(null)}
+                      className={cn(
+                        "rounded-sm border px-3 py-2 text-left text-sm transition-all",
+                        !onBehalfUserId
+                          ? "border-brand bg-brand-soft font-medium"
+                          : "border-border bg-card hover:border-brand-sky/40",
+                      )}
+                    >
+                      Non précisé
+                    </button>
                     {onBehalfMembers.map((member) => (
-                      <option key={member._id} value={member._id}>
+                      <button
+                        key={member._id}
+                        type="button"
+                        onClick={() => setOnBehalfUserId(member._id)}
+                        className={cn(
+                          "rounded-sm border px-3 py-2 text-left text-sm transition-all",
+                          onBehalfUserId === member._id
+                            ? "border-brand bg-brand-soft font-medium"
+                            : "border-border bg-card hover:border-brand-sky/40",
+                        )}
+                      >
                         {member.name}
-                        {member.fonction ? ` · ${member.fonction}` : ""}
-                      </option>
+                        {member.fonction ? (
+                          <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
+                            {member.fonction}
+                          </span>
+                        ) : null}
+                      </button>
                     ))}
-                  </select>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Sélectionnez d&apos;abord une structure.
-                  </p>
-                )}
-              </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
