@@ -115,7 +115,10 @@ export function SendDocument({
   const [stepDeadlineHours, setStepDeadlineHours] = useState(48);
   const refLookup = useQuery(
     api.documents.lookupByPublicRef,
-    publicRef.trim().length >= 3 ? { publicRef: publicRef.trim() } : "skip",
+    // Recherche circuit uniquement si N° complet collé (pas la simple séquence)
+    publicRef.trim().startsWith("N°") || publicRef.trim().startsWith("REF-")
+      ? { publicRef: publicRef.trim() }
+      : "skip",
   );
 
   // Tâches (multi-sélection)
@@ -194,6 +197,18 @@ export function SendDocument({
     }
     return codes.length ? `MNDPT/${codes.join("/")}` : "MNDPT";
   }, [onBehalfDepartmentId, departments]);
+
+  const courrierYear = new Date().getFullYear();
+  /** Seulement le n° saisi (ex. 071) ; le chemin est automatique */
+  const sequenceOnly = publicRef.replace(/\D/g, "").slice(0, 4);
+  const fullNumeroPreview = useMemo(() => {
+    const path = emittingPathPreview ?? "MNDPT";
+    if (!sequenceOnly) {
+      return `N°___-${courrierYear}/${path}`;
+    }
+    const seq = sequenceOnly.padStart(3, "0");
+    return `N°${seq}-${courrierYear}/${path}`;
+  }, [sequenceOnly, emittingPathPreview, courrierYear]);
 
   const toggleTask = (task: string) => {
     setSelectedTasks((prev) =>
@@ -377,20 +392,22 @@ export function SendDocument({
 
       for (let fi = 0; fi < uploaded.length; fi++) {
         const up = uploaded[fi]!;
-        let refBase = publicRef.trim();
-        if (
-          refBase &&
-          !refBase.toUpperCase().startsWith("N°") &&
-          !refBase.toUpperCase().startsWith("REF-") &&
-          !refBase.toUpperCase().startsWith("SD-")
-        ) {
-          /* conserver la saisie ; le serveur normalise le N° */
+        // N° complet = N°{séquence}-{année}/{hiérarchie émetteur}
+        const seqDigits = publicRef.replace(/\D/g, "").slice(0, 4);
+        const path = emittingPathPreview ?? "MNDPT";
+        let refBase: string | undefined;
+        if (publicRef.trim().startsWith("N°") || publicRef.trim().startsWith("REF-")) {
+          refBase = publicRef.trim();
+        } else if (seqDigits) {
+          refBase = `N°${seqDigits.padStart(3, "0")}-${courrierYear}/${path}`;
+        } else {
+          refBase = undefined; // serveur génère tout
         }
         const ref =
           refBase && uploaded.length === 1
             ? refBase
             : refBase
-              ? `${refBase}-${fi + 1}`
+              ? `${refBase.replace(/\/g, "-")}-${fi + 1}`
               : undefined;
         lastId = await sendDocument({
           storageId: up.storageId,
@@ -931,16 +948,33 @@ export function SendDocument({
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="publicRef">N° du courrier</Label>
-                <Input
-                  id="publicRef"
-                  value={publicRef}
-                  onChange={(e) => setPublicRef(e.target.value.trim())}
-                  placeholder="N°071-2026/MNDPT/…"
-                  className="font-mono"
-                  autoComplete="off"
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-sm text-muted-foreground">
+                    N°
+                  </span>
+                  <Input
+                    id="publicRef"
+                    value={sequenceOnly || publicRef.replace(/\D/g, "")}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
+                      setPublicRef(digits);
+                    }}
+                    placeholder="071"
+                    className="font-mono w-24 text-center text-base"
+                    inputMode="numeric"
+                    autoComplete="off"
+                  />
+                  <span className="font-mono text-sm text-muted-foreground">
+                    -{courrierYear}/
+                  </span>
+                </div>
+                <p className="rounded-sm border border-border bg-muted/30 px-3 py-2 font-mono text-xs break-all">
+                  {fullNumeroPreview}
+                </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Laissez vide pour un N° automatique (ex. N°071-2026/MNDPT/DTD).
+                  Saisissez uniquement le numéro (ex. 071). L&apos;année et le
+                  chemin hiérarchique (structure émettrice) sont remplis
+                  automatiquement. Laissez vide pour un numéro auto.
                 </p>
                 <div className="relative space-y-1.5 pt-2">
                   <Label htmlFor="referenceText">Réf.</Label>
