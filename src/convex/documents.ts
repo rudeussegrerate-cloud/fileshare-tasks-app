@@ -83,8 +83,28 @@ function displayName(user: { name?: string | null; email?: string | null }) {
 
 function generatePublicRef() {
   const y = new Date().getFullYear();
-  const part = Math.random().toString(36).slice(2, 8).toUpperCase();
-  return `REF-${y}-${part}`;
+  const seq = String(Math.floor(100 + Math.random() * 900));
+  return `N°${seq}-${y}/MNDPT`;
+}
+
+async function generateOfficialNumero(
+  ctx: MutationCtx,
+  senderDepartmentId: Id<"departments"> | undefined | null,
+): Promise<string> {
+  const y = new Date().getFullYear();
+  const seq = String(Math.floor(100 + Math.random() * 900));
+  const codes: string[] = [];
+  let currentId: Id<"departments"> | null | undefined = senderDepartmentId;
+  let guard = 0;
+  while (currentId && guard < 6) {
+    guard += 1;
+    const dep = await ctx.db.get(currentId);
+    if (!dep) break;
+    if (dep.code) codes.unshift(dep.code);
+    currentId = dep.parentId ?? null;
+  }
+  const path = codes.length > 0 ? `MNDPT/${codes.join("/")}` : "MNDPT";
+  return `N°${seq}-${y}/${path}`;
 }
 
 
@@ -455,10 +475,13 @@ export const send = mutation({
     onBehalfOfDepartment: v.optional(v.string()),
     /** Circuit séquentiel optionnel (après le 1er destinataire). */
     circuitAssigneeIds: v.optional(v.array(v.id("users"))),
-    /** Identifiant manuel du dossier (nouveau ou continuation de circuit). */
+    /** N° officiel du courrier (manuel ou auto). */
     publicRef: v.optional(v.string()),
     /** Délai max par étape (heures), défaut 48. */
     stepDeadlineHours: v.optional(v.number()),
+    parentCourrierId: v.optional(v.id("documents")),
+    referenceText: v.optional(v.string()),
+    requiresResponse: v.optional(v.boolean()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -480,9 +503,21 @@ export const send = mutation({
       size: args.size,
     });
 
-    let manualRef = (args.publicRef ?? "").trim().toUpperCase();
-    if (manualRef && !manualRef.startsWith("REF-") && !manualRef.startsWith("SD-")) {
-      manualRef = `REF-${manualRef}`;
+    let manualRef = (args.publicRef ?? "").trim();
+    // Normaliser espaces ; conserver N° officiel ou REF-
+    if (manualRef) {
+      const up = manualRef.toUpperCase();
+      if (
+        !up.startsWith("N°") &&
+        !up.startsWith("Nº") &&
+        !up.startsWith("REF-") &&
+        !up.startsWith("SD-")
+      ) {
+        // Saisie libre courte → préfixe N° année si purement alphanumérique court
+        if (/^[A-Z0-9\/\-]+$/i.test(manualRef) && manualRef.length < 12) {
+          manualRef = `N°${manualRef}`;
+        }
+      }
     }
 
     // ——— CONTINUER un circuit existant via identifiant ———
@@ -818,8 +853,26 @@ export const send = mutation({
       onBehalfOfUserId = undefined;
     }
 
-    // Envoi inter-départements autorisé pour tout compte connecté validé.
-    // (Le choix du destinataire se fait via département → membre côté UI.)
+    // Courrier parent (réponse)
+    let parentCourrierId = args.parentCourrierId;
+    let referenceText = args.referenceText?.trim().slice(0, 500) || undefined;
+    if (parentCourrierId) {
+      const parent = await ctx.db.get(parentCourrierId);
+      if (!parent || !("objet" in parent)) {
+        throw new Error("Courrier d'origine introuvable.");
+      }
+      const parentDoc = parent as Doc<"documents">;
+      if (!referenceText) {
+        referenceText = parentDoc.publicRef
+          ? `Votre correspondance ${parentDoc.publicRef}`
+          : `Votre courrier « ${parentDoc.objet} »`;
+      }
+    }
+
+    let finalRef = manualRef;
+    if (!finalRef) {
+      finalRef = await generateOfficialNumero(ctx, sender.departmentId);
+    }
 
     const now = Date.now();
     const documentId = await ctx.db.insert("documents", {
@@ -850,7 +903,10 @@ export const send = mutation({
       recipientDepartmentId:
         recipientDeptId ?? recipient?.departmentId ?? undefined,
       status: "envoye",
-      publicRef: manualRef || generatePublicRef(),
+      publicRef: finalRef,
+      parentCourrierId: parentCourrierId,
+      referenceText,
+      requiresResponse: args.requiresResponse === true,
       hasCircuit: circuitUsers.length > 1,
       currentStepIndex: 0,
       circuitTotalSteps: circuitUsers.length,
@@ -1388,6 +1444,9 @@ export const get = query({
       ),
       isSender,
       publicRef: document.publicRef ?? null,
+      referenceText: document.referenceText ?? null,
+      requiresResponse: Boolean(document.requiresResponse),
+      parentCourrierId: document.parentCourrierId ?? null,
       revisionCount: document.revisionCount ?? 0,
       lastRevisedAt: document.lastRevisedAt ?? null,
       lastRevisedByName: document.lastRevisedByName ?? null,
@@ -1418,6 +1477,13 @@ export const get = query({
         (Boolean(document.recipientId && document.recipientId === userId) ||
           isStepAssignee ||
           isStructureViewer),
+      /** Répondre au courrier (structure destinataire, non émetteur) */
+      canReply:
+        !isSender &&
+        document.status !== "traite" &&
+        (Boolean(document.recipientId && document.recipientId === userId) ||
+          isStructureViewer ||
+          isStepAssignee),
       isLastInCircuit:
         myStepIndex >= 0 && myStepIndex === steps.length - 1,
       myStepDone: myStep?.status === "done",

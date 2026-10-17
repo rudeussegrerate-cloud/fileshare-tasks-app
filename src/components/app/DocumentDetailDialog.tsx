@@ -45,9 +45,17 @@ import { Checkbox } from "@/components/ui/checkbox";
 export function DocumentDetailDialog({
   documentId,
   onOpenChange,
+  onReply,
 }: {
   documentId: Id<"documents"> | null;
   onOpenChange: (open: boolean) => void;
+  /** Ouvre le formulaire d'envoi en mode réponse à ce courrier */
+  onReply?: (parent: {
+    documentId: Id<"documents">;
+    publicRef?: string | null;
+    objet: string;
+    senderDepartmentId?: Id<"departments"> | null;
+  }) => void;
 }) {
   const document = useQuery(
     api.documents.get,
@@ -90,7 +98,7 @@ export function DocumentDetailDialog({
   @media print{body{margin:0}}
 </style></head><body>
 <h1>${esc(documentOrNull.objet || documentOrNull.fileName)}</h1>
-<div class="meta">ScanDoc · Fiche document</div>
+<div class="meta">ScanDoc · Fiche courrier</div>
 <div class="box"><div class="label">Fichier</div>${esc(documentOrNull.fileName)}</div>
 <div class="box"><div class="label">De</div>${esc(structureSender(documentOrNull))} → ${esc(structureRecipient(documentOrNull))}</div>
 <div class="box"><div class="label">Tâches</div>${esc(String(tasks))}</div>
@@ -245,6 +253,17 @@ export function DocumentDetailDialog({
               />
             </div>
 
+            {documentOrNull.requiresResponse ? (
+              <p className="rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                Une <strong>réponse</strong> est attendue pour ce courrier.
+              </p>
+            ) : null}
+            {documentOrNull.referenceText ? (
+              <p className="text-xs text-muted-foreground">
+                <span className="font-medium text-foreground">Réf. :</span>{" "}
+                {documentOrNull.referenceText}
+              </p>
+            ) : null}
             {documentOrNull.publicRef ? (
               <section className="rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -429,6 +448,32 @@ export function DocumentDetailDialog({
                 ) : null}
               </div>
             </section>
+
+                        {documentOrNull.canReply && onReply ? (
+              <div className="rounded-sm border border-brand/30 bg-brand-soft/40 p-3 space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Répondre au nom de votre structure. Le N° d&apos;origine sera
+                  repris en référence.
+                </p>
+                <Button
+                  type="button"
+                  className="w-full gap-2 sm:w-auto"
+                  onClick={() => {
+                    onReply({
+                      documentId: documentOrNull._id,
+                      publicRef: documentOrNull.publicRef,
+                      objet: documentOrNull.objet || documentOrNull.fileName,
+                      senderDepartmentId:
+                        (documentOrNull as { senderDepartmentId?: Id<"departments"> | null })
+                          .senderDepartmentId ?? null,
+                    });
+                    onOpenChange(false);
+                  }}
+                >
+                  Répondre à ce courrier
+                </Button>
+              </div>
+            ) : null}
 
             {documentOrNull.canUpdateStatus || documentOrNull.isRecipient ? (
               <section className="space-y-3">

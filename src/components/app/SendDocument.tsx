@@ -35,7 +35,7 @@ function isOnline(lastSeenAt?: number | null) {
 }
 
 
-const STEPS = ["Document", "Direction & service", "Détails"];
+const STEPS = ["Courrier", "Direction & service", "Détails"];
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
@@ -44,11 +44,19 @@ export function SendDocument({
   onSent,
   onManageDepartments,
   initialPublicRef,
+  replyTo,
 }: {
   onSent: (documentId?: Id<"documents">) => void;
   onManageDepartments: () => void;
   /** Préremplir l'identifiant (continuation de circuit). */
   initialPublicRef?: string;
+  /** Mode réponse à un courrier reçu */
+  replyTo?: {
+    documentId: Id<"documents">;
+    publicRef?: string | null;
+    objet: string;
+    senderDepartmentId?: Id<"departments"> | null;
+  } | null;
 }) {
   const me = useQuery(api.workspace.me);
   const departments = useQuery(api.workspace.listDepartments);
@@ -60,7 +68,9 @@ export function SendDocument({
   const [extractedText, setExtractedText] = useState("");
   const [extracting, setExtracting] = useState(false);
   /** Services destinataires (rattachés à une direction) */
-  const [destIds, setDestIds] = useState<Id<"departments">[]>([]);
+  const [destIds, setDestIds] = useState<Id<"departments">[]>(
+    replyTo?.senderDepartmentId ? [replyTo.senderDepartmentId] : [],
+  );
   /** direction = envoi aux directions ; service = envoi aux services uniquement */
   const [destMode, setDestMode] = useState<"direction" | "service">("direction");
   const [selectedDirectionId, setSelectedDirectionId] = useState<
@@ -75,12 +85,18 @@ export function SendDocument({
   /** Autres directions/services destinataires (en plus de la destination principale) */
   const [extraDestIds, setExtraDestIds] = useState<Id<"departments">[]>([]);
 
-  // Objet de l'envoi
-  const [objet, setObjet] = useState("");
-  const [observations, setObservations] = useState("");
-  const [publicRef, setPublicRef] = useState(
-    (initialPublicRef ?? "").toUpperCase(),
+  // Objet / références du courrier
+  const [objet, setObjet] = useState(
+    replyTo?.objet ? `Réponse à : ${replyTo.objet}` : "",
   );
+  const [observations, setObservations] = useState("");
+  const [referenceText, setReferenceText] = useState(
+    replyTo?.publicRef
+      ? `Votre correspondance ${replyTo.publicRef}`
+      : "",
+  );
+  const [requiresResponse, setRequiresResponse] = useState(false);
+  const [publicRef, setPublicRef] = useState(initialPublicRef ?? "");
   /** SLA par étape (heures) pour un nouveau circuit */
   const [stepDeadlineHours, setStepDeadlineHours] = useState(48);
   const refLookup = useQuery(
@@ -320,9 +336,14 @@ export function SendDocument({
 
       for (let fi = 0; fi < uploaded.length; fi++) {
         const up = uploaded[fi]!;
-        let refBase = publicRef.trim().toUpperCase();
-        if (refBase && !refBase.startsWith("REF-") && !refBase.startsWith("SD-")) {
-          refBase = `REF-${refBase}`;
+        let refBase = publicRef.trim();
+        if (
+          refBase &&
+          !refBase.toUpperCase().startsWith("N°") &&
+          !refBase.toUpperCase().startsWith("REF-") &&
+          !refBase.toUpperCase().startsWith("SD-")
+        ) {
+          /* conserver la saisie ; le serveur normalise le N° */
         }
         const ref =
           refBase && uploaded.length === 1
@@ -342,8 +363,11 @@ export function SendDocument({
           recipientDepartmentId: destIds[0],
           recipientTargets,
           recipientId: fi === 0 ? recipientId ?? undefined : undefined,
-          publicRef: ref,
+          publicRef: ref || undefined,
           stepDeadlineHours: stepDeadlineHours,
+          parentCourrierId: replyTo?.documentId,
+          referenceText: referenceText.trim() || undefined,
+          requiresResponse: requiresResponse ? true : undefined,
           circuitAssigneeIds:
             fi === 0 && circuitExtra.length > 0
               ? circuitExtra.map((c) => c.userId)
@@ -367,9 +391,9 @@ export function SendDocument({
       toast.success(
         count === 1
           ? destIds.length > 1
-            ? `Document transmis à ${destIds.length} structures (dossier unique).`
-            : "Document transmis à la structure destinataire."
-          : `${count} dossier(s) créé(s) pour ${destIds.length} destination(s).`,
+            ? `Courrier transmis à ${destIds.length} structures.`
+            : "Courrier transmis."
+          : `${count} courrier(s) créé(s).`,
       );
       reset();
       onSent(lastId);
@@ -419,6 +443,13 @@ export function SendDocument({
 
       <Card className="border-border/80 ">
         <CardContent className="space-y-6 pt-6">
+          {replyTo ? (
+            <p className="rounded-sm border border-brand/30 bg-brand-soft/50 px-3 py-2 text-xs">
+              <strong>Réponse</strong> au courrier
+              {replyTo.publicRef ? ` ${replyTo.publicRef}` : ""} — destinataire et
+              référence préremplis.
+            </p>
+          ) : null}
           <StepDots steps={STEPS} current={step} />
 
           {step === 0 ? (
@@ -783,22 +814,36 @@ export function SendDocument({
           {step === 2 ? (
             <div className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="publicRef">Identifiant du dossier</Label>
+                <Label htmlFor="publicRef">N° du courrier</Label>
                 <Input
                   id="publicRef"
                   value={publicRef}
-                  onChange={(e) =>
-                    setPublicRef(e.target.value.toUpperCase().trim())
-                  }
-                  placeholder="REF-XXX"
+                  onChange={(e) => setPublicRef(e.target.value.trim())}
+                  placeholder="N°071-2026/MNDPT/…"
                   className="font-mono"
                   autoComplete="off"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Laissez vide pour un identifiant automatique (REF-AAAA-XXXXXX).
-                  Ou saisissez une référence commençant par REF- pour un envoi
-                  manuel ou la continuation d&apos;un circuit.
+                  Laissez vide pour un N° automatique (ex. N°071-2026/MNDPT/DTD).
                 </p>
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="referenceText">Réf.</Label>
+                  <Input
+                    id="referenceText"
+                    value={referenceText}
+                    onChange={(e) => setReferenceText(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Référence au courrier d&apos;origine (si réponse).
+                  </p>
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm">
+                  <Checkbox
+                    checked={requiresResponse}
+                    onCheckedChange={(v) => setRequiresResponse(v === true)}
+                  />
+                  Une réponse est attendue
+                </label>
                 {refLookup?.found && !refLookup.isClosed ? (
                   <div
                     className={

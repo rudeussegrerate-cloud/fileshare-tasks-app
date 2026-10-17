@@ -199,8 +199,14 @@ const schema = defineSchema(
       recipientDepartmentId: v.optional(v.id("departments")),
       status: documentStatusValidator,
       // Identité unique (survît à l'impression / photocopie via QR + n°)
-      /** Identifiant automatique lisible (ex. SD-2026-ABC123) */
+      /** N° officiel du courrier (ex. N°071-2026/MNDPT/SG/DGDN/DTD) */
       publicRef: v.optional(v.string()),
+      /** Courrier parent (réponse à un courrier reçu) */
+      parentCourrierId: v.optional(v.id("documents")),
+      /** Réf. textuelle (ex. N° du courrier d'origine) */
+      referenceText: v.optional(v.string()),
+      /** Une réponse est attendue de la structure destinataire */
+      requiresResponse: v.optional(v.boolean()),
       revisionCount: v.optional(v.number()),
       lastRevisedAt: v.optional(v.number()),
       lastRevisedByName: v.optional(v.string()),
@@ -232,7 +238,8 @@ const schema = defineSchema(
       .index("by_recipient_archived", ["recipientId", "archivedAt"])
       .index("by_sender_archived", ["senderId", "archivedAt"])
       .index("by_publicRef", ["publicRef"])
-      .index("by_recipient_department", ["recipientDepartmentId"]),
+      .index("by_recipient_department", ["recipientDepartmentId"])
+      .index("by_parent", ["parentCourrierId"]),
 
     // Versions renvoyées par les intermédiaires (même identifiant / dossier)
     documentRevisions: defineTable({

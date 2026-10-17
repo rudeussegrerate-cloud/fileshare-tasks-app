@@ -69,6 +69,12 @@ export default function Dashboard() {
     null,
   );
   const [continueRef, setContinueRef] = useState<string | undefined>(undefined);
+  const [replyTo, setReplyTo] = useState<{
+    documentId: import("@/convex/_generated/dataModel").Id<"documents">;
+    publicRef?: string | null;
+    objet: string;
+    senderDepartmentId?: import("@/convex/_generated/dataModel").Id<"departments"> | null;
+  } | null>(null);
   const syncedRef = useRef(false);
 
   // On first load: promote the very first account to DG and give this account
@@ -146,10 +152,13 @@ export default function Dashboard() {
 
       {view === "send" ? (
         <SendDocument
+          key={replyTo ? `reply-${replyTo.documentId}` : continueRef ?? "new"}
           initialPublicRef={continueRef}
+          replyTo={replyTo}
           onSent={() => {
             setContinueRef(undefined);
-            setView("suivi");
+            setReplyTo(null);
+            setView("inbox");
           }}
           onManageDepartments={() => setView("departments")}
         />
@@ -250,6 +259,11 @@ export default function Dashboard() {
           documentId={openDocumentId}
           onOpenChange={(open) => {
             if (!open) setOpenDocumentId(null);
+          }}
+          onReply={(parent) => {
+            setOpenDocumentId(null);
+            setReplyTo(parent);
+            setView("send");
           }}
         />
       </ViewErrorBoundary>

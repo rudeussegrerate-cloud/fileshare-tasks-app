@@ -85,9 +85,9 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Documents",
     items: [
-      { key: "send", label: "Nouvel envoi", icon: Upload },
-      { key: "inbox", label: "Boîte de réception", icon: Inbox },
-      { key: "sent", label: "Envoyés", icon: Send },
+      { key: "send", label: "Nouveau courrier", icon: Upload },
+      { key: "inbox", label: "Courriers reçus", icon: Inbox },
+      { key: "sent", label: "Courriers envoyés", icon: Send },
       { key: "suivi", label: "Suivi des dossiers", icon: Route },
       { key: "transmissions", label: "Transmissions", icon: Share2 },
       { key: "fichiers", label: "Fichiers", icon: FolderOpen },
