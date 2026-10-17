@@ -18,29 +18,43 @@ import type { ReactNode } from "react";
 
 export type DocumentStatus = "envoye" | "consulte" | "en_cours" | "traite";
 
+/** Statuts orientés gestion de courrier (pas dossier technique). */
 export const STATUS_META: Record<
   DocumentStatus,
-  { label: string; className: string; icon: LucideIcon }
+  {
+    label: string;
+    /** Libellé côté destinataire */
+    labelRecipient?: string;
+    className: string;
+    icon: LucideIcon;
+    /** Court texte d'aide */
+    hint: string;
+  }
 > = {
   envoye: {
     label: "Envoyé",
+    labelRecipient: "Non lu",
     className: "border-amber-200 bg-amber-50 text-amber-700",
     icon: Clock3,
+    hint: "Courrier transmis, en attente de lecture.",
   },
   consulte: {
-    label: "Consulté",
+    label: "Lu",
     className: "border-sky-200 bg-sky-50 text-sky-700",
     icon: Eye,
+    hint: "Le destinataire a pris connaissance du courrier.",
   },
   en_cours: {
-    label: "En cours",
+    label: "En traitement",
     className: "border-indigo-200 bg-indigo-50 text-indigo-700",
     icon: Loader2,
+    hint: "Le courrier est en cours de traitement ou de réponse.",
   },
   traite: {
     label: "Classé",
     className: "border-emerald-200 bg-emerald-50 text-emerald-700",
     icon: CheckCircle2,
+    hint: "Traitement terminé — courrier classé.",
   },
 };
 

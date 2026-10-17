@@ -31,13 +31,18 @@ import {
 
 type Mode = "inbox" | "sent";
 
-const FILTERS: Array<{ key: "all" | DocumentStatus; label: string }> = [
-  { key: "all", label: "Tous" },
-  { key: "envoye", label: "Envoyé" },
-  { key: "consulte", label: "Consulté" },
-  { key: "en_cours", label: "En cours" },
-  { key: "traite", label: "Classé" },
-];
+function filtersFor(mode: Mode): Array<{ key: "all" | DocumentStatus; label: string }> {
+  return [
+    { key: "all", label: "Tous" },
+    {
+      key: "envoye",
+      label: mode === "inbox" ? "Non lu" : "Envoyé",
+    },
+    { key: "consulte", label: "Lu" },
+    { key: "en_cours", label: "En traitement" },
+    { key: "traite", label: "Classé" },
+  ];
+}
 
 export function DocumentsList({
   mode,
@@ -48,6 +53,7 @@ export function DocumentsList({
   onOpen: (id: Id<"documents">) => void;
   onCreate?: () => void;
 }) {
+  const FILTERS = filtersFor(mode);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | DocumentStatus>("all");
   const [showArchived, setShowArchived] = useState(false);

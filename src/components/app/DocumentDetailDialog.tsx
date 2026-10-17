@@ -135,10 +135,26 @@ export function DocumentDetailDialog({
             `Votre étape est terminée → transmis à ${(res as { nextAssignee?: string }).nextAssignee ?? "la suite"}`,
           );
         } else {
-          toast.success(`Statut mis à jour : ${STATUS_META[status].label}`);
+          toast.success(
+          status === "consulte"
+            ? "Courrier marqué comme lu"
+            : status === "en_cours"
+              ? "Courrier en traitement"
+              : status === "traite"
+                ? "Courrier classé"
+                : `État : ${STATUS_META[status].label}`,
+        );
         }
       } else {
-        toast.success(`Statut mis à jour : ${STATUS_META[status].label}`);
+        toast.success(
+          status === "consulte"
+            ? "Courrier marqué comme lu"
+            : status === "en_cours"
+              ? "Courrier en traitement"
+              : status === "traite"
+                ? "Courrier classé"
+                : `État : ${STATUS_META[status].label}`,
+        );
       }
     } catch (error) {
       toast.error(
@@ -632,44 +648,58 @@ export function DocumentDetailDialog({
                 ) : null}
 
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span data-scandoc-tour="doc-status">Statut du courrier</span>
+                  <span data-scandoc-tour="doc-status">
+                    Traitement du courrier
+                  </span>
                 </h4>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {documentOrNull.hasCircuit
-                    ? documentOrNull.isLastInCircuit
-                      ? "Dernière étape : « Traité » clôture le dossier."
-                      : "« Classé (mon étape) » valide votre part et envoie automatiquement le dossier à la personne suivante."
-                    : "L'émetteur voit l'état du courrier en temps réel."}
+                  Indiquez où en est le traitement de ce courrier. L&apos;émetteur
+                  voit ces mises à jour.
                 </p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(["consulte", "en_cours", "traite"] as DocumentStatus[]).map(
-                    (status) => {
-                      const active = documentOrNull.status === status;
-                      const Icon = STATUS_META[status].icon;
-                      const traiteLabel =
-                        status === "traite" &&
-                        documentOrNull.hasCircuit &&
-                        !documentOrNull.isLastInCircuit
-                          ? "Classé (mon étape)"
-                          : STATUS_META[status].label;
-                      return (
-                        <Button
-                          key={status}
-                          type="button"
-                          size="sm"
-                          variant={active ? "default" : "outline"}
-                          className={cn(
-                            "gap-1.5",
-                            active && "bg-brand text-primary-foreground",
-                          )}
-                          onClick={() => handleStatus(status)}
-                        >
-                          <Icon className="size-3.5" />
-                          {traiteLabel}
-                        </Button>
-                      );
-                    },
-                  )}
+                <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                  {(
+                    [
+                      {
+                        status: "consulte" as DocumentStatus,
+                        title: "Marquer lu",
+                        desc: "Prise de connaissance",
+                      },
+                      {
+                        status: "en_cours" as DocumentStatus,
+                        title: "En traitement",
+                        desc: "Vous traitez ou préparez une réponse",
+                      },
+                      {
+                        status: "traite" as DocumentStatus,
+                        title: "Classer",
+                        desc: "Affaire terminée de votre côté",
+                      },
+                    ] as const
+                  ).map((item) => {
+                    const active = documentOrNull.status === item.status;
+                    const Icon = STATUS_META[item.status].icon;
+                    return (
+                      <button
+                        key={item.status}
+                        type="button"
+                        onClick={() => void handleStatus(item.status)}
+                        className={cn(
+                          "rounded-sm border px-3 py-3 text-left transition-all",
+                          active
+                            ? "border-brand bg-brand-soft shadow-sm"
+                            : "border-border bg-card hover:border-brand-sky/50",
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5 text-sm font-semibold">
+                          <Icon className="size-3.5 shrink-0" />
+                          {item.title}
+                        </span>
+                        <span className="mt-1 block text-[11px] text-muted-foreground">
+                          {item.desc}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </section>
             ) : (
@@ -689,7 +719,7 @@ export function DocumentDetailDialog({
                 ) : null}
 
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Statut global (vu par vous)
+                  Suivi du courrier
                 </h4>
                 <ol className="mt-3 space-y-2">
                   {STATUS_ORDER.map((status, index) => {
