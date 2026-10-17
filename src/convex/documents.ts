@@ -1446,6 +1446,11 @@ export const get = query({
         const mine = allDepts.find((d) => String(d._id) === myDept);
         const matchIds = new Set<string>([myDept]);
         if (mine?.parentId) matchIds.add(String(mine.parentId));
+        for (const d of allDepts) {
+          if (d.parentId && String(d.parentId) === myDept) {
+            matchIds.add(String(d._id));
+          }
+        }
         if (
           document.recipientDepartmentId &&
           matchIds.has(String(document.recipientDepartmentId))
@@ -1541,7 +1546,8 @@ export const get = query({
       ...(await decorate(ctx, [document]))[0]!,
       downloadUrl: await ctx.storage.getUrl(document.storageId),
       isRecipient: Boolean(
-        document.recipientId && document.recipientId === userId,
+        (document.recipientId && document.recipientId === userId) ||
+          isStructureViewer,
       ),
       isSender,
       publicRef: document.publicRef ?? null,
@@ -1578,13 +1584,11 @@ export const get = query({
         (Boolean(document.recipientId && document.recipientId === userId) ||
           isStepAssignee ||
           isStructureViewer),
-      /** Répondre au courrier (structure destinataire, non émetteur) */
-      canReply:
-        !isSender &&
-        document.status !== "traite" &&
-        (Boolean(document.recipientId && document.recipientId === userId) ||
-          isStructureViewer ||
-          isStepAssignee),
+      /**
+       * Répondre : tout utilisateur qui peut ouvrir le courrier
+       * (sauf l'émetteur) — envoi structurel n'a souvent pas de recipientId.
+       */
+      canReply: !isSender && document.status !== "traite",
       isLastInCircuit:
         myStepIndex >= 0 && myStepIndex === steps.length - 1,
       myStepDone: myStep?.status === "done",

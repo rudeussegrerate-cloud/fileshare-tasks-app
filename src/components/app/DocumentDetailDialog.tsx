@@ -263,6 +263,28 @@ export function DocumentDetailDialog({
                 Une <strong>réponse</strong> est attendue pour ce courrier.
               </p>
             ) : null}
+            {documentOrNull.canReply && onReply ? (
+              <Button
+                type="button"
+                className="w-full gap-2"
+                onClick={() => {
+                  onReply({
+                    documentId: documentOrNull._id,
+                    publicRef: documentOrNull.publicRef,
+                    objet: documentOrNull.objet || documentOrNull.fileName,
+                    senderDepartmentId:
+                      (
+                        documentOrNull as {
+                          senderDepartmentId?: Id<"departments"> | null;
+                        }
+                      ).senderDepartmentId ?? null,
+                  });
+                  onOpenChange(false);
+                }}
+              >
+                Répondre à ce courrier
+              </Button>
+            ) : null}
             {documentOrNull.referenceText ? (
               <p className="text-xs text-muted-foreground">
                 <span className="font-medium text-foreground">Réf. :</span>{" "}
@@ -272,14 +294,14 @@ export function DocumentDetailDialog({
             {documentOrNull.publicRef ? (
               <section className="rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Identifiant du document
+                  N° du courrier
                 </p>
                 <p className="font-mono text-sm font-semibold tracking-wide text-foreground">
                   {documentOrNull.publicRef}
                 </p>
                 {(documentOrNull.revisionCount ?? 0) > 0 ? (
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {documentOrNull.revisionCount} renvoi(s) dans le circuit
+                    {documentOrNull.revisionCount} version(s) jointe(s)
                     {documentOrNull.lastRevisedByName
                       ? ` · dernier : ${documentOrNull.lastRevisedByName}`
                       : ""}
