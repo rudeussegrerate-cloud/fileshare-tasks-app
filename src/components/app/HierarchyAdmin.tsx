@@ -1,32 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
-import {
-  ChevronDown,
-  ChevronRight,
-  Loader2,
-  Plus,
-  Save,
-} from "lucide-react";
+import { Loader2, Move, Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-const KINDS = [
-  { value: "direction", label: "Direction" },
-  { value: "service", label: "Service" },
-  { value: "sg", label: "Secrétariat général" },
-  { value: "cabinet", label: "Cabinet" },
-  { value: "organisme", label: "Organisme" },
-  { value: "interregion", label: "Interrégion" },
-  { value: "cellule", label: "Cellule" },
-  { value: "autre", label: "Autre" },
-] as const;
-
-type Kind = (typeof KINDS)[number]["value"];
 
 type DeptRow = {
   _id: Id<"departments">;
@@ -35,12 +15,11 @@ type DeptRow = {
   kind: string | null;
   parentId: Id<"departments"> | null;
   active: boolean;
-  childCount: number;
 };
 
 /**
- * Gestion hiérarchique MNDPT — réservée au DG.
- * Arbre + créer / modifier / déplacer / activer-désactiver.
+ * Organigramme cliquable (style schéma UML simplifié).
+ * DG : sélectionner · créer sous · déplacer · renommer.
  */
 export function HierarchyAdmin() {
   const departments = useQuery(api.workspace.listDepartments);
@@ -49,17 +28,13 @@ export function HierarchyAdmin() {
   const moveDepartment = useMutation(api.workspace.moveDepartment);
   const setDepartmentActive = useMutation(api.workspace.setDepartmentActive);
 
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [selectedId, setSelectedId] = useState<Id<"departments"> | null>(null);
+  /** Mode déplacement : cliquer la cible (nouveau parent) */
+  const [movingId, setMovingId] = useState<Id<"departments"> | null>(null);
   const [busy, setBusy] = useState(false);
-
-  // Formulaire édition / création
-  const [mode, setMode] = useState<"edit" | "create">("edit");
-  const [name, setName] = useState("");
-  const [code, setCode] = useState("");
-  const [kind, setKind] = useState<Kind>("direction");
-  const [parentId, setParentId] = useState<string>("");
-  const [description, setDescription] = useState("");
+  const [editingId, setEditingId] = useState<Id<"departments"> | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editCode, setEditCode] = useState("");
 
   const rows: DeptRow[] = useMemo(() => {
     if (!departments) return [];
@@ -70,7 +45,6 @@ export function HierarchyAdmin() {
       kind: d.kind ?? null,
       parentId: d.parentId ?? null,
       active: d.active !== false,
-      childCount: d.childCount ?? 0,
     }));
   }, [departments]);
 
@@ -92,84 +66,28 @@ export function HierarchyAdmin() {
 
   const selected = rows.find((r) => r._id === selectedId) ?? null;
 
-  const loadEdit = (r: DeptRow) => {
-    setMode("edit");
-    setSelectedId(r._id);
-    setName(r.name);
-    setCode(r.code ?? "");
-    setKind((r.kind as Kind) || "direction");
-    setParentId(r.parentId ? String(r.parentId) : "");
-    setDescription("");
-  };
-
-  const startCreate = (under?: DeptRow | null) => {
-    setMode("create");
-    setSelectedId(null);
-    setName("");
-    setCode("");
-    setKind(under ? "service" : "direction");
-    setParentId(under ? String(under._id) : "");
-    setDescription("");
-  };
-
-  const handleSave = async () => {
-    if (!name.trim()) {
-      toast.error("Le nom est obligatoire.");
-      return;
-    }
+  const addChild = async (parent: DeptRow | null) => {
+    const label = window.prompt(
+      parent
+        ? `Nom du service / direction sous « ${parent.code ?? parent.name} » :`
+        : "Nom de la structure racine :",
+      parent ? "Nouveau service" : "Nouvelle direction",
+    );
+    if (!label?.trim()) return;
+    const code = window.prompt(
+      "Code (sigle, optionnel) — ex. DTD, DAF :",
+      "",
+    );
     setBusy(true);
     try {
-      if (mode === "create") {
-        await createDepartment({
-          name: name.trim(),
-          code: code.trim() || undefined,
-          kind,
-          parentId: parentId
-            ? (parentId as Id<"departments">)
-            : undefined,
-          description: description.trim() || undefined,
-        });
-        toast.success("Structure créée.");
-        startCreate(
-          parentId
-            ? rows.find((r) => String(r._id) === parentId) ?? null
-            : null,
-        );
-      } else if (selectedId) {
-        await updateDepartment({
-          departmentId: selectedId,
-          name: name.trim(),
-          code: code.trim() || undefined,
-          kind,
-          description: description.trim() || undefined,
-        });
-        const nextParent = parentId
-          ? (parentId as Id<"departments">)
-          : undefined;
-        const currentParent = selected?.parentId ?? undefined;
-        if (String(nextParent ?? "") !== String(currentParent ?? "")) {
-          await moveDepartment({
-            departmentId: selectedId,
-            parentId: nextParent,
-          });
-        }
-        toast.success("Structure mise à jour.");
-      }
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Échec de l'enregistrement");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const toggleActive = async (r: DeptRow) => {
-    setBusy(true);
-    try {
-      await setDepartmentActive({
-        departmentId: r._id,
-        active: !r.active,
+      const id = await createDepartment({
+        name: label.trim(),
+        code: code?.trim() || undefined,
+        kind: parent ? "service" : "direction",
+        parentId: parent?._id,
       });
-      toast.success(r.active ? "Structure désactivée." : "Structure activée.");
+      setSelectedId(id);
+      toast.success("Créé.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Échec");
     } finally {
@@ -177,72 +95,192 @@ export function HierarchyAdmin() {
     }
   };
 
-  const renderTree = (parentKey: string | "root", depth: number) => {
+  const startMove = () => {
+    if (!selectedId) {
+      toast.message("Cliquez d'abord une case, puis « Déplacer ».");
+      return;
+    }
+    setMovingId(selectedId);
+    toast.message("Cliquez la case qui devient le nouveau parent (ou « Racine »).");
+  };
+
+  const finishMove = async (newParentId: Id<"departments"> | null) => {
+    if (!movingId) return;
+    if (newParentId === movingId) {
+      toast.error("Impossible de se rattacher à soi-même.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await moveDepartment({
+        departmentId: movingId,
+        parentId: newParentId ?? undefined,
+      });
+      toast.success("Déplacé.");
+      setMovingId(null);
+      setSelectedId(movingId);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Échec du déplacement");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onNodeClick = (r: DeptRow) => {
+    if (movingId) {
+      void finishMove(r._id);
+      return;
+    }
+    setSelectedId(r._id);
+  };
+
+  const startRename = (r: DeptRow) => {
+    setEditingId(r._id);
+    setEditName(r.name);
+    setEditCode(r.code ?? "");
+  };
+
+  const saveRename = async () => {
+    if (!editingId || !editName.trim()) return;
+    setBusy(true);
+    try {
+      await updateDepartment({
+        departmentId: editingId,
+        name: editName.trim(),
+        code: editCode.trim() || undefined,
+      });
+      setEditingId(null);
+      toast.success("Modifié.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Échec");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const toggleActive = async () => {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await setDepartmentActive({
+        departmentId: selected._id,
+        active: !selected.active,
+      });
+      toast.success(selected.active ? "Masqué à l'envoi." : "Réactivé.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Échec");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /** Une « case » style UML */
+  const NodeBox = ({ r }: { r: DeptRow }) => {
+    const isSel = selectedId === r._id;
+    const isMoving = movingId === r._id;
+    const isDropTarget = Boolean(movingId) && movingId !== r._id;
+
+    if (editingId === r._id) {
+      return (
+        <div className="mx-auto w-[min(100%,200px)] space-y-1 rounded-md border-2 border-brand bg-card p-2 shadow-sm">
+          <Input
+            value={editCode}
+            onChange={(e) => setEditCode(e.target.value.toUpperCase())}
+            placeholder="Code"
+            className="h-8 font-mono text-xs"
+          />
+          <Input
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="Nom"
+            className="h-8 text-xs"
+            autoFocus
+          />
+          <div className="flex gap-1">
+            <Button
+              type="button"
+              size="sm"
+              className="h-7 flex-1 text-xs"
+              disabled={busy}
+              onClick={() => void saveRename()}
+            >
+              OK
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => setEditingId(null)}
+            >
+              Annuler
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => onNodeClick(r)}
+        onDoubleClick={() => startRename(r)}
+        className={cn(
+          "mx-auto block w-[min(100%,200px)] rounded-md border-2 px-3 py-2 text-center transition-all",
+          "bg-card shadow-sm hover:shadow-md",
+          isSel && !movingId && "border-brand bg-brand-soft ring-2 ring-brand/30",
+          isMoving && "border-dashed border-amber-600 bg-amber-50 opacity-80",
+          isDropTarget && "border-emerald-500 hover:bg-emerald-50",
+          !r.active && "opacity-40",
+          !isSel && !isMoving && !isDropTarget && "border-slate-300",
+        )}
+      >
+        {r.code ? (
+          <span className="block font-mono text-[11px] font-bold tracking-wide text-brand">
+            {r.code}
+          </span>
+        ) : null}
+        <span className="block text-xs font-semibold leading-tight text-foreground">
+          {r.name}
+        </span>
+        {r.kind ? (
+          <span className="mt-0.5 block text-[9px] uppercase text-muted-foreground">
+            {r.kind}
+          </span>
+        ) : null}
+      </button>
+    );
+  };
+
+  const renderBranch = (parentKey: string | "root") => {
     const children = byParent.get(parentKey) ?? [];
     if (children.length === 0) return null;
+
     return (
-      <ul className={cn(depth > 0 && "ml-3 border-l border-border pl-2")}>
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-6">
         {children.map((r) => {
-          const hasKids = (byParent.get(String(r._id)) ?? []).length > 0;
-          const isOpen = expanded[String(r._id)] ?? depth < 2;
-          const isSel = selectedId === r._id;
+          const kids = byParent.get(String(r._id)) ?? [];
           return (
-            <li key={r._id} className="py-0.5">
-              <div
-                className={cn(
-                  "flex items-center gap-1 rounded-sm px-1.5 py-1 text-sm",
-                  isSel && "bg-brand-soft",
-                  !r.active && "opacity-50",
-                )}
-              >
-                <button
-                  type="button"
-                  className="size-6 shrink-0 text-muted-foreground"
-                  onClick={() =>
-                    setExpanded((prev) => ({
-                      ...prev,
-                      [String(r._id)]: !isOpen,
-                    }))
-                  }
-                  aria-label={isOpen ? "Replier" : "Déplier"}
-                >
-                  {hasKids ? (
-                    isOpen ? (
-                      <ChevronDown className="size-4" />
-                    ) : (
-                      <ChevronRight className="size-4" />
-                    )
-                  ) : (
-                    <span className="inline-block size-4" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 truncate text-left"
-                  onClick={() => loadEdit(r)}
-                >
-                  <span className="font-medium">
-                    {r.code ? `${r.code} — ` : ""}
-                    {r.name}
-                  </span>
-                  <span className="ml-1 text-[10px] uppercase text-muted-foreground">
-                    {r.kind ?? ""}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  className="shrink-0 text-[10px] text-brand"
-                  title="Ajouter un enfant"
-                  onClick={() => startCreate(r)}
-                >
-                  <Plus className="size-3.5" />
-                </button>
-              </div>
-              {hasKids && isOpen ? renderTree(String(r._id), depth + 1) : null}
-            </li>
+            <div key={r._id} className="flex min-w-[140px] flex-col items-center">
+              <NodeBox r={r} />
+              {kids.length > 0 ? (
+                <>
+                  {/* Trait vertical */}
+                  <div className="h-4 w-px bg-slate-400" />
+                  {/* Ligne horizontale sous les enfants */}
+                  <div className="relative flex w-full justify-center">
+                    {kids.length > 1 ? (
+                      <div className="absolute top-0 left-[10%] right-[10%] h-px bg-slate-400" />
+                    ) : null}
+                  </div>
+                  <div className="pt-0">{renderBranch(String(r._id))}</div>
+                </>
+              ) : null}
+            </div>
           );
         })}
-      </ul>
+      </div>
     );
   };
 
@@ -255,126 +293,115 @@ export function HierarchyAdmin() {
   }
 
   return (
-    <div className="space-y-4 rounded-sm border border-border bg-card p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <div className="space-y-3 rounded-sm border border-border bg-muted/20 p-3 sm:p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold">Hiérarchie organisationnelle</h3>
-          <p className="text-xs text-muted-foreground">
-            Classement des directions et services (N° de courrier). Réservé au
-            DG.
+          <h3 className="text-sm font-semibold">Organigramme</h3>
+          <p className="text-[11px] text-muted-foreground">
+            Clic = sélectionner · Double-clic = renommer · Boutons ci-dessous
           </p>
         </div>
+        {busy ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : null}
+      </div>
+
+      {/* Barre d'actions simple */}
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
           size="sm"
           variant="outline"
           className="gap-1.5"
-          onClick={() => startCreate(null)}
+          disabled={busy}
+          onClick={() => void addChild(null)}
         >
           <Plus className="size-4" />
           Racine
         </Button>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <div className="max-h-80 overflow-y-auto rounded-sm border border-border p-2">
-          {rows.length === 0 ? (
-            <p className="p-3 text-xs text-muted-foreground">
-              Aucune structure. Utilisez « Installer arbre MNDPT » ou créez une
-              racine.
-            </p>
-          ) : (
-            renderTree("root", 0)
-          )}
-        </div>
-
-        <div className="space-y-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {mode === "create" ? "Nouvelle structure" : "Modifier la structure"}
-          </p>
-          <div className="space-y-1.5">
-            <Label>Nom *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <Label>Code</Label>
-              <Input
-                value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase())}
-                className="font-mono"
-                placeholder="DTD"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Type</Label>
-              <select
-                className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
-                value={kind}
-                onChange={(e) => setKind(e.target.value as Kind)}
-              >
-                {KINDS.map((k) => (
-                  <option key={k.value} value={k.value}>
-                    {k.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Rattaché à (parent)</Label>
-            <select
-              className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
-              value={parentId}
-              onChange={(e) => setParentId(e.target.value)}
-            >
-              <option value="">— Aucun (niveau racine) —</option>
-              {rows
-                .filter((r) => r._id !== selectedId)
-                .map((r) => (
-                  <option key={r._id} value={r._id}>
-                    {r.code ? `${r.code} — ` : ""}
-                    {r.name}
-                  </option>
-                ))}
-            </select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Description</Label>
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          className="gap-1.5"
+          disabled={busy || !selected}
+          onClick={() => void addChild(selected)}
+        >
+          <Plus className="size-4" />
+          Sous la sélection
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={movingId ? "default" : "outline"}
+          className="gap-1.5"
+          disabled={busy || !selected}
+          onClick={startMove}
+        >
+          <Move className="size-4" />
+          Déplacer
+        </Button>
+        {movingId ? (
+          <>
             <Button
               type="button"
               size="sm"
-              className="gap-1.5"
+              variant="secondary"
               disabled={busy}
-              onClick={() => void handleSave()}
+              onClick={() => void finishMove(null)}
             >
-              {busy ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <Save className="size-4" />
-              )}
-              Enregistrer
+              Mettre à la racine
             </Button>
-            {mode === "edit" && selected ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={busy}
-                onClick={() => void toggleActive(selected)}
-              >
-                {selected.active ? "Désactiver" : "Réactiver"}
-              </Button>
-            ) : null}
-          </div>
-        </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setMovingId(null)}
+            >
+              <X className="size-4" />
+              Annuler
+            </Button>
+          </>
+        ) : null}
+        {selected && !movingId ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={busy}
+            onClick={() => void toggleActive()}
+          >
+            {selected.active ? "Masquer" : "Réactiver"}
+          </Button>
+        ) : null}
       </div>
+
+      {movingId ? (
+        <p className="rounded-sm border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          Mode déplacement : cliquez la case <strong>parente</strong> cible, ou
+          « Mettre à la racine ».
+        </p>
+      ) : null}
+
+      {/* Canevas organigramme */}
+      <div className="max-h-[min(70vh,520px)] overflow-auto rounded-md border border-slate-200 bg-white p-4">
+        {rows.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">
+            Vide — cliquez « Racine » ou « Installer arbre MNDPT ».
+          </p>
+        ) : (
+          <div className="min-w-max pb-4 pt-2">{renderBranch("root")}</div>
+        )}
+      </div>
+
+      {selected && !movingId ? (
+        <p className="text-[11px] text-muted-foreground">
+          Sélection :{" "}
+          <strong>
+            {selected.code ? `${selected.code} — ` : ""}
+            {selected.name}
+          </strong>
+          {" · "}
+          double-clic pour renommer
+        </p>
+      ) : null}
     </div>
   );
 }
