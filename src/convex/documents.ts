@@ -1291,8 +1291,13 @@ export const listReceivedRefs = query({
         createdAt: number;
       }> = [];
       for (const d of docs.sort(sortByDateDesc)) {
-        const ref = (d.publicRef ?? "").trim();
-        if (!ref || seen.has(ref)) continue;
+        let ref = (d.publicRef ?? "").trim();
+        if (!ref) {
+          // Ancien courrier sans N° : libellé utilisable en Réf.
+          const y = new Date(d.createdAt).getFullYear();
+          ref = `Courrier du ${y} — ${(d.objet || d.fileName).slice(0, 50)}`;
+        }
+        if (seen.has(ref)) continue;
         seen.add(ref);
         out.push({
           publicRef: ref,
@@ -1300,7 +1305,7 @@ export const listReceivedRefs = query({
           documentId: d._id,
           createdAt: d.createdAt,
         });
-        if (out.length >= 80) break;
+        if (out.length >= 100) break;
       }
       return out;
     } catch (e) {

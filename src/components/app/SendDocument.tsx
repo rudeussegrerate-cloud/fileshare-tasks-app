@@ -827,59 +827,58 @@ export function SendDocument({
                 <p className="text-[11px] text-muted-foreground">
                   Laissez vide pour un N° automatique (ex. N°071-2026/MNDPT/DTD).
                 </p>
-                <div className="space-y-2 pt-2">
-                  <Label htmlFor="referenceText">Réf.</Label>
-                  {receivedRefs && receivedRefs.length > 0 ? (
-                    <select
-                      className="flex h-10 w-full rounded-sm border border-input bg-background px-3 text-sm"
-                      value={
-                        receivedRefs.some(
-                          (r) =>
-                            referenceText === r.publicRef ||
-                            referenceText ===
-                              `Votre correspondance ${r.publicRef}`,
-                        )
-                          ? receivedRefs.find(
-                              (r) =>
-                                referenceText === r.publicRef ||
-                                referenceText ===
-                                  `Votre correspondance ${r.publicRef}`,
-                            )!.publicRef
-                          : ""
+                <div className="space-y-2 pt-2 rounded-sm border border-border bg-muted/20 p-3">
+                  <Label htmlFor="refSelect">Réf. — courrier référencé</Label>
+                  <select
+                    id="refSelect"
+                    className="flex h-11 w-full rounded-sm border border-input bg-background px-3 text-sm"
+                    disabled={receivedRefs === undefined}
+                    value={(() => {
+                      if (!receivedRefs?.length) return "";
+                      const hit = receivedRefs.find(
+                        (r) =>
+                          referenceText === r.publicRef ||
+                          referenceText ===
+                            `Votre correspondance ${r.publicRef}` ||
+                          referenceText.includes(r.publicRef),
+                      );
+                      return hit?.publicRef ?? "";
+                    })()}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v) {
+                        setReferenceText("");
+                        return;
                       }
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (!v) return;
-                        setReferenceText(`Votre correspondance ${v}`);
-                      }}
-                    >
-                      <option value="">
-                        Choisir un N° parmi les courriers reçus…
+                      setReferenceText(`Votre correspondance ${v}`);
+                    }}
+                  >
+                    <option value="">
+                      {receivedRefs === undefined
+                        ? "Chargement des courriers reçus…"
+                        : receivedRefs.length === 0
+                          ? "Aucun courrier reçu pour l’instant"
+                          : "Choisir un N° parmi vos courriers reçus…"}
+                    </option>
+                    {(receivedRefs ?? []).map((r) => (
+                      <option key={r.documentId} value={r.publicRef}>
+                        {r.publicRef}
+                        {r.objet ? ` — ${r.objet.slice(0, 48)}` : ""}
                       </option>
-                      {receivedRefs.map((r) => (
-                        <option key={r.documentId} value={r.publicRef}>
-                          {r.publicRef}
-                          {r.objet ? ` — ${r.objet.slice(0, 40)}` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  ) : null}
+                    ))}
+                  </select>
+                  <Label htmlFor="referenceText" className="pt-1">
+                    Ou saisie libre
+                  </Label>
                   <Input
                     id="referenceText"
                     value={referenceText}
                     onChange={(e) => setReferenceText(e.target.value)}
-                    list="received-refs-datalist"
-                    placeholder="Ou saisissez la référence manuellement"
+                    placeholder="Ex. : Votre correspondance N°071-2026/…"
                   />
-                  <datalist id="received-refs-datalist">
-                    {(receivedRefs ?? []).map((r) => (
-                      <option key={r.documentId} value={r.publicRef}>
-                        {r.objet}
-                      </option>
-                    ))}
-                  </datalist>
                   <p className="text-[11px] text-muted-foreground">
-                    Sélectionnez un N° déjà reçu, ou saisissez la Réf. librement.
+                    La liste contient les N° des courriers déjà reçus par votre
+                    structure. Vous pouvez aussi taper la Réf. à la main.
                   </p>
                 </div>
                 <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm">
