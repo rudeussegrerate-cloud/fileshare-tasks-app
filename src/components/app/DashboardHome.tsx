@@ -97,17 +97,18 @@ export function DashboardHome({
     : me.isAdmin
       ? "Directeur général"
       : me.isChef
-        ? `Chef de département${me.department?.name ? ` · ${me.department.name}` : ""}`
+        ? `Chef de structure${me.department?.name ? ` · ${me.department.name}` : ""}`
         : me.department?.name
           ? `Membre · ${me.department.name}`
           : "Membre";
 
+  /** Pilotage structure / ministère : chefs + DG uniquement */
+  const isManager = isDg || isChef;
   const showEnterprise = isDg && !selectedDeptId;
-  const showDeptPanel = Boolean(selectedDeptId);
+  const showDeptPanel = Boolean(selectedDeptId) && isManager;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6" data-scandoc-tour="home-stats">
-      {/* —— En-tête —— */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-0.5">
           <h2 className="text-2xl font-semibold tracking-tight">
@@ -115,29 +116,32 @@ export function DashboardHome({
           </h2>
           <p className="text-sm text-muted-foreground">{roleLine}</p>
         </div>
-        <Button onClick={onSend} className="h-10 gap-2" data-scandoc-tour="home-actions">
+        <Button
+          onClick={onSend}
+          className="h-10 gap-2"
+          data-scandoc-tour="home-actions"
+        >
           <Send className="size-4" />
-          Nouvel envoi
+          Nouveau courrier
         </Button>
       </header>
 
-      {/* —— Alertes (toutes rôles, compact) —— */}
-      <AlertsBlock
-        isAdmin={isDg}
-        pendingAccounts={me.pendingAccounts ?? 0}
-        pendingJoins={pendingJoin?.length ?? 0}
-        awaiting={awaiting}
-        unreadMsg={unreadMsg ?? 0}
-        onNavigate={onNavigate}
-      />
+      {isManager ? (
+        <AlertsBlock
+          isAdmin={isDg}
+          pendingAccounts={me.pendingAccounts ?? 0}
+          pendingJoins={pendingJoin?.length ?? 0}
+          awaiting={awaiting}
+          unreadMsg={0}
+          onNavigate={onNavigate}
+        />
+      ) : null}
 
-      
-      {/* ========== BLOC DG : entreprise ========== */}
       {showEnterprise ? (
         <Section
           icon={BarChart3}
-          title="Entreprise"
-          subtitle="Vue d'ensemble et suivi par département"
+          title="Vue d'ensemble"
+          subtitle="Courriers et structures du ministère"
         >
           {overview === undefined ? (
             <MndptLoader size="section" />
@@ -156,20 +160,15 @@ export function DashboardHome({
         </Section>
       ) : null}
 
-      {/* ========== BLOC département (DG après clic, ou chef auto) ========== */}
       {showDeptPanel ? (
         <Section
           icon={Building2}
           title={
             isChef
-              ? `Mon département${me.department?.name ? ` · ${me.department.name}` : ""}`
-              : "Département"
+              ? `Ma structure${me.department?.name ? ` · ${me.department.name}` : ""}`
+              : "Structure"
           }
-          subtitle={
-            isChef
-              ? "Membres et courriers de votre structure"
-              : "Courriers et membres de la structure"
-          }
+          subtitle="Courriers et membres de la structure"
           action={
             isDg ? (
               <Button
@@ -180,7 +179,7 @@ export function DashboardHome({
                 onClick={() => setSelectedDeptId(null)}
               >
                 <ArrowLeft className="size-4" />
-                Entreprise
+                Vue d&apos;ensemble
               </Button>
             ) : (
               <Button
@@ -206,47 +205,51 @@ export function DashboardHome({
         </Section>
       ) : null}
 
-      {/* ========== Mes documents (tous rôles) ========== */}
+      {!isManager ? (
+        <div className="rounded-sm border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+          Espace personnel. Le tableau de bord de pilotage (indicateurs de
+          structure) est réservé au <strong>chef</strong> et au{" "}
+          <strong>DG</strong>.
+        </div>
+      ) : null}
+
       <Section
         icon={Inbox}
         title="Mes courriers"
-        subtitle="Courriers qui vous concernent"
+        subtitle={
+          isManager
+            ? "Activité courrier liée à votre rôle"
+            : "Courriers de votre structure"
+        }
       >
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           <StatTile
             label="À traiter"
             value={awaiting}
-            hint="Courriers non classés"
+            hint="Non classés"
             onClick={() => onNavigate("inbox")}
           />
           <StatTile
             label="Reçus"
-            value={stats.received}
-            hint="Non archivés"
+            value={inboxList.length}
+            hint="Liste complète"
             onClick={() => onNavigate("inbox")}
           />
           <StatTile
-            label="Envoyés"
-            value={stats.sent}
-            hint="Vos envois"
-            onClick={() => onNavigate("sent")}
-          />
-          <StatTile
-            label="Traités"
-            value={stats.done ?? 0}
-            hint="Terminés"
-            onClick={() => onNavigate("inbox")}
+            label="Rédiger"
+            value="→"
+            hint="Nouveau courrier"
+            onClick={onSend}
           />
         </div>
       </Section>
 
-      {/* ========== Raccourcis ========== */}
-            <Section title="Accès rapide">
+      <Section title="Accès rapide">
         <div className="grid gap-2 sm:grid-cols-2">
           <QuickLink
             icon={Inbox}
             title="Courriers reçus"
-            desc="À traiter dans votre structure"
+            desc="Consulter et répondre"
             onClick={() => onNavigate("inbox")}
           />
           <QuickLink
@@ -255,12 +258,14 @@ export function DashboardHome({
             desc="Courriers émis"
             onClick={() => onNavigate("sent")}
           />
-          <QuickLink
-            icon={Building2}
-            title="Structures"
-            desc="Directions et services"
-            onClick={() => onNavigate("departments")}
-          />
+          {isManager ? (
+            <QuickLink
+              icon={Building2}
+              title="Structures"
+              desc="Directions et services"
+              onClick={() => onNavigate("departments")}
+            />
+          ) : null}
           {isDg ? (
             <QuickLink
               icon={UserCheck}
@@ -272,35 +277,20 @@ export function DashboardHome({
         </div>
       </Section>
 
-
-      {/* ========== Derniers reçus ========== */}
-      <Section
-        title="Derniers reçus"
-        subtitle="Ouvrir un courrier"
-        action={
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onNavigate("inbox")}
-          >
-            Tout voir
-          </Button>
-        }
-      >
+      <Section title="Derniers reçus" subtitle="Ouvrir un courrier">
         {recent.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-xs text-muted-foreground">
+          <p className="px-1 py-6 text-center text-sm text-muted-foreground">
             Aucun courrier reçu pour le moment.
           </p>
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-            {recent.map((document) => {
-              const Icon = fileIconFor(document.fileName);
+          <ul className="divide-y divide-border overflow-hidden rounded-sm border border-border bg-card">
+            {recent.map((courrier) => {
+              const Icon = fileIconFor(courrier.fileName);
               return (
-                <li key={document._id}>
+                <li key={courrier._id}>
                   <button
                     type="button"
-                    onClick={() => onOpen(document._id)}
+                    onClick={() => onOpen(courrier._id)}
                     className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-secondary/50"
                   >
                     <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
@@ -308,14 +298,14 @@ export function DashboardHome({
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">
-                        {document.objet || document.fileName}
+                        {courrier.objet || courrier.fileName}
                       </span>
                       <span className="block truncate text-xs text-muted-foreground">
-                        {structureSender(document)} ·{" "}
-                        {formatDateTime(document.createdAt)}
+                        {structureSender(courrier)} ·{" "}
+                        {formatDateTime(courrier.createdAt)}
                       </span>
                     </span>
-                    <StatusBadge status={document.status} />
+                    <StatusBadge status={courrier.status} />
                   </button>
                 </li>
               );
@@ -430,7 +420,7 @@ function AlertsBlock({
     items.push({
       key: "msg",
       title: `${unreadMsg} message${unreadMsg > 1 ? "s" : ""} non lu${unreadMsg > 1 ? "s" : ""}`,
-      subtitle: "Messagerie",
+      subtitle: "Messages",
       onClick: () => onNavigate("messages"),
       tone: "blue",
       icon: MessageCircle,
@@ -560,7 +550,7 @@ function EnterprisePanel({
     <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Metric
-          label="Documents actifs"
+          label="Courriers actifs"
           value={overview.totals.documents}
           onClick={() => setDrill("open")}
         />
@@ -635,7 +625,7 @@ function EnterprisePanel({
                     </p>
                   </button>
                   {(drill === "overdue" || drill === "open") &&
-                  item.type === "document" &&
+                  item.type === "courrier" &&
                   item.status !== "traite" ? (
                     <Button
                       type="button"
@@ -1222,7 +1212,7 @@ function StatTile({
   onClick,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   hint: string;
   onClick: () => void;
 }) {
