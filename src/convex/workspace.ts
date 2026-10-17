@@ -884,9 +884,21 @@ export const moveDepartment = mutation({
         walkId = walkNode?.parentId;
       }
     }
-    await ctx.db.patch(args.departmentId, {
-      parentId: args.parentId,
-    });
+    if (args.parentId) {
+      await ctx.db.patch(args.departmentId, { parentId: args.parentId });
+    } else {
+      // Racine : retirer parentId du document
+      await ctx.db.replace(args.departmentId, {
+        name: dep.name,
+        code: dep.code,
+        kind: dep.kind,
+        description: dep.description,
+        createdBy: dep.createdBy,
+        createdAt: dep.createdAt,
+        logoStorageId: dep.logoStorageId,
+        active: dep.active,
+      });
+    }
     return args.departmentId;
   },
 });
@@ -907,6 +919,35 @@ export const setDepartmentActive = mutation({
 });
 
 /** The DG deletes a department; its members simply become unassigned. */
+
+/** DG : structures dont le parent n'existe plus → racine. */
+export const repairDepartmentOrphans = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireAdmin(ctx);
+    const all = await ctx.db.query("departments").collect();
+    const ids = new Set(all.map((d) => String(d._id)));
+    let fixed = 0;
+    for (const d of all) {
+      if (d.parentId && !ids.has(String(d.parentId))) {
+        await ctx.db.replace(d._id, {
+          name: d.name,
+          code: d.code,
+          kind: d.kind,
+          description: d.description,
+          createdBy: d.createdBy,
+          createdAt: d.createdAt,
+          logoStorageId: d.logoStorageId,
+          active: d.active,
+        });
+        fixed += 1;
+      }
+    }
+    return { fixed };
+  },
+});
+
+
 export const deleteDepartment = mutation({
   args: { departmentId: v.id("departments") },
   handler: async (ctx, args) => {
