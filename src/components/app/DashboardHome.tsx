@@ -25,7 +25,7 @@ import { useEffect, useState } from "react";
 import type { AppView } from "@/components/app/AppShell";
 import {
   StatusBadge,
-  fileIconFor,
+  FileThumb,
   formatDateTime,
   initialsOf,
 } from "./shared";
@@ -285,7 +285,6 @@ export function DashboardHome({
         ) : (
           <ul className="divide-y divide-border overflow-hidden rounded-sm border border-border bg-card">
             {recent.map((courrier) => {
-              const Icon = fileIconFor(courrier.fileName);
               return (
                 <li key={courrier._id}>
                   <button
@@ -293,9 +292,12 @@ export function DashboardHome({
                     onClick={() => onOpen(courrier._id)}
                     className="flex w-full items-center gap-3 px-3 py-3 text-left hover:bg-secondary/50"
                   >
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
-                      <Icon className="size-4" />
-                    </span>
+                    <FileThumb
+                      fileName={courrier.fileName}
+                      contentType={(courrier as { contentType?: string }).contentType}
+                      fileUrl={(courrier as { fileUrl?: string | null }).fileUrl}
+                      size="sm"
+                    />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium">
                         {courrier.objet || courrier.fileName}

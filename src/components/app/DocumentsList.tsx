@@ -21,7 +21,7 @@ import {
   EmptyState,
   STATUS_META,
   StatusBadge,
-  fileIconFor,
+  FileThumb,
   formatBytes,
   formatDateTime,
   structureRecipient,
@@ -30,71 +30,6 @@ import {
 } from "./shared";
 
 type Mode = "inbox" | "sent";
-
-function isImageFile(name: string, contentType?: string | null) {
-  const ct = (contentType ?? "").toLowerCase();
-  if (ct.startsWith("image/")) return true;
-  return /\.(jpe?g|png|gif|webp|bmp|heic)$/i.test(name);
-}
-
-function isPdfFile(name: string, contentType?: string | null) {
-  const ct = (contentType ?? "").toLowerCase();
-  if (ct.includes("pdf")) return true;
-  return /\.pdf$/i.test(name);
-}
-
-/** Miniature type aperçu document (image réelle ou carte PDF). */
-function FileThumb({
-  fileName,
-  contentType,
-  fileUrl,
-}: {
-  fileName: string;
-  contentType?: string | null;
-  fileUrl?: string | null;
-}) {
-  if (fileUrl && isImageFile(fileName, contentType)) {
-    return (
-      <div className="relative size-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted shadow-sm">
-        <img
-          src={fileUrl}
-          alt=""
-          className="size-full object-cover"
-          loading="lazy"
-        />
-      </div>
-    );
-  }
-  if (fileUrl && isPdfFile(fileName, contentType)) {
-    return (
-      <div className="relative size-14 shrink-0 overflow-hidden rounded-md border border-border bg-white shadow-sm">
-        <iframe
-          src={`${fileUrl}#page=1&view=FitH`}
-          title=""
-          className="pointer-events-none absolute -left-2 -top-1 h-[120%] w-[140%] origin-top-left scale-[0.55] border-0"
-          tabIndex={-1}
-        />
-        <span className="absolute bottom-0.5 left-0.5 rounded bg-red-600 px-1 text-[8px] font-bold text-white">
-          PDF
-        </span>
-      </div>
-    );
-  }
-  const Icon = fileIconFor(fileName);
-  return (
-    <div className="flex size-14 shrink-0 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-md border border-border bg-white p-1 shadow-sm">
-      <div className="h-7 w-9 rounded-sm border border-slate-200 bg-gradient-to-b from-slate-50 to-slate-100 p-0.5">
-        <div className="space-y-0.5">
-          <div className="h-0.5 w-full rounded bg-slate-300" />
-          <div className="h-0.5 w-4/5 rounded bg-slate-200" />
-          <div className="h-0.5 w-full rounded bg-slate-200" />
-          <div className="h-0.5 w-3/5 rounded bg-slate-200" />
-        </div>
-      </div>
-      <Icon className="size-3 text-brand" />
-    </div>
-  );
-}
 
 const FILTERS: Array<{ key: "all" | DocumentStatus; label: string }> = [
   { key: "all", label: "Tous" },

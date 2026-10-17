@@ -3408,27 +3408,44 @@ export const fileManager = query({
           Number(a.updatedAt ?? a.createdAt ?? 0),
       );
 
-      return docs.slice(0, 100).map((d) => ({
-        _id: d._id,
-        publicRef: d.publicRef ?? null,
-        objet: d.objet,
-        fileName: d.fileName,
-        status: d.status,
-        senderName: d.senderName,
-        recipientName: d.recipientName,
-        hasCircuit: Boolean(d.hasCircuit),
-        isSender: d.senderId === userId,
-        isRecipient: d.recipientId === userId,
-        archivedAt: d.archivedAt ?? null,
-        createdAt: d.createdAt ?? d._creationTime,
-        updatedAt: d.updatedAt ?? d.createdAt,
-        canArchive:
-          (d.senderId === userId || d.recipientId === userId) && !d.archivedAt,
-        canDelete:
-          (d.senderId === userId || isAdmin) && Boolean(d.archivedAt),
-        canUnarchive: Boolean(d.archivedAt) &&
-          (d.senderId === userId || d.recipientId === userId || isAdmin),
-      }));
+      const page = docs.slice(0, 100);
+      return await Promise.all(
+        page.map(async (d) => {
+          let fileUrl: string | null = null;
+          try {
+            fileUrl = await ctx.storage.getUrl(d.storageId);
+          } catch {
+            fileUrl = null;
+          }
+          return {
+            _id: d._id,
+            publicRef: d.publicRef ?? null,
+            objet: d.objet,
+            fileName: d.fileName,
+            contentType: d.contentType ?? null,
+            status: d.status,
+            senderName: d.senderName,
+            recipientName: d.recipientName,
+            hasCircuit: Boolean(d.hasCircuit),
+            isSender: d.senderId === userId,
+            isRecipient: d.recipientId === userId,
+            archivedAt: d.archivedAt ?? null,
+            createdAt: d.createdAt ?? d._creationTime,
+            updatedAt: d.updatedAt ?? d.createdAt,
+            fileUrl,
+            canArchive:
+              (d.senderId === userId || d.recipientId === userId) &&
+              !d.archivedAt,
+            canDelete:
+              (d.senderId === userId || isAdmin) && Boolean(d.archivedAt),
+            canUnarchive:
+              Boolean(d.archivedAt) &&
+              (d.senderId === userId ||
+                d.recipientId === userId ||
+                isAdmin),
+          };
+        }),
+      );
     } catch (e) {
       console.error("[fileManager]", e);
       return [];

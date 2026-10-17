@@ -16,6 +16,7 @@ import { MndptLoader } from "@/components/MndptLoader";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
+  FileThumb,
   StatusBadge,
   formatDateTime,
   structureRecipient,
@@ -116,14 +117,21 @@ export function FileManagerView({
           {rows.map((doc) => (
             <li
               key={doc._id}
-              className="rounded-xl border border-border bg-card p-4 shadow-sm"
+              className="rounded-xl border border-border bg-card p-3 shadow-sm sm:p-4"
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <button
                   type="button"
-                  className="min-w-0 flex-1 text-left"
+                  className="flex min-w-0 flex-1 items-start gap-3 text-left"
                   onClick={() => onOpen(doc._id as Id<"documents">)}
                 >
+                  <FileThumb
+                    fileName={doc.fileName}
+                    contentType={(doc as { contentType?: string | null }).contentType}
+                    fileUrl={(doc as { fileUrl?: string | null }).fileUrl}
+                    size="sm"
+                  />
+                  <span className="min-w-0 flex-1">
                   <p className="font-medium text-foreground">
                     {doc.objet || doc.fileName}
                   </p>
@@ -137,6 +145,7 @@ export function FileManagerView({
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {formatDateTime(doc.updatedAt ?? doc.createdAt)}
                   </p>
+                  </span>
                 </button>
                 <StatusBadge
                   status={

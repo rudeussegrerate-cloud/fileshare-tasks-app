@@ -31,7 +31,7 @@ import {
   STATUS_META,
   STATUS_ORDER,
   StatusBadge,
-  fileIconFor,
+  FileThumb,
   formatBytes,
   formatDateTime,
   structureRecipient,
@@ -201,7 +201,7 @@ export function DocumentDetailDialog({
 
   const documentOrNull = courrier;
   // Ne pas utiliser React.ComponentType sans import React (crash runtime).
-  const Icon = documentOrNull ? fileIconFor(documentOrNull.fileName) : FileText;
+  const showThumb = Boolean(documentOrNull);
 
   return (
     <Dialog open={documentId !== null} onOpenChange={onOpenChange}>
@@ -224,9 +224,14 @@ export function DocumentDetailDialog({
           <>
             <DialogHeader>
               <div className="flex items-start gap-3">
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-sm bg-brand-soft text-brand">
-                  <Icon className="size-5" />
-                </div>
+                {documentOrNull ? (
+                  <FileThumb
+                    fileName={documentOrNull.fileName}
+                    contentType={documentOrNull.contentType}
+                    fileUrl={(documentOrNull as { fileUrl?: string | null }).fileUrl ?? (documentOrNull as { downloadUrl?: string | null }).downloadUrl}
+                    size="lg"
+                  />
+                ) : null}
                 <div className="min-w-0">
                   <DialogTitle className="truncate text-lg">
                     {documentOrNull.fileName}
