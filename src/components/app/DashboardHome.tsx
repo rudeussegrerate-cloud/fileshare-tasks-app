@@ -567,7 +567,7 @@ function EnterprisePanel({
           onClick={() => setDrill("overdue")}
         />
         <Metric
-          label="Traités"
+          label="Classés"
           value={overview.totals.traite}
           className="border-emerald-200/80 bg-emerald-50/80 text-emerald-900"
           onClick={() => setDrill("traite")}
@@ -944,7 +944,7 @@ function DepartmentPanel({
           onClick={() => setDrill("open")}
         />
         <Metric
-          label="Traités"
+          label="Classés"
           value={detail.totals.traite}
           className="text-emerald-800"
           onClick={() => setDrill("traite")}
@@ -962,7 +962,7 @@ function DepartmentPanel({
       {detail.totals.circuitActive > 0 ? (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
           {detail.totals.circuitActive} courrier
-          {detail.totals.circuitActive > 1 ? "s" : ""} en circuit chez un membre
+          {detail.totals.circuitActive > 1 ? "s" : ""} en cours dans la structure
           de ce département
         </p>
       ) : null}

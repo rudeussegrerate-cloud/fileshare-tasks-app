@@ -468,7 +468,7 @@ function CreateDepartmentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Créer un département</DialogTitle>
+          <DialogTitle>Créer une structure</DialogTitle>
           <DialogDescription>
             En tant que DG, vous créez le département puis désignez son chef
             parmi les comptes qui ont déjà complété leurs informations.
@@ -639,7 +639,7 @@ export function DepartmentsView() {
             className="gap-2"
           >
             <Plus className="size-4" />
-            Nouveau département
+            Nouvelle structure
           </Button>
         </div>
       ) : null}
@@ -652,17 +652,17 @@ export function DepartmentsView() {
       {departments.length === 0 ? (
         <EmptyState
           icon={Building2}
-          title="Aucun département"
+          title="Aucune structure"
           description={
             me.isAdmin
               ? "Commencez par créer les départements de l'entreprise, puis désignez leurs chefs."
-              : "Le DG n'a pas encore créé de département."
+              : "Le DG n'a pas encore créé de structure."
           }
           action={
             me.isAdmin ? (
               <Button onClick={() => setCreating(true)} className="gap-2">
                 <Plus className="size-4" />
-                Créer un département
+                Créer une structure
               </Button>
             ) : undefined
           }
@@ -697,7 +697,7 @@ export function DepartmentsView() {
                   onClick={() => setOpenDeptId(null)}
                 >
                   <ArrowLeft className="size-4" />
-                  Tous les départements
+                  Toutes les structures
                 </Button>
               </div>
 

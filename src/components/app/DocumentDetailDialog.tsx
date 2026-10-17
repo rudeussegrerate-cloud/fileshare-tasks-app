@@ -57,7 +57,7 @@ export function DocumentDetailDialog({
     senderDepartmentId?: Id<"departments"> | null;
   }) => void;
 }) {
-  const document = useQuery(
+  const courrier = useQuery(
     api.documents.get,
     documentId ? { documentId } : "skip",
   );
@@ -75,7 +75,7 @@ export function DocumentDetailDialog({
   const removeDoc = useMutation(api.documents.remove);
   const retrySummary = useMutation(api.documents.retrySummary);
 
-  const printDocument = () => {
+  const printCourrier = () => {
     if (!documentOrNull) return;
     const w = window.open("", "_blank", "noopener,noreferrer,width=800,height=900");
     if (!w) {
@@ -112,7 +112,7 @@ export function DocumentDetailDialog({
   const [showAudit, setShowAudit] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  // Opening a document counts as consulting it for the sender.
+  // Opening a courrier counts as consulting it for the sender.
   useEffect(() => {
     if (!document?.isRecipient && !document?.canUpdateStatus) return;
     if (document.status !== "envoye") return;
@@ -181,7 +181,7 @@ export function DocumentDetailDialog({
     if (!documentId) return;
     if (
       !window.confirm(
-        "Supprimer définitivement ce document ? Cette action est irréversible.",
+        "Supprimer définitivement ce courrier ? Cette action est irréversible.",
       )
     )
       return;
@@ -212,7 +212,7 @@ export function DocumentDetailDialog({
           </div>
         ) : documentOrNull === null ? (
           <div className="space-y-3 py-10 text-center">
-            <p className="font-medium text-foreground">Document inaccessible</p>
+            <p className="font-medium text-foreground">Courrier inaccessible</p>
             <p className="text-sm text-muted-foreground">
               Ce dossier n&apos;existe plus ou vous n&apos;y avez pas accès.
             </p>
@@ -551,7 +551,7 @@ export function DocumentDetailDialog({
                                 });
                                 setStepNote("");
                                 if (res?.done) {
-                                  toast.success("Circuit terminé — document traité");
+                                  toast.success("Circuit terminé — courrier traité");
                                 } else if (res?.advanced) {
                                   toast.success(
                                     `Étape validée → ${res.nextAssignee ?? "suivant"}`,

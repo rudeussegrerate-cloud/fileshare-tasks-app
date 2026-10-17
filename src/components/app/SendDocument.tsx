@@ -35,7 +35,7 @@ function isOnline(lastSeenAt?: number | null) {
 }
 
 
-const STEPS = ["Courrier", "Destinataires", "Émetteur", "Détails"];
+const STEPS = ["Fichier", "Qui reçoit", "Qui envoie", "Détails"];
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
@@ -631,9 +631,7 @@ export function SendDocument({
               <div className="flex items-start gap-2 rounded-sm border border-brand-sky/25 bg-brand-soft/60 px-4 py-3 text-xs text-muted-foreground">
                 <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p>
-                  Le contenu du document est analysé automatiquement pour
-                  produire un résumé que le destinataire lira avant le document
-                  complet.
+                  Le contenu est analysé pour proposer un résumé au destinataire.
                 </p>
               </div>
             </div>
@@ -644,10 +642,9 @@ export function SendDocument({
               <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
-                  Choisissez une ou plusieurs <strong>directions</strong>, ou
-                  uniquement des <strong>services</strong> à l&apos;intérieur
-                  d&apos;une direction. Cliquez à nouveau pour désélectionner.
-                  Au moins une destination est requise.
+                  <strong>Destinataires</strong> — qui <strong>reçoit</strong> le
+                  courrier. Une ou plusieurs directions / services. Cliquez à
+                  nouveau pour retirer. Au moins une destination est requise.
                 </p>
               </div>
 
@@ -890,13 +887,14 @@ export function SendDocument({
           
           {step === 2 ? (
             <div className="space-y-4" data-scandoc-tour="send-emitter">
-              <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
-                <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
-                <p className="font-medium text-foreground">
-                  Choisissez la <strong>direction</strong> ou le{" "}
-                  <strong>service</strong> qui <strong>envoie</strong> le
-                  courrier. Le N° reprendra automatiquement la hiérarchie
-                  (ex. MNDPT/SG/DGDN/DTD). Une seule structure émettrice.
+              <div className="rounded-sm border border-amber-300/80 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-semibold text-amber-950">
+                  Émetteur du courrier
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-amber-900/90">
+                  Indiquez <strong>d&apos;où part</strong> le courrier (votre
+                  direction ou service). Ce choix fixe le chemin du N° officiel
+                  (ex. MNDPT/SG/DGDN/DTD). Ce n&apos;est pas le destinataire.
                 </p>
               </div>
 
@@ -910,13 +908,13 @@ export function SendDocument({
                   className={cn(
                     "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
                     emitMode === "direction"
-                      ? "border-brand bg-brand-soft text-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                      ? "border-amber-600 bg-amber-100 text-amber-950"
+                      : "border-border bg-card text-muted-foreground hover:border-amber-400/50",
                   )}
                 >
-                  Directions
+                  Direction
                   <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
-                    Toute la structure
+                    Qui signe / envoie
                   </span>
                 </button>
                 <button
@@ -928,13 +926,13 @@ export function SendDocument({
                   className={cn(
                     "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
                     emitMode === "service"
-                      ? "border-brand bg-brand-soft text-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
+                      ? "border-amber-600 bg-amber-100 text-amber-950"
+                      : "border-border bg-card text-muted-foreground hover:border-amber-400/50",
                   )}
                 >
-                  Services
+                  Service
                   <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
-                    Un service précis
+                    Service précis
                   </span>
                 </button>
               </div>
@@ -945,23 +943,18 @@ export function SendDocument({
                 </div>
               ) : emitMode === "direction" ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Directions / structures
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/80">
+                    Structure émettrice (choix unique)
                   </p>
-                  {directions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Aucune direction disponible. Demandez au DG
-                      d&apos;initialiser l&apos;arbre MNDPT.
-                    </p>
-                  ) : (
-                    <div className="grid max-h-72 gap-2 overflow-y-auto sm:grid-cols-2">
-                      {directions.map((dir) => {
+                  <div className="max-h-72 space-y-1.5 overflow-y-auto rounded-sm border border-amber-200/60 bg-amber-50/30 p-2">
+                    {directions.length === 0 ? (
+                      <p className="p-2 text-sm text-muted-foreground">
+                        Aucune direction. Le DG doit installer l&apos;arbre
+                        MNDPT.
+                      </p>
+                    ) : (
+                      directions.map((dir) => {
                         const active = onBehalfDepartmentId === dir._id;
-                        const svcCount = (departments ?? []).filter(
-                          (s) =>
-                            s.parentId === dir._id &&
-                            (s as { kind?: string | null }).kind === "service",
-                        ).length;
                         return (
                           <button
                             key={dir._id}
@@ -972,55 +965,51 @@ export function SendDocument({
                               setOnBehalfType("internal");
                             }}
                             className={cn(
-                              "rounded-sm border px-3 py-3 text-left transition-all",
+                              "flex w-full items-center gap-3 rounded-sm border px-3 py-2.5 text-left transition-all",
                               active
-                                ? "border-brand bg-brand-soft shadow-sm"
-                                : "border-border bg-card hover:border-brand-sky/50",
+                                ? "border-amber-600 bg-amber-100 shadow-sm"
+                                : "border-transparent bg-card hover:border-amber-300",
                             )}
                           >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-semibold">
+                            <span
+                              className={cn(
+                                "flex size-4 shrink-0 items-center justify-center rounded-full border-2",
+                                active
+                                  ? "border-amber-700 bg-amber-600"
+                                  : "border-muted-foreground/40",
+                              )}
+                            >
+                              {active ? (
+                                <span className="size-1.5 rounded-full bg-white" />
+                              ) : null}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold">
                                 {dir.code ? `${dir.code} — ` : ""}
                                 {dir.name}
                               </span>
-                              <span
-                                className={cn(
-                                  "flex size-5 shrink-0 items-center justify-center rounded border text-[10px]",
-                                  active
-                                    ? "border-brand bg-brand text-primary-foreground"
-                                    : "border-muted-foreground/30 text-transparent",
-                                )}
-                              >
-                                ✓
-                              </span>
-                            </div>
-                            {svcCount > 0 ? (
-                              <p className="mt-1 text-[11px] text-muted-foreground">
-                                {svcCount} service{svcCount > 1 ? "s" : ""}{" "}
-                                rattaché{svcCount > 1 ? "s" : ""}
-                              </p>
-                            ) : null}
+                            </span>
                           </button>
                         );
-                      })}
-                    </div>
-                  )}
+                      })
+                    )}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      1 · Direction parente
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/80">
+                      1 · Direction de rattachement
                     </p>
-                    <div className="grid max-h-40 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                    <div className="max-h-36 space-y-1 overflow-y-auto rounded-sm border border-amber-200/60 p-2">
                       {directions.map((dir) => {
-                        const active = emitParentDirectionId === dir._id;
                         const svcCount = (departments ?? []).filter(
                           (s) =>
                             s.parentId === dir._id &&
                             (s as { kind?: string | null }).kind === "service",
                         ).length;
                         if (svcCount === 0) return null;
+                        const active = emitParentDirectionId === dir._id;
                         return (
                           <button
                             key={dir._id}
@@ -1031,12 +1020,20 @@ export function SendDocument({
                               setOnBehalfUserId(null);
                             }}
                             className={cn(
-                              "rounded-sm border px-3 py-2 text-left text-sm transition-all",
+                              "flex w-full items-center gap-2 rounded-sm border px-3 py-2 text-left text-sm",
                               active
-                                ? "border-brand bg-brand-soft font-medium"
-                                : "border-border bg-card hover:border-brand-sky/40",
+                                ? "border-amber-600 bg-amber-100 font-medium"
+                                : "border-transparent bg-card hover:border-amber-300",
                             )}
                           >
+                            <span
+                              className={cn(
+                                "size-3 shrink-0 rounded-full border-2",
+                                active
+                                  ? "border-amber-700 bg-amber-600"
+                                  : "border-muted-foreground/40",
+                              )}
+                            />
                             {dir.code ? `${dir.code} — ` : ""}
                             {dir.name}
                           </button>
@@ -1046,16 +1043,16 @@ export function SendDocument({
                   </div>
                   {emitParentDirectionId ? (
                     <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        2 · Service émetteur
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/80">
+                        2 · Service qui envoie
                       </p>
-                      {emitServicesOfParent.length === 0 ? (
-                        <p className="text-xs text-muted-foreground">
-                          Aucun service rattaché.
-                        </p>
-                      ) : (
-                        <div className="grid max-h-48 gap-1.5 overflow-y-auto sm:grid-cols-2">
-                          {emitServicesOfParent.map((svc) => {
+                      <div className="max-h-48 space-y-1 overflow-y-auto rounded-sm border border-amber-200/60 bg-amber-50/30 p-2">
+                        {emitServicesOfParent.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            Aucun service rattaché.
+                          </p>
+                        ) : (
+                          emitServicesOfParent.map((svc) => {
                             const active = onBehalfDepartmentId === svc._id;
                             return (
                               <button
@@ -1067,49 +1064,48 @@ export function SendDocument({
                                   setOnBehalfType("internal");
                                 }}
                                 className={cn(
-                                  "rounded-sm border px-3 py-2.5 text-left transition-all",
+                                  "flex w-full items-center gap-3 rounded-sm border px-3 py-2.5 text-left",
                                   active
-                                    ? "border-brand bg-brand-soft shadow-sm"
-                                    : "border-border bg-card hover:border-brand-sky/50",
+                                    ? "border-amber-600 bg-amber-100 shadow-sm"
+                                    : "border-transparent bg-card hover:border-amber-300",
                                 )}
                               >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-sm font-medium">
-                                    {svc.code ? `${svc.code} — ` : ""}
-                                    {svc.name}
-                                  </span>
-                                  <span
-                                    className={cn(
-                                      "flex size-5 shrink-0 items-center justify-center rounded border text-[10px]",
-                                      active
-                                        ? "border-brand bg-brand text-primary-foreground"
-                                        : "border-muted-foreground/30 text-transparent",
-                                    )}
-                                  >
-                                    ✓
-                                  </span>
-                                </div>
+                                <span
+                                  className={cn(
+                                    "flex size-4 shrink-0 items-center justify-center rounded-full border-2",
+                                    active
+                                      ? "border-amber-700 bg-amber-600"
+                                      : "border-muted-foreground/40",
+                                  )}
+                                >
+                                  {active ? (
+                                    <span className="size-1.5 rounded-full bg-white" />
+                                  ) : null}
+                                </span>
+                                <span className="text-sm font-medium">
+                                  {svc.code ? `${svc.code} — ` : ""}
+                                  {svc.name}
+                                </span>
                               </button>
                             );
-                          })}
-                        </div>
-                      )}
+                          })
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      Sélectionnez d&apos;abord la direction pour voir ses
-                      services.
+                      Choisissez d&apos;abord la direction de rattachement.
                     </p>
                   )}
                 </div>
               )}
 
               {onBehalfDepartmentId ? (
-                <div className="space-y-2 rounded-sm border border-brand/25 bg-brand-soft/50 px-3 py-2">
-                  <p className="text-xs font-semibold text-foreground">
-                    Structure émettrice sélectionnée
+                <div className="rounded-sm border border-amber-400 bg-amber-100/80 px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-900">
+                    Émetteur retenu
                   </p>
-                  <p className="text-sm font-medium">
+                  <p className="mt-1 text-sm font-semibold text-amber-950">
                     {(() => {
                       const d = departments?.find(
                         (x) => x._id === onBehalfDepartmentId,
@@ -1119,27 +1115,27 @@ export function SendDocument({
                     })()}
                   </p>
                   {emittingPathPreview ? (
-                    <p className="font-mono text-[11px] text-muted-foreground">
-                      Chemin N° : {emittingPathPreview}
+                    <p className="mt-1 font-mono text-[11px] text-amber-900/80">
+                      N° : …/{emittingPathPreview}
                     </p>
                   ) : null}
                 </div>
               ) : null}
 
               {onBehalfDepartmentId && onBehalfMembers.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Personne (optionnel)
+                <div className="space-y-2 border-t border-border pt-3">
+                  <p className="text-xs text-muted-foreground">
+                    Signataire (optionnel)
                   </p>
-                  <div className="grid max-h-40 gap-1.5 overflow-y-auto sm:grid-cols-2">
+                  <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
                       onClick={() => setOnBehalfUserId(null)}
                       className={cn(
-                        "rounded-sm border px-3 py-2 text-left text-sm transition-all",
+                        "rounded-full border px-3 py-1 text-xs",
                         !onBehalfUserId
-                          ? "border-brand bg-brand-soft font-medium"
-                          : "border-border bg-card hover:border-brand-sky/40",
+                          ? "border-amber-600 bg-amber-100 font-medium"
+                          : "border-border bg-card",
                       )}
                     >
                       Non précisé
@@ -1150,18 +1146,13 @@ export function SendDocument({
                         type="button"
                         onClick={() => setOnBehalfUserId(member._id)}
                         className={cn(
-                          "rounded-sm border px-3 py-2 text-left text-sm transition-all",
+                          "rounded-full border px-3 py-1 text-xs",
                           onBehalfUserId === member._id
-                            ? "border-brand bg-brand-soft font-medium"
-                            : "border-border bg-card hover:border-brand-sky/40",
+                            ? "border-amber-600 bg-amber-100 font-medium"
+                            : "border-border bg-card",
                         )}
                       >
                         {member.name}
-                        {member.fonction ? (
-                          <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
-                            {member.fonction}
-                          </span>
-                        ) : null}
                       </button>
                     ))}
                   </div>
@@ -1335,7 +1326,7 @@ export function SendDocument({
                   rows={2}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Indiquez pourquoi vous envoyez ce document.
+                  Indiquez l'objet du courrier.
                 </p>
               </div>
 
