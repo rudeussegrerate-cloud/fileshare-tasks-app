@@ -53,11 +53,21 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     Google({
       clientId: process.env.AUTH_GOOGLE_ID,
       clientSecret: process.env.AUTH_GOOGLE_SECRET,
+      // Lie un compte Google au même email déjà créé en mot de passe
+      allowDangerousEmailAccountLinking: true,
+      authorization: {
+        params: {
+          prompt: "select_account",
+          access_type: "online",
+          response_type: "code",
+        },
+      },
       profile(profile) {
+        const email = profile.email?.trim().toLowerCase();
         return {
           id: profile.sub,
           name: profile.name ?? undefined,
-          email: profile.email ?? undefined,
+          email: email ?? undefined,
           image: profile.picture ?? undefined,
         };
       },

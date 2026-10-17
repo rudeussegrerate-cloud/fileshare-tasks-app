@@ -108,7 +108,13 @@ function friendlyError(
     return "Réinitialisation impossible. Vérifiez le code ou demandez-en un nouveau.";
   }
   if (context === "google") {
-    return "Connexion Google impossible. Réessayez ou utilisez l'email.";
+    if (/redirect|uri|mismatch|invalid.?client|unauthorized.?client/i.test(message)) {
+      return "Configuration Google incomplète (URI de redirection). Contactez l'administrateur.";
+    }
+    if (/exists|already|linking|Account/i.test(message)) {
+      return "Ce compte Google est déjà lié ou l'email existe. Essayez la connexion email.";
+    }
+    return "Connexion Google impossible. Réessayez ou utilisez l'email / mot de passe.";
   }
   return "Une erreur est survenue. Vérifiez vos informations et réessayez.";
 }
@@ -232,8 +238,10 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setGoogleLoading(true);
     setError(null);
     try {
-      // redirectTo : page après retour OAuth (chemin relatif à SITE_URL)
-      await signIn("google", { redirectTo: redirect });
+      // Chemin après OAuth (relatif à SITE_URL Convex = URL publique du site)
+      const path =
+        redirect.startsWith("/") ? redirect : `/${redirect}`;
+      await signIn("google", { redirectTo: path || "/dashboard" });
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError(friendlyError(err, "google"));
