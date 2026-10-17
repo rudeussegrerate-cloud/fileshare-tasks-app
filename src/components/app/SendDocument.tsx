@@ -407,7 +407,7 @@ export function SendDocument({
           refBase && uploaded.length === 1
             ? refBase
             : refBase
-              ? `${refBase.replace(/\/g, "-")}-${fi + 1}`
+              ? `${refBase}#${fi + 1}`
               : undefined;
         lastId = await sendDocument({
           storageId: up.storageId,
