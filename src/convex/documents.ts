@@ -83,28 +83,58 @@ function displayName(user: { name?: string | null; email?: string | null }) {
 
 function generatePublicRef() {
   const y = new Date().getFullYear();
-  const seq = String(Math.floor(100 + Math.random() * 900));
+  const seq = String(Math.floor(1 + Math.random() * 98)).padStart(3, "0");
   return `N°${seq}-${y}/MNDPT`;
 }
 
+/**
+ * N° officiel : N°{seq}-{année}/MNDPT/{hiérarchie codes du sommet → feuille}
+ * Ex. émetteur DTD rattaché DGDN → SG → N°071-2026/MNDPT/SG/DGDN/DTD
+ */
 async function generateOfficialNumero(
   ctx: MutationCtx,
   senderDepartmentId: Id<"departments"> | undefined | null,
 ): Promise<string> {
   const y = new Date().getFullYear();
-  const seq = String(Math.floor(100 + Math.random() * 900));
   const codes: string[] = [];
   let currentId: Id<"departments"> | null | undefined = senderDepartmentId;
   let guard = 0;
-  while (currentId && guard < 6) {
+  while (currentId && guard < 12) {
     guard += 1;
     const dep = await ctx.db.get(currentId);
     if (!dep) break;
-    if (dep.code) codes.unshift(dep.code);
+    const code = (dep.code ?? "").trim().toUpperCase();
+    if (code && code !== "MNDPT") {
+      codes.unshift(code);
+    }
     currentId = dep.parentId ?? null;
   }
-  const path = codes.length > 0 ? `MNDPT/${codes.join("/")}` : "MNDPT";
-  return `N°${seq}-${y}/${path}`;
+  // Dédupliquer codes adjacents (sécurité)
+  const unique: string[] = [];
+  for (const c of codes) {
+    if (unique[unique.length - 1] !== c) unique.push(c);
+  }
+  const path =
+    unique.length > 0 ? `MNDPT/${unique.join("/")}` : "MNDPT";
+
+  // Séquence annuelle approximative (nb de courriers de l'année + 1)
+  let seq = 1;
+  try {
+    const all = await ctx.db.query("documents").collect();
+    const prefix = `N°`;
+    const yearTag = `-${y}/`;
+    const count = all.filter(
+      (d) =>
+        d.publicRef &&
+        d.publicRef.includes(yearTag) &&
+        d.publicRef.startsWith(prefix),
+    ).length;
+    seq = count + 1;
+  } catch {
+    seq = Math.floor(1 + Math.random() * 98);
+  }
+  const seqStr = String(Math.min(seq, 999)).padStart(3, "0");
+  return `N°${seqStr}-${y}/${path}`;
 }
 
 

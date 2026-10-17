@@ -38,6 +38,11 @@ type SeedNode = {
   children?: SeedNode[];
 };
 
+/**
+ * Hiérarchie MNDPT pour le N° de courrier :
+ * N°{seq}-{année}/MNDPT/{codes du sommet vers la feuille}
+ * Ex. DTD sous DGDN sous SG → N°071-2026/MNDPT/SG/DGDN/DTD
+ */
 const MNDPT_TREE: SeedNode[] = [
   { code: "CAB", name: "Cabinet du Ministre", kind: "cabinet" },
   {
@@ -45,6 +50,27 @@ const MNDPT_TREE: SeedNode[] = [
     name: "Secrétariat Général",
     kind: "sg",
     children: [
+      {
+        code: "DGDN",
+        name: "Direction Générale du Développement Numérique",
+        kind: "direction",
+        children: [
+          {
+            code: "DTD",
+            name: "Direction de la Transformation Digitale",
+            kind: "direction",
+            children: [
+              { code: "DTD-ETUDES", name: "Service des Études", kind: "service" },
+              { code: "DTD-PROJ", name: "Service des Projets", kind: "service" },
+            ],
+          },
+          {
+            code: "DNGRC",
+            name: "Direction Nationale de la Gouvernance et de la Régulation des Communications",
+            kind: "direction",
+          },
+        ],
+      },
       {
         code: "DAF",
         name: "Direction des Affaires Financières",
@@ -59,19 +85,19 @@ const MNDPT_TREE: SeedNode[] = [
         name: "Direction des Ressources Humaines",
         kind: "direction",
         children: [
-          { code: "DRH-CARR", name: "Service Formation et Gestion des Carrières", kind: "service" },
+          {
+            code: "DRH-CARR",
+            name: "Service Formation et Gestion des Carrières",
+            kind: "service",
+          },
           { code: "DRH-PERS", name: "Service du Personnel", kind: "service" },
         ],
       },
       {
-        code: "DTD",
-        name: "Direction Technique",
+        code: "DSI",
+        name: "Direction des Systèmes d'Information",
         kind: "direction",
-        children: [
-          { code: "DTD-ETUDES", name: "Service des Études", kind: "service" },
-        ],
       },
-      { code: "DSI", name: "Direction des Systèmes d'Information", kind: "direction" },
       { code: "DIR1", name: "Direction Interrégionale 1", kind: "interregion" },
       { code: "DIR2", name: "Direction Interrégionale 2", kind: "interregion" },
       { code: "DIR3", name: "Direction Interrégionale 3", kind: "interregion" },
