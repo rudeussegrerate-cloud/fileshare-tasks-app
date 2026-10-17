@@ -1399,67 +1399,140 @@ export function SendDocument({
 
               <div className="rounded-sm border border-border bg-brand-soft/40 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Récapitulatif
+                  Récapitulatif — vérifiez avant d&apos;envoyer
                 </p>
-                <dl className="mt-3 space-y-2 text-sm">
+                <dl className="mt-3 space-y-2.5 text-sm">
                   <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Document</dt>
-                    <dd className="truncate text-right font-medium">
-                      {files.length === 1
-                        ? files[0]?.name
-                        : `${files.length} fichiers`}
+                    <dt className="shrink-0 text-muted-foreground">Fichier(s)</dt>
+                    <dd className="text-right font-medium break-all">
+                      {files.length === 0
+                        ? "—"
+                        : files.length === 1
+                          ? files[0]?.name
+                          : files.map((f) => f.name).join(", ")}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground" data-scandoc-tour="send-recipient">Destination</dt>
+                    <dt
+                      className="shrink-0 text-muted-foreground"
+                      data-scandoc-tour="send-recipient"
+                    >
+                      Qui reçoit
+                    </dt>
                     <dd className="text-right font-medium">
                       {destIds
                         .map((id) => {
                           const d = departments?.find((x) => x._id === id);
                           if (!d) return null;
-                          const parent = (d as { parentName?: string | null }).parentName;
-                          return parent ? `${parent} → ${d.name}` : d.name;
+                          return d.code ? `${d.code} — ${d.name}` : d.name;
                         })
                         .filter(Boolean)
                         .join(", ") || "—"}
                     </dd>
                   </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-muted-foreground">Qui envoie</dt>
+                    <dd className="text-right font-medium">
+                      {onBehalfDepartment
+                        ? onBehalfDepartment.code
+                          ? `${onBehalfDepartment.code} — ${onBehalfDepartment.name}`
+                          : onBehalfDepartment.name
+                        : "—"}
+                    </dd>
+                  </div>
+                  {emittingPathPreview ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="shrink-0 text-muted-foreground">
+                        Chemin N°
+                      </dt>
+                      <dd className="text-right font-mono text-xs font-medium break-all">
+                        {emittingPathPreview}
+                      </dd>
+                    </div>
+                  ) : null}
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-muted-foreground">
+                      De la part de
+                    </dt>
+                    <dd className="text-right font-medium">
+                      {onBehalfType === "external"
+                        ? [
+                            onBehalfName.trim() || null,
+                            onBehalfFunction.trim() || null,
+                            onBehalfDepartmentText.trim() || null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || "—"
+                        : selectedOnBehalfUser
+                          ? [
+                              selectedOnBehalfUser.name,
+                              selectedOnBehalfUser.fonction || null,
+                            ]
+                              .filter(Boolean)
+                              .join(" · ")
+                          : onBehalfDepartment
+                            ? `Structure ${onBehalfDepartment.code ?? onBehalfDepartment.name}`
+                            : me?.user?.name
+                              ? `${me.user.name} (compte connecté)`
+                              : "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-muted-foreground">N° courrier</dt>
+                    <dd className="text-right font-mono text-xs font-medium break-all">
+                      {fullNumeroPreview}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-muted-foreground">Réf.</dt>
+                    <dd className="text-right font-medium break-all">
+                      {referenceText.trim() || "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-muted-foreground">
+                      Réponse attendue
+                    </dt>
+                    <dd className="text-right font-medium">
+                      {requiresResponse ? "Oui" : "Non"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-muted-foreground">Objet</dt>
+                    <dd className="line-clamp-3 text-right font-medium">
+                      {objet.trim() || "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-muted-foreground">
+                      Observations
+                    </dt>
+                    <dd className="max-w-[65%] text-right font-medium whitespace-pre-wrap break-words">
+                      {observations.trim() || "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-muted-foreground">Tâches</dt>
+                    <dd className="max-w-[65%] text-right font-medium">
+                      {effectiveTasks.length > 0
+                        ? effectiveTasks.join(" · ")
+                        : "—"}
+                    </dd>
+                  </div>
                   {circuitExtra.length > 0 ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-muted-foreground">Circuit personnes</dt>
+                      <dt className="shrink-0 text-muted-foreground">
+                        Circuit personnes
+                      </dt>
                       <dd className="text-right font-medium">
                         {circuitExtra.map((c) => c.name).join(" → ")}
                       </dd>
                     </div>
                   ) : null}
                   <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Objet</dt>
-                    <dd className="line-clamp-2 text-right font-medium">
-                      {objet.trim() || "—"}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">De la part de</dt>
-                    <dd className="text-right font-medium">
-                      {onBehalfType === "internal"
-                        ? (selectedOnBehalfUser?.name ?? "—")
-                        : onBehalfName.trim() || "—"}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Observations</dt>
-                    <dd className="font-medium whitespace-pre-wrap">
-                      {observations.trim() || "—"}
-                    </dd>
-                    <dt className="text-muted-foreground">Tâches</dt>
-                    <dd className="text-right font-medium">
-                      {effectiveTasks.length > 0
-                        ? effectiveTasks.join(" · ")
-                        : "—"}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-muted-foreground">Résumé automatique</dt>
+                    <dt className="shrink-0 text-muted-foreground">
+                      Résumé automatique
+                    </dt>
                     <dd className="text-right font-medium">
                       {extracting
                         ? "en préparation…"
