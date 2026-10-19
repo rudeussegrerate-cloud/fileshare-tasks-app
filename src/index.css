@@ -818,30 +818,121 @@ a:focus-visible,
 }
 
 
-/* Dashboard — harmonisé avec login violet, contenu lisible */
+/* Espace app sombre (login) + logo en fond — données lisibles */
+.sc-app-dark {
+  --background: #1b1440;
+  --foreground: #f5f3ff;
+  --card: #2a2158;
+  --card-foreground: #f5f3ff;
+  --popover: #2a2158;
+  --popover-foreground: #f5f3ff;
+  --secondary: #342a66;
+  --secondary-foreground: #f5f3ff;
+  --muted: #2f275c;
+  --muted-foreground: #c9c2e8;
+  --accent: #3b2f7a;
+  --accent-foreground: #ffffff;
+  --border: rgba(255, 255, 255, 0.14);
+  --input: rgba(255, 255, 255, 0.22);
+  --ring: #a78bfa;
+  --brand: #a78bfa;
+  --brand-deep: #ddd6fe;
+  --brand-sky: #c4b5fd;
+  --brand-soft: rgba(167, 139, 250, 0.18);
+  color: var(--foreground);
+  background-color: #1b1440;
+}
+
+.sc-app-dark .sc-app-header {
+  background: rgba(27, 20, 64, 0.88) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: blur(12px);
+  color: #f5f3ff;
+}
+
+.sc-app-dark .sc-shell-main {
+  background: transparent;
+}
+
 .sc-dash-hero {
   border-radius: 1.25rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--border));
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, var(--brand-soft) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.14) 0%,
+    rgba(91, 76, 219, 0.28) 100%
+  );
   padding: 1.25rem 1.35rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 12px 40px -16px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+  color: #f5f3ff;
 }
+
 .sc-dash-card {
   border-radius: 1rem;
-  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--border));
-  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(42, 33, 88, 0.92);
   padding: 1rem 1.15rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: 0 8px 28px -12px rgba(0, 0, 0, 0.4);
+  color: #f5f3ff;
+  backdrop-filter: blur(10px);
 }
-.sc-dash-card .sc-metric,
-.sc-dash-card [class*="grid"] > button,
-.sc-dash-card [class*="grid"] > a {
-  border-radius: 0.85rem;
+
+.sc-dash-card .text-muted-foreground,
+.sc-dash-hero .text-muted-foreground {
+  color: #c9c2e8 !important;
 }
-/* Zone principale alignée palette login */
-.sc-shell-main {
-  background:
-    radial-gradient(ellipse 80% 50% at 100% 0%, color-mix(in srgb, var(--brand) 8%, transparent), transparent 55%),
-    var(--background);
+
+.sc-dash-card .text-foreground,
+.sc-dash-hero .text-foreground {
+  color: #f5f3ff !important;
+}
+
+/* Tuiles stats / listes sur fond sombre */
+.sc-app-dark button.rounded-xl.border,
+.sc-app-dark .rounded-xl.border {
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.sc-app-dark .bg-card {
+  background: rgba(42, 33, 88, 0.95) !important;
+  color: #f5f3ff;
+}
+
+.sc-app-dark .bg-background\/70,
+.sc-app-dark .bg-background\/60 {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.sc-app-dark .hover\:bg-secondary\/50:hover,
+.sc-app-dark .hover\:bg-secondary\/40:hover,
+.sc-app-dark .hover\:bg-brand-soft\/50:hover,
+.sc-app-dark .hover\:bg-brand-soft\/40:hover {
+  background: rgba(167, 139, 250, 0.18) !important;
+}
+
+.sc-app-dark .text-brand-deep {
+  color: #e9e5ff !important;
+}
+
+.sc-app-dark .divide-border > * {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.sc-app-dark input,
+.sc-app-dark textarea,
+.sc-app-dark select {
+  color: #f5f3ff;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.sc-app-dark .border-border {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Boutons outline lisibles sur sombre */
+.sc-app-dark button.border {
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #f5f3ff;
 }

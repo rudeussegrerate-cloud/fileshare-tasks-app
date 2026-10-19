@@ -39,6 +39,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
+import mndptLogo from "@/assets/mndpt-logo.jpg";
 import { NotificationsBell } from "./NotificationsBell";
 import { OnlinePeople } from "./OnlinePeople";
 import { PresenceDot } from "./PresenceDot";
@@ -295,8 +296,21 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto flex w-full max-w-[1280px]">
+    <div className="sc-app-dark relative min-h-screen overflow-hidden">
+      {/* Fond logo site */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0"
+        aria-hidden
+        style={{
+          backgroundImage: `url(${mndptLogo})`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center center",
+          backgroundSize: "min(70vmin, 520px)",
+          opacity: 0.08,
+        }}
+      />
+      <div className="pointer-events-none absolute inset-0 z-0 bg-[#1b1440]/92" aria-hidden />
+      <div className="relative z-10 mx-auto flex w-full max-w-[1280px]">
         {/* Sidebar desktop */}
         <aside className="sc-shell-sidebar sticky top-0 hidden h-screen w-[15.5rem] shrink-0 flex-col border-r px-3 py-5 lg:flex">
           {sidebarInner}
@@ -359,7 +373,7 @@ export function AppShell({
             </div>
           </header>
 
-          <main className="sc-shell-main flex-1 px-4 py-5 lg:px-8 lg:py-7">
+          <main className="sc-shell-main relative z-10 flex-1 px-4 py-5 lg:px-8 lg:py-7">
             <div className="sc-fade-in mx-auto w-full max-w-6xl">{children}</div>
           </main>
         </div>
