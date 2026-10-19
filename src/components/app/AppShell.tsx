@@ -166,12 +166,7 @@ function NavList({
                     key={item.key}
                     type="button"
                     onClick={() => onSelect(item.key)}
-                    className={cn(
-                      "sc-nav-item py-2.5 text-[14px]",
-                      active
-                        ? "bg-brand text-primary-foreground shadow-sm hover:bg-brand hover:text-primary-foreground"
-                        : "",
-                    )}
+                    className={cn("sc-nav-item py-2.5 text-[14px]")}
                     data-active={active ? "true" : "false"}
                     data-scandoc-nav={item.key}
                   >

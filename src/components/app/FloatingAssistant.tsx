@@ -165,24 +165,78 @@ function BotAvatar({
     );
   }
 
+  // Bouche selon l'humeur
+  const mouthPath =
+    {
+      joyeux: "M 24 45 Q 32 53 40 45",
+      calme: "M 25 46 L 39 46",
+      motivant: "M 22 44 Q 32 56 42 44 Q 32 50 22 44",
+      "sérieux": "M 26 46 L 38 46",
+      blagueur: "M 24 46 Q 28 42 32 46 Q 36 50 40 46",
+    }[mood] ?? "M 25 46 L 39 46";
+  const mouthStroke = mood === "sérieux" ? 2.4 : 2.8;
+  const vb = 64;
+  const svgSize = size === "sm" ? 40 : size === "lg" ? 72 : 56;
+
   return (
     <div
-      className={`${dim} relative flex items-center justify-center rounded-full shadow-lg ${bounce ? "animate-soft-pulse" : ""}`}
-      style={{
-        background: `linear-gradient(145deg, ${palette.accent}, ${palette.bodyDark})`,
-        boxShadow: `0 8px 20px ${palette.bodyDark}55`,
-      }}
+      className={`${dim} relative ${bounce ? "animate-soft-pulse" : ""}`}
       aria-hidden
     >
-      <Mail
-        className={
-          size === "sm" ? "size-4 text-white" : size === "lg" ? "size-8 text-white" : "size-6 text-white"
-        }
-        strokeWidth={2}
-      />
-      <span className="absolute -bottom-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-white text-[9px] font-bold text-brand shadow">
-        ?
-      </span>
+      <svg
+        viewBox={`0 0 ${vb} ${vb}`}
+        width={svgSize}
+        height={svgSize}
+        className="block drop-shadow-lg"
+        role="img"
+      >
+        <defs>
+          <linearGradient id={`botg-${color}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor={palette.accent} />
+            <stop offset="100%" stopColor={palette.bodyDark} />
+          </linearGradient>
+          <linearGradient id={`botv-${color}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={palette.panel} />
+            <stop offset="100%" stopColor={palette.bodyDark} />
+          </linearGradient>
+        </defs>
+
+        {/* Antenne + LED pulsante */}
+        <line x1="32" y1="7" x2="32" y2="15" stroke={palette.bodyDark} strokeWidth="2.4" strokeLinecap="round" />
+        <circle className="bot-antenna-led" cx="32" cy="5.5" r="3.2" fill={palette.led} />
+
+        {/* Oreilles */}
+        <rect x="5" y="27" width="4.5" height="12" rx="2.2" fill={palette.bodyDark} />
+        <rect x="54.5" y="27" width="4.5" height="12" rx="2.2" fill={palette.bodyDark} />
+
+        {/* Tête */}
+        <rect x="9" y="13" width="46" height="41" rx="13" fill={`url(#botg-${color})`} />
+
+        {/* Visière */}
+        <rect x="14" y="20" width="36" height="28" rx="9" fill={`url(#botv-${color})`} opacity="0.92" />
+
+        {/* Yeux (clignent) */}
+        <g className="bot-eyes">
+          <rect x="21" y="29" width="7.5" height="9" rx="3.6" fill="#ffffff" />
+          <rect x="35.5" y="29" width="7.5" height="9" rx="3.6" fill="#ffffff" />
+          <circle cx="24.75" cy="34" r="2.1" fill={palette.led} />
+          <circle cx="39.25" cy="34" r="2.1" fill={palette.led} />
+        </g>
+
+        {/* Joues */}
+        <circle cx="18.5" cy="41.5" r="2" fill={palette.accent} opacity="0.55" />
+        <circle cx="45.5" cy="41.5" r="2" fill={palette.accent} opacity="0.55" />
+
+        {/* Bouche selon l'humeur */}
+        <path
+          d={mouthPath}
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth={mouthStroke}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
       {mood === "joyeux" ? (
         <span className="sr-only">Guide courrier</span>
       ) : null}

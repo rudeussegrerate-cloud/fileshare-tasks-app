@@ -77,9 +77,15 @@ export function StatusBadge({
   return (
     <Badge
       variant="outline"
-      className={cn("gap-1 border font-medium", meta.className, className)}
+      title={meta.hint}
+      className={cn(
+        "gap-1.5 rounded-full border px-2.5 py-0.5 font-medium shadow-sm transition-shadow hover:shadow-md",
+        meta.className,
+        className,
+      )}
     >
-      <Icon className="size-3" />
+      <span className="status-dot" aria-hidden />
+      <Icon className="size-3 opacity-80" />
       {meta.label}
     </Badge>
   );
