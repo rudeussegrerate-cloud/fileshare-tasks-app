@@ -17,6 +17,7 @@ import {
 
 import { useAuth } from "@/hooks/use-auth";
 import mndptLoginBg from "@/assets/mndpt-login-bg.jpg";
+import loginBackdrop from "@/assets/login-backdrop.jpg";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -327,48 +328,74 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eef4f9] px-4 py-12">
-      {/* Fond logo MNDPT */}
+    <div className="relative isolate min-h-screen overflow-hidden bg-[#231a52] text-white">
+      <img
+        src={loginBackdrop}
+        alt=""
+        className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover"
+        aria-hidden
+      />
       <div
-        className="pointer-events-none absolute inset-0"
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-[#0a0828]/55 via-[#0a0828]/20 to-[#0a0828]/40"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.12]"
         aria-hidden
         style={{
           backgroundImage: `url(${mndptLoginBg})`,
           backgroundRepeat: "no-repeat",
-          backgroundPosition: "center center",
-          backgroundSize: "min(72vw, 520px)",
-          opacity: 0.14,
+          backgroundPosition: "center left",
+          backgroundSize: "min(48vw, 420px)",
         }}
       />
-      {/* Voile clair pour lisibilité du formulaire */}
-      <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/70 via-[#eef4f9]/80 to-[#eef4f9]/95"
-        aria-hidden
-      />
 
-      <div className="relative z-10 w-full max-w-md">
-        {/* Accueil = page de connexion : pas de lien retour superflu */}
+      <main className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-4 py-12 lg:grid-cols-[1.1fr_minmax(0,440px)] lg:gap-16 lg:px-10">
+        <div className="hidden lg:block">
+          <BrandLogo className="[&_span]:text-white [&_.text-muted-foreground]:text-white/75" />
+          <p className="mt-12 text-[15px] font-medium uppercase tracking-[0.06em] text-white/85">
+            MNDPT · Échange de documents
+          </p>
+          <p className="mt-3 max-w-[16ch] text-[clamp(2rem,4.5vw,3.75rem)] font-semibold leading-[1.05] tracking-tight text-white drop-shadow-lg">
+            Votre espace de travail documentaire, en un seul endroit.
+          </p>
+          <ul className="mt-8 flex flex-wrap gap-2">
+            {["Courriers", "Circuits", "Structures", "Suivi"].map((chip) => (
+              <li
+                key={chip}
+                className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm"
+              >
+                {chip}
+              </li>
+            ))}
+          </ul>
+        </div>
 
-        <Card className="rounded-xl border border-border/60 bg-card/95 shadow-xl backdrop-blur-sm">
-          <CardHeader className="text-center">
-            <div className="flex justify-center">
-              <BrandLogo />
-            </div>
-            <CardTitle className="sr-only">ScanDoc</CardTitle>
-            <CardDescription>
-              Connectez-vous ou créez votre compte pour accéder à l'espace de
-              travail.
-            </CardDescription>
-          </CardHeader>
+        <section
+          className="w-full rounded-[28px] border border-white/30 bg-white/15 p-6 shadow-[0_30px_60px_-20px_rgba(8,6,30,0.55)] backdrop-blur-[24px] sm:p-9"
+          aria-labelledby="scandoc-auth-title"
+        >
+          <div className="mb-6 lg:hidden">
+            <BrandLogo className="[&_span]:text-white [&_.text-muted-foreground]:text-white/75" />
+          </div>
+          <h1
+            id="scandoc-auth-title"
+            className="text-[1.85rem] font-semibold tracking-tight text-white"
+          >
+            Connexion
+          </h1>
+          <p className="mb-6 text-sm text-white/85">
+            Accédez à ScanDoc avec votre compte professionnel MNDPT.
+          </p>
+          <div className="auth-glass-form">
 
-          <CardContent>
             {error ? (
-              <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              <p className="mb-3 rounded-md border border-red-300/40 bg-red-500/25 px-3 py-2 text-sm text-red-50">
                 {error}
               </p>
             ) : null}
             {info ? (
-              <p className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              <p className="mb-3 rounded-md border border-emerald-300/40 bg-emerald-500/25 px-3 py-2 text-sm text-emerald-50">
                 {info}
               </p>
             ) : null}
@@ -723,16 +750,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             </Tabs>
               </>
             )}
-          </CardContent>
-
-          <div className="flex items-center justify-center gap-1.5 rounded-b-xl border-t border-border/50 bg-[#ebe4d8]/60 px-6 py-3 text-xs text-muted-foreground">
-            <ShieldCheck className="size-3.5" />
-            Accès réservé au personnel de l'entreprise
+          
           </div>
-        </Card>
-      </div>
+        </section>
+      </main>
     </div>
   );
+
 }
 
 export default function AuthPage(props: AuthProps) {

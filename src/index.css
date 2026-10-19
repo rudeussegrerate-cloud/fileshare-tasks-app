@@ -65,53 +65,53 @@
     - Cyan #00A3E0  → lettre T
     Fond clair neutre pour lisibilité institutionnelle.
   */
-  /* Contenu clair type admin (Filament-inspired, sobre) */
-  --background: #f1f5f9;
-  --foreground: #0f172a;
+  /* Palette alignée maquette login (violet profond) + contenu lisible */
+  --background: #f4f2fb;
+  --foreground: #1a1238;
   --card: #ffffff;
-  --card-foreground: #0f172a;
+  --card-foreground: #1a1238;
   --popover: #ffffff;
-  --popover-foreground: #0f172a;
-  --primary: #2563eb;
+  --popover-foreground: #1a1238;
+  --primary: #5b4cdb;
   --primary-foreground: #ffffff;
-  --secondary: #e2e8f0;
-  --secondary-foreground: #0f172a;
-  --muted: #e2e8f0;
-  --muted-foreground: #475569;
-  --accent: #e8f1f8;
-  --accent-foreground: #1e3a5f;
+  --secondary: #ebe7f8;
+  --secondary-foreground: #1a1238;
+  --muted: #ebe7f8;
+  --muted-foreground: #4c4568;
+  --accent: #ebe7f8;
+  --accent-foreground: #3b2f7a;
   --destructive: #dc2626;
-  --border: #e2e8f0;
-  --input: #cbd5e1;
-  --ring: #2563eb;
+  --border: #ddd6f3;
+  --input: #c4bce0;
+  --ring: #5b4cdb;
 
-  --brand: #2563eb;
-  --brand-deep: #1d4ed8;
-  --brand-sky: #3b82f6;
+  --brand: #5b4cdb;
+  --brand-deep: #3b2f7a;
+  --brand-sky: #7c6ff0;
   --brand-accent: #007a3d;
-  --brand-soft: #eff6ff;
+  --brand-soft: #efeaff;
 
-  --chart-1: #2563eb;
+  --chart-1: #5b4cdb;
   --chart-2: #007a3d;
   --chart-3: #f36c00;
   --chart-4: #dc2626;
-  --chart-5: #0ea5e9;
+  --chart-5: #00a3e0;
 
-  /* Sidebar sombre permanente (comme la référence admin) */
-  --sidebar: #0b1220;
-  --sidebar-foreground: #e2e8f0;
-  --sidebar-primary: #3b82f6;
+  /* Sidebar = violet maquette Colorlib */
+  --sidebar: #1b1440;
+  --sidebar-foreground: #f3f0ff;
+  --sidebar-primary: #8b7cf6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #1e293b;
-  --sidebar-accent-foreground: #f1f5f9;
-  --sidebar-border: #1e293b;
-  --sidebar-ring: #3b82f6;
-  --sidebar-muted: #94a3b8;
+  --sidebar-accent: #2a2158;
+  --sidebar-accent-foreground: #f3f0ff;
+  --sidebar-border: #2f275c;
+  --sidebar-ring: #8b7cf6;
+  --sidebar-muted: #b7b0d6;
 
-  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
-  --shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.08);
-  --shadow-brand: 0 4px 14px rgba(37, 99, 235, 0.25);
+  --shadow-sm: 0 1px 2px rgba(27, 20, 64, 0.05);
+  --shadow-md: 0 4px 14px rgba(27, 20, 64, 0.08);
+  --shadow-lg: 0 14px 32px rgba(27, 20, 64, 0.12);
+  --shadow-brand: 0 6px 18px rgba(91, 76, 219, 0.28);
 }
 
 .dark {
@@ -723,12 +723,12 @@ a:focus-visible,
   color: var(--sidebar-foreground);
   border-color: var(--sidebar-border);
   /* local tokens so logo / titres restent lisibles sur fond sombre */
-  --foreground: #e2e8f0;
-  --muted-foreground: #94a3b8;
-  --background: #0b1220;
-  --card: #132033;
-  --border: #1e293b;
-  --secondary: #1e293b;
+  --foreground: #f3f0ff;
+  --muted-foreground: #b7b0d6;
+  --background: #1b1440;
+  --card: #231a52;
+  --border: #2f275c;
+  --secondary: #2a2158;
 }
 .sc-shell-sidebar .sc-nav-item {
   color: var(--sidebar-muted, #94a3b8);
@@ -759,4 +759,60 @@ a:focus-visible,
   background: color-mix(in srgb, var(--card) 92%, transparent);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(8px);
+}
+
+
+/* Auth glass (maquette Colorlib Login V04 adaptée) */
+.auth-glass-form label {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+.auth-glass-form input,
+.auth-glass-form textarea,
+.auth-glass-form select {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.32) !important;
+  border-radius: 14px !important;
+  min-height: 48px;
+}
+.auth-glass-form input::placeholder {
+  color: rgba(255, 255, 255, 0.65) !important;
+}
+.auth-glass-form input:focus {
+  border-color: #fff !important;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18) !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+}
+.auth-glass-form [data-slot="tabs-list"],
+.auth-glass-form .bg-muted {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #fff !important;
+}
+.auth-glass-form [role="tab"] {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+.auth-glass-form [role="tab"][data-state="active"] {
+  background: rgba(255, 255, 255, 0.92) !important;
+  color: #1e1250 !important;
+}
+.auth-glass-form .text-muted-foreground {
+  color: rgba(255, 255, 255, 0.78) !important;
+}
+.auth-glass-form button[type="submit"],
+.auth-glass-form button.bg-primary {
+  background: #fff !important;
+  color: #1e1250 !important;
+  border-radius: 14px !important;
+  font-weight: 600;
+  min-height: 50px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.45);
+}
+.auth-glass-form button[type="submit"]:hover,
+.auth-glass-form button.bg-primary:hover {
+  background: #f5f3ff !important;
+}
+.auth-glass-form a {
+  color: #fff !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
