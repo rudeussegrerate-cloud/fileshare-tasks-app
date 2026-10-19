@@ -108,11 +108,19 @@ function friendlyError(
     return "Réinitialisation impossible. Vérifiez le code ou demandez-en un nouveau.";
   }
   if (context === "google") {
-    if (/redirect|uri|mismatch|invalid.?client|unauthorized.?client/i.test(message)) {
-      return "Configuration Google incomplète (URI de redirection). Contactez l'administrateur.";
+    if (/redirect|uri|mismatch|invalid.?client|unauthorized.?client|client.?id|client.?secret/i.test(message)) {
+      return "Configuration Google incomplète : vérifiez AUTH_GOOGLE_ID / AUTH_GOOGLE_SECRET dans Convex et l'URI de redirection dans Google Cloud (…/api/auth/callback/google).";
     }
     if (/exists|already|linking|Account/i.test(message)) {
       return "Ce compte Google est déjà lié ou l'email existe. Essayez la connexion email.";
+    }
+    if (/500|Internal|Server Error|Failed to fetch|NetworkError|fetch/i.test(message)) {
+      return "Le serveur d'authentification Google a échoué (souvent des clés manquantes sur Convex). Réessayez ou utilisez email / mot de passe.";
+    }
+    // Afficher un extrait utile si le serveur a renvoyé un détail
+    const short = message.replace(/\s+/g, " ").trim().slice(0, 160);
+    if (short && short.length > 8 && !/^error$/i.test(short)) {
+      return `Connexion Google impossible : ${short}`;
     }
     return "Connexion Google impossible. Réessayez ou utilisez l'email / mot de passe.";
   }
@@ -239,9 +247,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setError(null);
     try {
       // Chemin après OAuth (relatif à SITE_URL Convex = URL publique du site)
-      const path =
-        redirect.startsWith("/") ? redirect : `/${redirect}`;
-      await signIn("google", { redirectTo: path || "/dashboard" });
+      // Sur GitHub Pages le basename est géré par le routeur ; on reste en chemin app.
+      let path = redirect.startsWith("/") ? redirect : `/${redirect}`;
+      if (!path || path === "/") path = "/dashboard";
+      await signIn("google", { redirectTo: path });
+      // En cas de succès le navigateur est redirigé vers Google ; pas de reset ici.
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError(friendlyError(err, "google"));
