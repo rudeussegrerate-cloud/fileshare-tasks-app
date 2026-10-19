@@ -130,7 +130,7 @@ const COLORS: Record<string, string> = {
 type IdleEmotion = "idle" | "wave" | "look" | "sleep" | "excited" | "think" | "happy" | "sad" | "curious";
 
 /**
- * Robot assistant — texture métal/verre, animations idle + émotions.
+ * Tête robot style « visière » (réf. avatar cartoon) — coque claire + écran expressif.
  */
 function BotAvatar({
   color,
@@ -150,10 +150,10 @@ function BotAvatar({
   gender?: "male" | "female" | "neutral";
 }) {
   void gender;
+  void color;
   const dim =
-    size === "lg" ? "size-[84px]" : size === "sm" ? "size-11" : "size-[68px]";
-  const palette = ROBOT[color] ?? ROBOT.navy!;
-  const uid = `bot-${color}-${size}-${mood}`;
+    size === "lg" ? "size-[88px]" : size === "sm" ? "size-11" : "size-[72px]";
+  const uid = `visor-${size}-${emotion}-${mood}`;
 
   const happy =
     mood === "joyeux" ||
@@ -161,17 +161,33 @@ function BotAvatar({
     emotion === "happy" ||
     emotion === "excited" ||
     emotion === "wave";
-  const serious = mood === "sérieux" || emotion === "sad";
-  const thinking = emotion === "think" || emotion === "curious";
+  const angry = emotion === "sad" && mood === "sérieux";
+  const sad = emotion === "sad";
+  const thinking = emotion === "think";
+  const curious = emotion === "curious" || emotion === "look";
   const sleepy = emotion === "sleep";
-  const looking = emotion === "look" || emotion === "curious";
+  const alert = emotion === "excited" && mood === "sérieux";
+
+  // Teinte d'écran selon émotion
+  const screen =
+    happy
+      ? { bg: "#1e3a5f", glow: "#5eead4", eye: "#5eead4" }
+      : sad
+        ? { bg: "#3b1d4a", glow: "#e879f9", eye: "#f0abfc" }
+        : thinking
+          ? { bg: "#1e293b", glow: "#38bdf8", eye: "#7dd3fc" }
+          : sleepy
+            ? { bg: "#0f172a", glow: "#64748b", eye: "#94a3b8" }
+            : curious
+              ? { bg: "#172554", glow: "#60a5fa", eye: "#93c5fd" }
+              : { bg: "#0f2744", glow: "#2dd4bf", eye: "#5eead4" };
 
   const emotionClass =
     emotion === "wave"
       ? "bot-gesture-wave"
-      : emotion === "think" || emotion === "curious"
+      : thinking || curious
         ? "bot-gesture-think"
-        : emotion === "sad"
+        : sad
           ? "bot-gesture-shake"
           : happy
             ? "bot-emote-happy"
@@ -180,40 +196,122 @@ function BotAvatar({
   if (photoUrl) {
     return (
       <div
-        className={`${dim} bot-avatar-3d overflow-hidden rounded-2xl border border-white/50 shadow-raised ring-2 ring-brand/30 ${bounce ? "bot-alive" : ""}`}
+        className={`${dim} bot-avatar-3d overflow-hidden rounded-[22px] border border-white/60 shadow-raised ring-2 ring-cyan-400/30 ${bounce ? "bot-alive" : ""}`}
       >
         <img src={photoUrl} alt="" className="size-full object-cover" />
       </div>
     );
   }
 
-  const eyeOpen = sleepy ? 2 : happy ? 10 : serious ? 5.2 : 7.8;
-  const eyeY = sleepy ? 32 : thinking ? 27.5 : 29;
-  const pupilShift = looking ? 1.4 : thinking ? -1.1 : 0;
-  const mouth = sleepy
-    ? "M27 47 H37"
-    : happy
-      ? "M23 43.5 Q32 55 41 43.5"
-      : serious
-        ? "M27 47.5 H37"
-        : thinking
-          ? "M28 46.5 Q33 50 40 45"
-          : "M26 46 Q32 51 38 46";
+  const svgSize = size === "sm" ? 44 : size === "lg" ? 88 : 72;
 
-  const svgSize = size === "sm" ? 44 : size === "lg" ? 84 : 68;
+  /** Contenu de la visière (yeux / symboles) */
+  const face = (() => {
+    if (sleepy) {
+      return (
+        <>
+          <path d="M18 30 H28" stroke={screen.eye} strokeWidth="2.8" strokeLinecap="round" />
+          <path d="M36 30 H46" stroke={screen.eye} strokeWidth="2.8" strokeLinecap="round" />
+          <circle cx="32" cy="38" r="1.4" fill={screen.eye} opacity="0.7" />
+        </>
+      );
+    }
+    if (happy) {
+      return (
+        <>
+          {/* Yeux joyeux + reflets */}
+          <circle cx="23" cy="28" r="4.2" fill={screen.eye} />
+          <circle cx="41" cy="28" r="4.2" fill={screen.eye} />
+          <circle cx="21.8" cy="26.8" r="1.3" fill="#ecfeff" />
+          <circle cx="39.8" cy="26.8" r="1.3" fill="#ecfeff" />
+          <path
+            d="M24 38 Q32 46 40 38"
+            fill="none"
+            stroke={screen.eye}
+            strokeWidth="2.6"
+            strokeLinecap="round"
+          />
+        </>
+      );
+    }
+    if (sad) {
+      return (
+        <>
+          <circle cx="23" cy="30" r="3.6" fill={screen.eye} />
+          <circle cx="41" cy="30" r="3.6" fill={screen.eye} />
+          <path d="M20 24 L26 27" stroke={screen.eye} strokeWidth="1.8" strokeLinecap="round" opacity="0.7" />
+          <path d="M44 24 L38 27" stroke={screen.eye} strokeWidth="1.8" strokeLinecap="round" opacity="0.7" />
+          <path
+            d="M24 42 Q32 36 40 42"
+            fill="none"
+            stroke={screen.eye}
+            strokeWidth="2.2"
+            strokeLinecap="round"
+          />
+        </>
+      );
+    }
+    if (thinking) {
+      return (
+        <>
+          <circle cx="23" cy="28" r="3.8" fill={screen.eye} />
+          <circle cx="41" cy="28" r="3.8" fill={screen.eye} />
+          <circle cx="24.2" cy="27" r="1.1" fill="#fff" />
+          <circle cx="42.2" cy="27" r="1.1" fill="#fff" />
+          {/* Points de réflexion */}
+          <circle cx="48" cy="20" r="1.2" fill={screen.eye} opacity="0.9" />
+          <circle cx="51" cy="16" r="1.6" fill={screen.eye} opacity="0.7" />
+          <circle cx="54" cy="12" r="2" fill={screen.eye} opacity="0.5" />
+        </>
+      );
+    }
+    if (curious) {
+      return (
+        <>
+          <ellipse cx="22" cy="28" rx="5" ry="5.5" fill={screen.eye} />
+          <ellipse cx="42" cy="28" rx="3.2" ry="3.5" fill={screen.eye} />
+          <circle cx="20.5" cy="26.5" r="1.4" fill="#ecfeff" />
+          <circle cx="41" cy="27" r="1" fill="#ecfeff" />
+        </>
+      );
+    }
+    if (emotion === "wave") {
+      return (
+        <>
+          <circle cx="23" cy="28" r="4" fill={screen.eye} />
+          <path d="M38 24 L46 32 M46 24 L38 32" stroke={screen.eye} strokeWidth="2.8" strokeLinecap="round" />
+          <path d="M26 40 Q32 44 38 40" fill="none" stroke={screen.eye} strokeWidth="2.2" strokeLinecap="round" />
+        </>
+      );
+    }
+    // idle / calme — yeux ronds classiques
+    return (
+      <>
+        <circle className="bot-pupil" cx="23" cy="29" r="4" fill={screen.eye} />
+        <circle className="bot-pupil" cx="41" cy="29" r="4" fill={screen.eye} />
+        <circle cx="21.6" cy="27.6" r="1.25" fill="#ecfeff" />
+        <circle cx="39.6" cy="27.6" r="1.25" fill="#ecfeff" />
+        <path
+          d="M26 40 Q32 43 38 40"
+          fill="none"
+          stroke={screen.eye}
+          strokeWidth="2"
+          strokeLinecap="round"
+          opacity="0.85"
+        />
+      </>
+    );
+  })();
 
   return (
     <div
       className={`${dim} bot-avatar-3d relative ${bounce ? "bot-alive" : ""} ${emotionClass}`}
       style={{
-        filter: `drop-shadow(0 12px 18px ${palette.bodyDark}66) drop-shadow(0 0 14px ${palette.led}40)`,
+        filter: "drop-shadow(0 10px 18px rgba(15,40,80,0.35))",
       }}
       aria-hidden
     >
-      <div
-        className="bot-ground-shadow pointer-events-none absolute -bottom-0.5 left-1/2 h-2.5 w-[72%] -translate-x-1/2 rounded-[100%] opacity-45 blur-[4px]"
-        style={{ background: palette.bodyDark }}
-      />
+      <div className="bot-ground-shadow pointer-events-none absolute -bottom-0.5 left-1/2 h-2 w-[70%] -translate-x-1/2 rounded-[100%] bg-slate-700/40 blur-[3px]" />
       <svg
         viewBox="0 0 64 64"
         width={svgSize}
@@ -222,52 +320,25 @@ function BotAvatar({
         role="img"
       >
         <defs>
-          {/* Texture métal brossé (lignes) */}
-          <pattern
-            id={`${uid}-brush`}
-            width="4"
-            height="4"
-            patternUnits="userSpaceOnUse"
-            patternTransform="rotate(25)"
-          >
-            <rect width="4" height="4" fill={palette.body} />
-            <line
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="4"
-              stroke={palette.bodyDark}
-              strokeWidth="0.6"
-              opacity="0.35"
-            />
-          </pattern>
-          <linearGradient id={`${uid}-body`} x1="0.1" y1="0" x2="0.95" y2="1">
-            <stop offset="0%" stopColor={palette.accent} />
-            <stop offset="38%" stopColor={palette.body} />
-            <stop offset="100%" stopColor={palette.bodyDark} />
-          </linearGradient>
-          <linearGradient id={`${uid}-edge`} x1="0" y1="0.5" x2="1" y2="0.5">
-            <stop offset="0%" stopColor="#000000" stopOpacity="0.25" />
-            <stop offset="40%" stopColor="#ffffff" stopOpacity="0" />
-            <stop offset="100%" stopColor="#000000" stopOpacity="0.3" />
-          </linearGradient>
-          <linearGradient id={`${uid}-glass`} x1="0.5" y1="0" x2="0.5" y2="1">
-            <stop offset="0%" stopColor="#94a3b8" stopOpacity="0.35" />
-            <stop offset="25%" stopColor={palette.panel} stopOpacity="0.95" />
-            <stop offset="100%" stopColor={palette.bodyDark} />
-          </linearGradient>
-          <linearGradient id={`${uid}-shine`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
-            <stop offset="35%" stopColor="#ffffff" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </linearGradient>
-          <radialGradient id={`${uid}-led`} cx="50%" cy="50%" r="50%">
+          <linearGradient id={`${uid}-shell`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="45%" stopColor={palette.led} />
-            <stop offset="100%" stopColor={palette.led} stopOpacity="0.15" />
+            <stop offset="55%" stopColor="#f1f5f9" />
+            <stop offset="100%" stopColor="#e2e8f0" />
+          </linearGradient>
+          <linearGradient id={`${uid}-rim`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#a5f3fc" />
+            <stop offset="100%" stopColor="#67e8f9" />
+          </linearGradient>
+          <linearGradient id={`${uid}-screen`} x1="0.5" y1="0" x2="0.5" y2="1">
+            <stop offset="0%" stopColor={screen.bg} stopOpacity="0.92" />
+            <stop offset="100%" stopColor="#020617" />
+          </linearGradient>
+          <radialGradient id={`${uid}-screenGlow`} cx="50%" cy="40%" r="60%">
+            <stop offset="0%" stopColor={screen.glow} stopOpacity="0.35" />
+            <stop offset="100%" stopColor={screen.glow} stopOpacity="0" />
           </radialGradient>
-          <filter id={`${uid}-glow`} x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="1.6" result="b" />
+          <filter id={`${uid}-soft`} x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="0.6" result="b" />
             <feMerge>
               <feMergeNode in="b" />
               <feMergeNode in="SourceGraphic" />
@@ -275,198 +346,76 @@ function BotAvatar({
           </filter>
         </defs>
 
-        {/* Antenne */}
-        <line
-          x1="32"
-          y1="5.5"
-          x2="32"
-          y2="13.5"
-          stroke={palette.bodyDark}
-          strokeWidth="2.8"
+        {/* Coque blanche arrondie (style référence) */}
+        <rect
+          x="4"
+          y="10"
+          width="56"
+          height="44"
+          rx="16"
+          fill={`url(#${uid}-shell)`}
+        />
+        {/* Liseré cyan discret */}
+        <rect
+          x="4"
+          y="10"
+          width="56"
+          height="44"
+          rx="16"
+          fill="none"
+          stroke={`url(#${uid}-rim)`}
+          strokeWidth="1.6"
+          opacity="0.85"
+        />
+        {/* Reflet coque */}
+        <path
+          d="M12 16 Q32 12 52 16"
+          fill="none"
+          stroke="#ffffff"
+          strokeWidth="3"
           strokeLinecap="round"
-        />
-        <circle
-          className="bot-antenna-led"
-          cx="32"
-          cy="4.5"
-          r="3.8"
-          fill={`url(#${uid}-led)`}
-          filter={`url(#${uid}-glow)`}
-        />
-
-        {/* Joints latéraux */}
-        <rect x="4" y="25" width="5.5" height="15" rx="2.6" fill={palette.bodyDark} />
-        <rect x="54.5" y="25" width="5.5" height="15" rx="2.6" fill={palette.bodyDark} />
-        <rect
-          x="5.2"
-          y="27.5"
-          width="3.2"
-          height="10"
-          rx="1.4"
-          fill={palette.accent}
-          opacity="0.55"
-          className="bot-joint-glow"
-        />
-        <rect
-          x="55.6"
-          y="27.5"
-          width="3.2"
-          height="10"
-          rx="1.4"
-          fill={palette.accent}
-          opacity="0.55"
-          className="bot-joint-glow"
-        />
-
-        {/* Coque métal */}
-        <rect
-          x="9"
-          y="11.5"
-          width="46"
-          height="45"
-          rx="14.5"
-          fill={`url(#${uid}-body)`}
-        />
-        <rect
-          x="9"
-          y="11.5"
-          width="46"
-          height="45"
-          rx="14.5"
-          fill={`url(#${uid}-brush)`}
-          opacity="0.28"
-        />
-        <rect
-          x="9"
-          y="11.5"
-          width="46"
-          height="45"
-          rx="14.5"
-          fill={`url(#${uid}-edge)`}
-          opacity="0.5"
-        />
-        {/* Reflet latéral animé */}
-        <rect
-          className="bot-metal-sheen"
-          x="11"
-          y="13"
-          width="14"
-          height="40"
-          rx="8"
-          fill={`url(#${uid}-shine)`}
           opacity="0.7"
         />
 
-        {/* Visière verre */}
+        {/* Visière / écran */}
         <rect
-          x="14"
-          y="18.5"
-          width="36"
-          height="31"
-          rx="10.5"
-          fill={`url(#${uid}-glass)`}
+          x="10"
+          y="16"
+          width="44"
+          height="32"
+          rx="12"
+          fill={`url(#${uid}-screen)`}
         />
         <rect
-          className="bot-glass-shimmer"
-          x="14"
-          y="18.5"
-          width="36"
-          height="31"
-          rx="10.5"
-          fill={`url(#${uid}-shine)`}
+          x="10"
+          y="16"
+          width="44"
+          height="32"
+          rx="12"
+          fill={`url(#${uid}-screenGlow)`}
         />
-        {/* Bordure verre */}
+        {/* Bord interne visière */}
         <rect
-          x="14"
-          y="18.5"
-          width="36"
-          height="31"
-          rx="10.5"
+          x="10"
+          y="16"
+          width="44"
+          height="32"
+          rx="12"
           fill="none"
-          stroke="#ffffff"
-          strokeOpacity="0.22"
-          strokeWidth="1.1"
-        />
-
-        {/* Yeux */}
-        <g className="bot-eyes" style={{ transformOrigin: "32px 33px" }}>
-          <rect
-            x="20.2"
-            y={eyeY}
-            width="8.2"
-            height={eyeOpen}
-            rx="4.1"
-            fill="#f1f5f9"
-          />
-          <rect
-            x="35.6"
-            y={eyeY}
-            width="8.2"
-            height={eyeOpen}
-            rx="4.1"
-            fill="#f1f5f9"
-          />
-          {!sleepy ? (
-            <>
-              <circle
-                className="bot-pupil"
-                cx={24.3 + pupilShift}
-                cy={eyeY + eyeOpen * 0.55}
-                r={happy ? 2.5 : 2.15}
-                fill={palette.led}
-                filter={`url(#${uid}-glow)`}
-              />
-              <circle
-                className="bot-pupil"
-                cx={39.7 + pupilShift}
-                cy={eyeY + eyeOpen * 0.55}
-                r={happy ? 2.5 : 2.15}
-                fill={palette.led}
-                filter={`url(#${uid}-glow)`}
-              />
-              <circle
-                cx={25.1 + pupilShift}
-                cy={eyeY + eyeOpen * 0.38}
-                r="0.75"
-                fill="#ffffff"
-              />
-              <circle
-                cx={40.5 + pupilShift}
-                cy={eyeY + eyeOpen * 0.38}
-                r="0.75"
-                fill="#ffffff"
-              />
-            </>
-          ) : null}
-        </g>
-
-        {happy ? (
-          <>
-            <circle cx="17.5" cy="42.5" r="2.3" fill={palette.accent} opacity="0.5" />
-            <circle cx="46.5" cy="42.5" r="2.3" fill={palette.accent} opacity="0.5" />
-          </>
-        ) : null}
-
-        <path
-          d={mouth}
-          fill="none"
-          stroke="#e2e8f0"
-          strokeWidth={happy ? 2.7 : 2.15}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        <rect
-          x="9"
-          y="11.5"
-          width="46"
-          height="45"
-          rx="14.5"
-          fill="none"
-          stroke="#ffffff"
-          strokeOpacity="0.2"
+          stroke="#94a3b8"
+          strokeOpacity="0.25"
           strokeWidth="1"
         />
+
+        {/* Points décoratifs bas (comme sur les modèles) */}
+        <circle cx="28" cy="50" r="1.3" fill="#cbd5e1" />
+        <circle cx="32" cy="50" r="1.3" fill="#cbd5e1" />
+        <circle cx="36" cy="50" r="1.3" fill="#cbd5e1" />
+
+        {/* Visage expressif */}
+        <g filter={`url(#${uid}-soft)`} className="bot-eyes">
+          {face}
+        </g>
       </svg>
     </div>
   );
