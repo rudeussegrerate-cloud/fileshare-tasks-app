@@ -159,8 +159,7 @@ function BotAvatar({
     mood === "joyeux" ||
     mood === "blagueur" ||
     emotion === "happy" ||
-    emotion === "excited" ||
-    emotion === "wave";
+    emotion === "excited";
   const angry = emotion === "sad" && mood === "sérieux";
   const sad = emotion === "sad";
   const thinking = emotion === "think";
@@ -216,10 +215,18 @@ function BotAvatar({
         </>
       );
     }
+    if (emotion === "wave") {
+      return (
+        <>
+          <circle cx="23" cy="28" r="4" fill={screen.eye} />
+          <path d="M38 24 L46 32 M46 24 L38 32" stroke={screen.eye} strokeWidth="2.8" strokeLinecap="round" />
+          <path d="M26 40 Q32 44 38 40" fill="none" stroke={screen.eye} strokeWidth="2.2" strokeLinecap="round" />
+        </>
+      );
+    }
     if (happy) {
       return (
         <>
-          {/* Yeux joyeux + reflets */}
           <circle cx="23" cy="28" r="4.2" fill={screen.eye} />
           <circle cx="41" cy="28" r="4.2" fill={screen.eye} />
           <circle cx="21.8" cy="26.8" r="1.3" fill="#ecfeff" />
@@ -258,7 +265,6 @@ function BotAvatar({
           <circle cx="41" cy="28" r="3.8" fill={screen.eye} />
           <circle cx="24.2" cy="27" r="1.1" fill="#fff" />
           <circle cx="42.2" cy="27" r="1.1" fill="#fff" />
-          {/* Points de réflexion */}
           <circle cx="48" cy="20" r="1.2" fill={screen.eye} opacity="0.9" />
           <circle cx="51" cy="16" r="1.6" fill={screen.eye} opacity="0.7" />
           <circle cx="54" cy="12" r="2" fill={screen.eye} opacity="0.5" />
@@ -275,16 +281,6 @@ function BotAvatar({
         </>
       );
     }
-    if (emotion === "wave") {
-      return (
-        <>
-          <circle cx="23" cy="28" r="4" fill={screen.eye} />
-          <path d="M38 24 L46 32 M46 24 L38 32" stroke={screen.eye} strokeWidth="2.8" strokeLinecap="round" />
-          <path d="M26 40 Q32 44 38 40" fill="none" stroke={screen.eye} strokeWidth="2.2" strokeLinecap="round" />
-        </>
-      );
-    }
-    // idle / calme — yeux ronds classiques
     return (
       <>
         <circle className="bot-pupil" cx="23" cy="29" r="4" fill={screen.eye} />
