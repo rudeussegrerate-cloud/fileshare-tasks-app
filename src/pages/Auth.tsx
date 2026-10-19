@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/tabs";
 
 import { useAuth } from "@/hooks/use-auth";
+import loginBackdrop from "@/assets/login-backdrop.jpg";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -327,17 +328,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
   return (
     <div className="relative isolate min-h-screen overflow-hidden bg-[#1b1440] text-white">
-      {/* Fond dégradé léger — sans photo (perf + clarté) */}
-      <div
-        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-[#1b1440] via-[#2a1f5c] to-[#3b2f7a]"
+      <img
+        src={loginBackdrop}
+        alt=""
+        className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute -left-24 top-1/4 -z-10 size-[28rem] rounded-full bg-[#5b4cdb]/25 blur-3xl"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute -right-16 bottom-0 -z-10 size-[22rem] rounded-full bg-[#00a3e0]/15 blur-3xl"
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-[#0a0828]/70 via-[#0a0828]/45 to-[#0a0828]/55"
         aria-hidden
       />
 
@@ -363,7 +361,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         </div>
 
         <section
-          className="w-full rounded-[28px] border border-white/25 bg-[#2a2158] p-6 shadow-[0_30px_60px_-16px_rgba(8,6,30,0.6)] sm:p-9"
+          className="w-full rounded-[28px] border border-white/40 bg-[#1e1750]/92 p-6 shadow-[0_30px_60px_-12px_rgba(0,0,0,0.55)] backdrop-blur-sm sm:p-9"
           aria-labelledby="scandoc-auth-title"
         >
           <div className="mb-6 lg:hidden">

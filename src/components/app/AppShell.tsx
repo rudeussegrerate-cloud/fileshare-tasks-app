@@ -39,6 +39,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
+import loginBackdrop from "@/assets/login-backdrop.jpg";
 import { NotificationsBell } from "./NotificationsBell";
 import { OnlinePeople } from "./OnlinePeople";
 import { PresenceDot } from "./PresenceDot";
@@ -295,7 +296,17 @@ export function AppShell({
   );
 
   return (
-    <div className="sc-app-shell relative min-h-screen overflow-hidden bg-[#f3f0fa]">
+    <div className="sc-app-shell relative min-h-screen overflow-hidden bg-[#1b1440]">
+      <img
+        src={loginBackdrop}
+        alt=""
+        className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover opacity-40"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-0 z-0 bg-[#f3f0fa]/88"
+        aria-hidden
+      />
       <div className="relative z-10 mx-auto flex w-full max-w-[1280px]">
         {/* Sidebar desktop */}
         <aside className="sc-shell-sidebar sticky top-0 hidden h-screen w-[15.5rem] shrink-0 flex-col border-r px-3 py-5 lg:flex">

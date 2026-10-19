@@ -762,85 +762,103 @@ a:focus-visible,
 }
 
 
-/* Auth glass — contraste renforcé pour lisibilité */
+
+/* Login form — contraste maximum */
 .auth-glass-form label {
   color: #ffffff !important;
   font-weight: 600 !important;
-  font-size: 0.875rem !important;
+  font-size: 0.9rem !important;
+  letter-spacing: 0.01em;
 }
 .auth-glass-form input,
 .auth-glass-form textarea,
 .auth-glass-form select {
   color: #ffffff !important;
-  background: rgba(255, 255, 255, 0.22) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.45) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  border: 2px solid rgba(255, 255, 255, 0.55) !important;
   border-radius: 14px !important;
   min-height: 50px !important;
-  font-size: 0.95rem !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
 }
 .auth-glass-form input::placeholder {
-  color: rgba(255, 255, 255, 0.72) !important;
+  color: rgba(255, 255, 255, 0.7) !important;
 }
 .auth-glass-form input:focus {
   border-color: #ffffff !important;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.28) !important;
-  background: rgba(255, 255, 255, 0.28) !important;
+  background: rgba(255, 255, 255, 0.22) !important;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.25) !important;
   outline: none !important;
 }
-.auth-glass-form [data-slot="tabs-list"],
-.auth-glass-form .bg-muted {
-  background: rgba(255, 255, 255, 0.2) !important;
-  color: #fff !important;
-  border-radius: 999px !important;
-  padding: 4px !important;
-}
 .auth-glass-form [role="tab"] {
-  color: rgba(255, 255, 255, 0.88) !important;
-  font-weight: 500 !important;
-  border-radius: 999px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600 !important;
 }
 .auth-glass-form [role="tab"][data-state="active"] {
   background: #ffffff !important;
-  color: #1e1250 !important;
-  font-weight: 600 !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  color: #1a1238 !important;
+  font-weight: 700 !important;
 }
-.auth-glass-form .text-muted-foreground {
-  color: rgba(255, 255, 255, 0.88) !important;
+.auth-glass-form .text-muted-foreground,
+.auth-glass-form p {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+.auth-glass-form a {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 .auth-glass-form button[type="submit"],
 .auth-glass-form button.bg-primary {
   background: #ffffff !important;
-  color: #1e1250 !important;
-  border-radius: 14px !important;
+  color: #1a1238 !important;
   font-weight: 700 !important;
   min-height: 52px !important;
+  border-radius: 14px !important;
   font-size: 1rem !important;
-  box-shadow: 0 10px 30px -8px rgba(0, 0, 0, 0.5);
-}
-.auth-glass-form button[type="submit"]:hover,
-.auth-glass-form button.bg-primary:hover {
-  background: #f8f6ff !important;
-  transform: translateY(-1px);
-}
-.auth-glass-form a {
-  color: #ffffff !important;
-  font-weight: 600 !important;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-/* Google / boutons secondaires sur glass */
-.auth-glass-form button.border,
-.auth-glass-form button[variant] {
-  border-color: rgba(255, 255, 255, 0.5) !important;
 }
 .auth-glass-form button.bg-background,
-.auth-glass-form button.bg-card {
+.auth-glass-form button.bg-card,
+.auth-glass-form button[class*="outline"] {
   background: #ffffff !important;
   color: #1a1238 !important;
   font-weight: 600 !important;
+  border-color: transparent !important;
 }
 
+/* Dashboard — textes et cartes bien lisibles */
+.sc-app-shell {
+  color: #1a1238;
+}
+.sc-app-shell .sc-app-header {
+  background: rgba(255, 255, 255, 0.95) !important;
+  border-bottom: 1px solid #d8d2ec !important;
+  color: #1a1238 !important;
+}
+.sc-dash-hero,
+.sc-dash-card {
+  background: #ffffff !important;
+  border: 1px solid #d8d2ec !important;
+  color: #1a1238 !important;
+  box-shadow: 0 4px 18px rgba(27, 20, 64, 0.08) !important;
+}
+.sc-dash-hero .text-muted-foreground,
+.sc-dash-card .text-muted-foreground {
+  color: #4a4563 !important;
+}
+.sc-dash-hero .text-foreground,
+.sc-dash-card .text-foreground,
+.sc-dash-hero h2,
+.sc-dash-card h3 {
+  color: #1a1238 !important;
+}
+.sc-app-shell .text-muted-foreground {
+  color: #4a4563 !important;
+}
+.sc-app-shell .text-foreground {
+  color: #1a1238 !important;
+}
 
 /* App shell — sidebar sombre, contenu clair lisible (réf. maquette) */
 .sc-app-shell {
@@ -1886,20 +1904,4 @@ a:focus-visible,
   [class*="backdrop-blur"] {
     background: #2a2158 !important;
   }
-}
-
-/* Contraste max login */
-.auth-glass-form label,
-.auth-glass-form .text-sm,
-.auth-glass-form p {
-  color: #ffffff !important;
-  opacity: 1 !important;
-}
-.auth-glass-form input {
-  color: #ffffff !important;
-  background: #3b2f7a !important;
-  border: 2px solid rgba(255,255,255,0.55) !important;
-}
-.auth-glass-form input::placeholder {
-  color: rgba(255,255,255,0.75) !important;
 }
