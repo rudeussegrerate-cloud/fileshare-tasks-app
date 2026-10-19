@@ -28,7 +28,6 @@ import {
   Megaphone,
   Newspaper,
   Menu,
-  MessageCircle,
   Send,
   Route,
   FolderOpen,
@@ -50,15 +49,9 @@ export type AppView =
   | "send"
   | "inbox"
   | "sent"
-  | "suivi"
-  | "transmissions"
   | "fichiers"
-  | "messages"
-  | "actualites"
-  | "announcements"
   | "departments"
   | "accounts"
-  | "org3d"
   | "settings";
 
 type NavItem = {
@@ -137,14 +130,12 @@ function NavList({
   onSelect,
   isAdmin,
   pendingAccounts,
-  unreadMessages,
   pendingTasks,
 }: {
   view: AppView;
   onSelect: (view: AppView) => void;
   isAdmin: boolean;
   pendingAccounts: number;
-  unreadMessages?: number;
   pendingTasks?: number;
 }) {
   return (
@@ -172,9 +163,7 @@ function NavList({
                   >
                     <Icon className="size-4 shrink-0 opacity-90" />
                     <span className="flex-1 text-left">{item.label}</span>
-                    {item.key === "messages" ? (
-                      <RedBadge count={unreadMessages ?? 0} active={active} />
-                    ) : null}
+                    
                     {item.key === "inbox" ? (
                       <RedBadge count={pendingTasks ?? 0} active={active} />
                     ) : null}
@@ -196,17 +185,14 @@ export function AppShell({
   view,
   onViewChange,
   onOpenDocument,
-  onStartChat,
   children,
 }: {
   view: AppView;
   onViewChange: (view: AppView) => void;
   onOpenDocument?: (id: import("@/convex/_generated/dataModel").Id<"documents">) => void;
-  onStartChat?: (userId: import("@/convex/_generated/dataModel").Id<"users">) => void;
   children: ReactNode;
 }) {
   const me = useQuery(api.workspace.me);
-  const unreadMessages = useQuery(api.chat.unreadTotal);
   const docStats = useQuery(api.documents.stats);
   const notifUnread = useQuery(api.inAppNotifications.unreadCount);
   const pendingTasks = docStats?.awaiting ?? 0;
@@ -287,7 +273,6 @@ export function AppShell({
           onSelect={onViewChange}
           isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
           pendingAccounts={me?.pendingAccounts ?? 0}
-          unreadMessages={unreadMessages ?? 0}
           pendingTasks={pendingTasks}
         />
       </div>
@@ -303,11 +288,7 @@ export function AppShell({
           </span>
         </button>
         {peopleOpen ? (
-          <OnlinePeople
-            onMessage={(uid) => {
-              onStartChat?.(uid as import("@/convex/_generated/dataModel").Id<"users">);
-            }}
-          />
+          <OnlinePeople />
         ) : null}
       </div>
     </>
@@ -345,17 +326,11 @@ export function AppShell({
                         }}
                         isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
                         pendingAccounts={me?.pendingAccounts ?? 0}
-                        unreadMessages={unreadMessages ?? 0}
                         pendingTasks={pendingTasks}
                       />
                     </div>
                     <div className="mt-4 border-t border-border pt-3">
-                      <OnlinePeople
-                        onMessage={(uid) => {
-                          onStartChat?.(uid as import("@/convex/_generated/dataModel").Id<"users">);
-                          setMobileNavOpen(false);
-                        }}
-                      />
+                      <OnlinePeople />
                     </div>
                   </div>
                 </SheetContent>

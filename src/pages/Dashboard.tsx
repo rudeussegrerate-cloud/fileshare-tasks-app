@@ -4,20 +4,13 @@ import { AccountsView } from "@/components/app/AccountsView";
 import { AppShell, type AppView } from "@/components/app/AppShell";
 import { DashboardHome } from "@/components/app/DashboardHome";
 import { DepartmentsView } from "@/components/app/DepartmentsView";
-import { Org3DView } from "@/components/app/Org3DView";
 import { DocumentDetailDialog } from "@/components/app/DocumentDetailDialog";
 import { DocumentsList } from "@/components/app/DocumentsList";
 import { ProfileSetup } from "@/components/app/ProfileSetup";
-import { TransmissionsView } from "@/components/app/TransmissionsView";
 import { SendDocument } from "@/components/app/SendDocument";
-import { CircuitTrackingView } from "@/components/app/CircuitTrackingView";
 import { FileManagerView } from "@/components/app/FileManagerView";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
-import { ActualitesView } from "@/components/app/ActualitesView";
-import { AnnouncementsView } from "@/components/app/AnnouncementsView";
-import { MessagesView } from "@/components/app/MessagesView";
-import { SmartAutomations } from "@/components/app/SmartAutomations";
 import { SmartTips } from "@/components/app/SmartTips";
 import { FloatingAssistant } from "@/components/app/FloatingAssistant";
 import { SettingsView } from "@/components/app/SettingsView";
@@ -64,7 +57,6 @@ export default function Dashboard() {
   const syncProfile = useMutation(api.workspace.syncProfile);
   const me = useQuery(api.workspace.me);
   const [view, setView] = useState<AppView>("home");
-  const [chatUserId, setChatUserId] = useState<Id<"users"> | null>(null);
   const [openDocumentId, setOpenDocumentId] = useState<Id<"documents"> | null>(
     null,
   );
@@ -132,15 +124,8 @@ export default function Dashboard() {
       <InactivityLogout />
       <AppShell
         view={view}
-        onViewChange={(v) => {
-          setView(v);
-          if (v !== "messages") setChatUserId(null);
-        }}
+        onViewChange={(v) => setView(v)}
         onOpenDocument={(id) => setOpenDocumentId(id)}
-        onStartChat={(userId) => {
-          setChatUserId(userId);
-          setView("messages");
-        }}
       >
       {view === "home" ? (
         <DashboardHome
@@ -179,22 +164,7 @@ export default function Dashboard() {
           onCreate={() => setView("send")}
         />
       ) : null}
-
-      {view === "transmissions" ? (
-        <TransmissionsView />
-      ) : view === "suivi" ? (
-        <ViewErrorBoundary label="le suivi des envois">
-          <CircuitTrackingView
-            onOpen={setOpenDocumentId}
-            onContinue={(ref) => {
-              setContinueRef(ref);
-              setView("send");
-            }}
-          />
-        </ViewErrorBoundary>
-      ) : null}
-
-      {view === "fichiers" ? (
+{view === "fichiers" ? (
         <ViewErrorBoundary label="le gestionnaire de fichiers">
           <FileManagerView
             onOpen={setOpenDocumentId}
@@ -214,31 +184,7 @@ export default function Dashboard() {
           <AccountsView />
         </ViewErrorBoundary>
       ) : null}
-
-      {view === "org3d" ? (
-        <ViewErrorBoundary label="l'organigramme 3D">
-          <Org3DView />
-        </ViewErrorBoundary>
-      ) : null}
-
-      {view === "actualites" ? (
-        <ViewErrorBoundary label="les actualités">
-          <ActualitesView key="actualites" />
-        </ViewErrorBoundary>
-      ) : null}
-      {view === "announcements" ? (
-        <ViewErrorBoundary label="les annonces">
-          <AnnouncementsView key="announcements" />
-        </ViewErrorBoundary>
-      ) : null}
-
-      {view === "messages" ? (
-        <ViewErrorBoundary label="la messagerie">
-          <MessagesView initialUserId={chatUserId} />
-        </ViewErrorBoundary>
-      ) : null}
-
-      {view === "settings" ? (
+{view === "settings" ? (
         <ViewErrorBoundary label="les paramètres">
           <SettingsView onNavigate={setView} />
         </ViewErrorBoundary>

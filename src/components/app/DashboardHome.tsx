@@ -418,17 +418,6 @@ function AlertsBlock({
       icon: Inbox,
     });
   }
-  if (unreadMsg > 0) {
-    items.push({
-      key: "msg",
-      title: `${unreadMsg} message${unreadMsg > 1 ? "s" : ""} non lu${unreadMsg > 1 ? "s" : ""}`,
-      subtitle: "Messages",
-      onClick: () => onNavigate("messages"),
-      tone: "blue",
-      icon: MessageCircle,
-    });
-  }
-
   if (items.length === 0) return null;
 
   return (
@@ -706,7 +695,7 @@ function EnterprisePanel({
             variant="ghost"
             size="sm"
             className="h-7 text-[11px]"
-            onClick={() => onNavigate("org3d")}
+            onClick={() => onNavigate("departments")}
           >
             Organigramme
           </Button>

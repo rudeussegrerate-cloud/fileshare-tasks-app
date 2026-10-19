@@ -877,11 +877,18 @@ export const send = mutation({
     let onBehalfOfUserId = args.onBehalfOfUserId;
 
     if (args.onBehalfOfType === "internal") {
-      if (onBehalfOfUserId) {
+      // Signataire = fonction (pas une personne nommée)
+      if (onBehalfOfFunction) {
+        onBehalfOfName = undefined;
+        onBehalfOfUserId = undefined;
+      } else if (onBehalfOfUserId) {
         const onBehalfUser = await ctx.db.get(onBehalfOfUserId);
         if (!onBehalfUser) throw new Error("Personne introuvable.");
-        onBehalfOfName = displayName(onBehalfUser);
-        onBehalfOfFunction = onBehalfUser.fonction ?? undefined;
+        // Ne plus exposer le nom : uniquement la fonction si disponible
+        onBehalfOfName = undefined;
+        onBehalfOfFunction =
+          onBehalfOfFunction || onBehalfUser.fonction || undefined;
+        onBehalfOfUserId = undefined;
         if (onBehalfUser.departmentId) {
           const dept = await ctx.db.get(onBehalfUser.departmentId);
           onBehalfOfDepartment = dept?.name ?? undefined;

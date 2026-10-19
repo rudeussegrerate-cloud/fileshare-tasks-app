@@ -362,7 +362,7 @@ export function SendDocument({
     try {
       const resolvedOnBehalfUserId =
         onBehalfType === "internal"
-          ? (onBehalfUserId ?? me?.user._id ?? undefined)
+          ? undefined
           : undefined;
       // Structure émettrice obligatoire (N° hiérarchique)
 
@@ -452,10 +452,7 @@ export function SendDocument({
           onBehalfOfUserId: resolvedOnBehalfUserId,
           onBehalfOfName:
             onBehalfType === "external" ? onBehalfName.trim() : undefined,
-          onBehalfOfFunction:
-            onBehalfType === "external"
-              ? onBehalfFunction.trim() || undefined
-              : undefined,
+          onBehalfOfFunction: onBehalfFunction.trim() || undefined,
           onBehalfOfDepartment:
             onBehalfType === "external"
               ? onBehalfDepartmentText.trim() || undefined
@@ -1122,39 +1119,71 @@ export function SendDocument({
                 </div>
               ) : null}
 
-              {onBehalfDepartmentId && onBehalfMembers.length > 0 ? (
+              {onBehalfDepartmentId ? (
                 <div className="space-y-2 border-t border-border pt-3">
-                  <p className="text-xs text-muted-foreground">
-                    Signataire (optionnel)
+                  <p className="text-xs font-medium text-foreground">
+                    Signataire — fonction (optionnel)
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Choisissez la <strong>fonction</strong> qui signe le courrier
+                    (pas une personne nommément).
                   </p>
                   <div className="flex flex-wrap gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setOnBehalfUserId(null)}
+                      onClick={() => {
+                        setOnBehalfUserId(null);
+                        setOnBehalfFunction("");
+                      }}
                       className={cn(
                         "rounded-full border px-3 py-1 text-xs",
-                        !onBehalfUserId
+                        !onBehalfFunction.trim()
                           ? "border-amber-600 bg-amber-100 font-medium"
                           : "border-border bg-card",
                       )}
                     >
                       Non précisé
                     </button>
-                    {onBehalfMembers.map((member) => (
-                      <button
-                        key={member._id}
-                        type="button"
-                        onClick={() => setOnBehalfUserId(member._id)}
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-xs",
-                          onBehalfUserId === member._id
-                            ? "border-amber-600 bg-amber-100 font-medium"
-                            : "border-border bg-card",
-                        )}
-                      >
-                        {member.name}
-                      </button>
-                    ))}
+                    {Array.from(
+                      new Set(
+                        onBehalfMembers
+                          .map((m) => (m.fonction ?? "").trim())
+                          .filter(Boolean),
+                      ),
+                    )
+                      .sort((a, b) => a.localeCompare(b, "fr"))
+                      .map((fn) => (
+                        <button
+                          key={fn}
+                          type="button"
+                          onClick={() => {
+                            setOnBehalfUserId(null);
+                            setOnBehalfFunction(fn);
+                          }}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs",
+                            onBehalfFunction.trim() === fn
+                              ? "border-amber-600 bg-amber-100 font-medium"
+                              : "border-border bg-card",
+                          )}
+                        >
+                          {fn}
+                        </button>
+                      ))}
+                  </div>
+                  <div className="space-y-1.5 pt-1">
+                    <Label htmlFor="onBehalfFnCustom" className="text-xs">
+                      Ou saisir une fonction
+                    </Label>
+                    <Input
+                      id="onBehalfFnCustom"
+                      value={onBehalfFunction}
+                      onChange={(e) => {
+                        setOnBehalfUserId(null);
+                        setOnBehalfFunction(e.target.value);
+                      }}
+                      className="h-9 text-sm"
+                    />
                   </div>
                 </div>
               ) : null}
@@ -1457,24 +1486,22 @@ export function SendDocument({
                     <dd className="text-right font-medium">
                       {onBehalfType === "external"
                         ? [
-                            onBehalfName.trim() || null,
                             onBehalfFunction.trim() || null,
+                            onBehalfName.trim() || null,
                             onBehalfDepartmentText.trim() || null,
                           ]
                             .filter(Boolean)
                             .join(" · ") || "—"
-                        : selectedOnBehalfUser
-                          ? [
-                              selectedOnBehalfUser.name,
-                              selectedOnBehalfUser.fonction || null,
-                            ]
-                              .filter(Boolean)
-                              .join(" · ")
-                          : onBehalfDepartment
-                            ? `Structure ${onBehalfDepartment.code ?? onBehalfDepartment.name}`
-                            : me?.user?.name
-                              ? `${me.user.name} (compte connecté)`
-                              : "—"}
+                        : [
+                            onBehalfFunction.trim() || null,
+                            onBehalfDepartment
+                              ? onBehalfDepartment.code
+                                ? `${onBehalfDepartment.code} — ${onBehalfDepartment.name}`
+                                : onBehalfDepartment.name
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || "—"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
