@@ -130,7 +130,7 @@ const COLORS: Record<string, string> = {
 type IdleEmotion = "idle" | "wave" | "look" | "sleep" | "excited" | "think" | "happy" | "sad" | "curious";
 
 /**
- * Avatar guide courrier — style application professionnelle (pas un robot).
+ * Robot assistant 3D/4D — volume, reflets, profondeur, micro-animations.
  */
 function BotAvatar({
   color,
@@ -150,96 +150,238 @@ function BotAvatar({
   gender?: "male" | "female" | "neutral";
 }) {
   void gender;
-  void emotion;
   const dim =
-    size === "lg" ? "size-[72px]" : size === "sm" ? "size-10" : "size-14";
+    size === "lg" ? "size-[80px]" : size === "sm" ? "size-11" : "size-[64px]";
   const palette = ROBOT[color] ?? ROBOT.navy!;
+  const uid = `bot-${color}-${size}`;
+
+  const happy =
+    mood === "joyeux" ||
+    mood === "blagueur" ||
+    emotion === "happy" ||
+    emotion === "excited" ||
+    emotion === "wave";
+  const serious = mood === "sérieux" || emotion === "sad";
+  const thinking = emotion === "think" || emotion === "curious";
+  const sleepy = emotion === "sleep";
 
   if (photoUrl) {
     return (
       <div
-        className={`${dim} overflow-hidden rounded-full border-2 border-white shadow-lg ring-2 ring-brand/30 ${bounce ? "animate-soft-pulse" : ""}`}
+        className={`${dim} bot-avatar-3d overflow-hidden rounded-2xl border border-white/40 shadow-raised ring-2 ring-brand/25 ${bounce ? "bot-alive" : ""}`}
       >
         <img src={photoUrl} alt="" className="size-full object-cover" />
       </div>
     );
   }
 
-  // Bouche selon l'humeur
-  const mouthPath =
-    {
-      joyeux: "M 24 45 Q 32 53 40 45",
-      calme: "M 25 46 L 39 46",
-      motivant: "M 22 44 Q 32 56 42 44 Q 32 50 22 44",
-      "sérieux": "M 26 46 L 38 46",
-      blagueur: "M 24 46 Q 28 42 32 46 Q 36 50 40 46",
-    }[mood] ?? "M 25 46 L 39 46";
-  const mouthStroke = mood === "sérieux" ? 2.4 : 2.8;
-  const vb = 64;
-  const svgSize = size === "sm" ? 40 : size === "lg" ? 72 : 56;
+  const eyeOpen = sleepy ? 2.2 : happy ? 9.5 : serious ? 5.5 : 8;
+  const eyeY = sleepy ? 31 : thinking ? 28 : 29;
+  const mouth =
+    sleepy
+      ? "M26 46 H38"
+      : happy
+        ? "M24 44 Q32 54 40 44"
+        : serious
+          ? "M26 47 H38"
+          : thinking
+            ? "M27 46 Q32 49 39 45"
+            : "M26 46 Q32 50 38 46";
+
+  const svgSize = size === "sm" ? 44 : size === "lg" ? 80 : 64;
 
   return (
     <div
-      className={`${dim} relative ${bounce ? "animate-soft-pulse" : ""}`}
+      className={`${dim} bot-avatar-3d relative ${bounce ? "bot-alive" : ""} ${emotion === "wave" ? "bot-gesture-wave" : ""} ${happy ? "bot-gesture-happy" : ""}`}
+      style={{
+        filter: `drop-shadow(0 10px 16px ${palette.bodyDark}55) drop-shadow(0 0 12px ${palette.led}33)`,
+      }}
       aria-hidden
     >
+      {/* Ombre au sol */}
+      <div
+        className="pointer-events-none absolute -bottom-1 left-1/2 h-2 w-[70%] -translate-x-1/2 rounded-[100%] opacity-40 blur-[3px]"
+        style={{ background: palette.bodyDark }}
+      />
       <svg
-        viewBox={`0 0 ${vb} ${vb}`}
+        viewBox="0 0 64 64"
         width={svgSize}
         height={svgSize}
-        className="block drop-shadow-lg"
+        className="relative z-[1] block"
         role="img"
       >
         <defs>
-          <linearGradient id={`botg-${color}`} x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id={`${uid}-body`} x1="0.15" y1="0" x2="0.9" y2="1">
             <stop offset="0%" stopColor={palette.accent} />
+            <stop offset="45%" stopColor={palette.body} />
             <stop offset="100%" stopColor={palette.bodyDark} />
           </linearGradient>
-          <linearGradient id={`botv-${color}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={palette.panel} />
+          <linearGradient id={`${uid}-vis`} x1="0.5" y1="0" x2="0.5" y2="1">
+            <stop offset="0%" stopColor="#0f172a" stopOpacity="0.15" />
+            <stop offset="30%" stopColor={palette.panel} />
             <stop offset="100%" stopColor={palette.bodyDark} />
           </linearGradient>
+          <radialGradient id={`${uid}-spec`} cx="30%" cy="22%" r="55%">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
+            <stop offset="40%" stopColor="#ffffff" stopOpacity="0.12" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+          </radialGradient>
+          <radialGradient id={`${uid}-led`} cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="#ffffff" />
+            <stop offset="40%" stopColor={palette.led} />
+            <stop offset="100%" stopColor={palette.led} stopOpacity="0.2" />
+          </radialGradient>
+          <filter id={`${uid}-glow`} x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur stdDeviation="1.4" result="b" />
+            <feMerge>
+              <feMergeNode in="b" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
 
-        {/* Antenne + LED pulsante */}
-        <line x1="32" y1="7" x2="32" y2="15" stroke={palette.bodyDark} strokeWidth="2.4" strokeLinecap="round" />
-        <circle className="bot-antenna-led" cx="32" cy="5.5" r="3.2" fill={palette.led} />
+        {/* Antenne */}
+        <line
+          x1="32"
+          y1="6"
+          x2="32"
+          y2="14"
+          stroke={palette.bodyDark}
+          strokeWidth="2.6"
+          strokeLinecap="round"
+        />
+        <circle
+          className="bot-antenna-led"
+          cx="32"
+          cy="5"
+          r="3.6"
+          fill={`url(#${uid}-led)`}
+          filter={`url(#${uid}-glow)`}
+        />
 
-        {/* Oreilles */}
-        <rect x="5" y="27" width="4.5" height="12" rx="2.2" fill={palette.bodyDark} />
-        <rect x="54.5" y="27" width="4.5" height="12" rx="2.2" fill={palette.bodyDark} />
+        {/* Oreilles / joints */}
+        <rect x="4.5" y="26" width="5" height="14" rx="2.5" fill={palette.bodyDark} opacity="0.95" />
+        <rect x="54.5" y="26" width="5" height="14" rx="2.5" fill={palette.bodyDark} opacity="0.95" />
+        <rect x="5.5" y="28" width="3" height="10" rx="1.5" fill={palette.accent} opacity="0.5" />
+        <rect x="55.5" y="28" width="3" height="10" rx="1.5" fill={palette.accent} opacity="0.5" />
 
-        {/* Tête */}
-        <rect x="9" y="13" width="46" height="41" rx="13" fill={`url(#botg-${color})`} />
+        {/* Corps tête arrondi */}
+        <rect
+          x="9"
+          y="12"
+          width="46"
+          height="44"
+          rx="14"
+          fill={`url(#${uid}-body)`}
+        />
+        {/* Biseau bas */}
+        <path
+          d="M12 48 Q32 56 52 48 L52 52 Q32 58 12 52 Z"
+          fill={palette.bodyDark}
+          opacity="0.35"
+        />
 
-        {/* Visière */}
-        <rect x="14" y="20" width="36" height="28" rx="9" fill={`url(#botv-${color})`} opacity="0.92" />
+        {/* Visière glass */}
+        <rect
+          x="14"
+          y="19"
+          width="36"
+          height="30"
+          rx="10"
+          fill={`url(#${uid}-vis)`}
+        />
+        <rect
+          x="14"
+          y="19"
+          width="36"
+          height="30"
+          rx="10"
+          fill={`url(#${uid}-spec)`}
+        />
 
-        {/* Yeux (clignent) */}
-        <g className="bot-eyes">
-          <rect x="21" y="29" width="7.5" height="9" rx="3.6" fill="#ffffff" />
-          <rect x="35.5" y="29" width="7.5" height="9" rx="3.6" fill="#ffffff" />
-          <circle cx="24.75" cy="34" r="2.1" fill={palette.led} />
-          <circle cx="39.25" cy="34" r="2.1" fill={palette.led} />
+        {/* Yeux */}
+        <g className="bot-eyes" style={{ transformOrigin: "32px 33px" }}>
+          <rect
+            x="20.5"
+            y={eyeY}
+            width="8"
+            height={eyeOpen}
+            rx="4"
+            fill="#f8fafc"
+          />
+          <rect
+            x="35.5"
+            y={eyeY}
+            width="8"
+            height={eyeOpen}
+            rx="4"
+            fill="#f8fafc"
+          />
+          {!sleepy ? (
+            <>
+              <circle
+                cx="24.5"
+                cy={eyeY + eyeOpen * 0.55}
+                r={happy ? 2.4 : 2.1}
+                fill={palette.led}
+                filter={`url(#${uid}-glow)`}
+              />
+              <circle
+                cx="39.5"
+                cy={eyeY + eyeOpen * 0.55}
+                r={happy ? 2.4 : 2.1}
+                fill={palette.led}
+                filter={`url(#${uid}-glow)`}
+              />
+              <circle
+                cx="25.3"
+                cy={eyeY + eyeOpen * 0.4}
+                r="0.7"
+                fill="#ffffff"
+                opacity="0.9"
+              />
+              <circle
+                cx="40.3"
+                cy={eyeY + eyeOpen * 0.4}
+                r="0.7"
+                fill="#ffffff"
+                opacity="0.9"
+              />
+            </>
+          ) : null}
         </g>
 
         {/* Joues */}
-        <circle cx="18.5" cy="41.5" r="2" fill={palette.accent} opacity="0.55" />
-        <circle cx="45.5" cy="41.5" r="2" fill={palette.accent} opacity="0.55" />
+        {happy ? (
+          <>
+            <circle cx="18" cy="42" r="2.2" fill={palette.accent} opacity="0.45" />
+            <circle cx="46" cy="42" r="2.2" fill={palette.accent} opacity="0.45" />
+          </>
+        ) : null}
 
-        {/* Bouche selon l'humeur */}
+        {/* Bouche */}
         <path
-          d={mouthPath}
+          d={mouth}
           fill="none"
-          stroke="#ffffff"
-          strokeWidth={mouthStroke}
+          stroke="#e2e8f0"
+          strokeWidth={happy ? 2.6 : 2.2}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+
+        {/* Contour fin */}
+        <rect
+          x="9"
+          y="12"
+          width="46"
+          height="44"
+          rx="14"
+          fill="none"
+          stroke="#ffffff"
+          strokeOpacity="0.18"
+          strokeWidth="1"
+        />
       </svg>
-      {mood === "joyeux" ? (
-        <span className="sr-only">Guide courrier</span>
-      ) : null}
     </div>
   );
 }

@@ -65,8 +65,8 @@
     - Cyan #00A3E0  → lettre T
     Fond clair neutre pour lisibilité institutionnelle.
   */
-  --background: #f0f4f8;
-  --foreground: #1a2332;
+  --background: #eef2f7;
+  --foreground: #152033;
   --card: #ffffff;
   --card-foreground: #1a2332;
   --popover: #ffffff;
@@ -76,11 +76,11 @@
   --secondary: #e8f0f7;
   --secondary-foreground: #1a2332;
   --muted: #eef2f6;
-  --muted-foreground: #5a6a7a;
+  --muted-foreground: #5c6b7c;
   --accent: #e6f4ec;
   --accent-foreground: #007a3d;
   --destructive: #e31c23;
-  --border: #cfd9e3;
+  --border: #d0d9e4;
   --input: #b8c5d4;
   --ring: #0066b3;
 
@@ -96,13 +96,13 @@
   --chart-4: #e31c23;
   --chart-5: #00a3e0;
 
-  --sidebar: #ffffff;
+  --sidebar: #f8fafc;
   --sidebar-foreground: #1a2332;
   --sidebar-primary: #0066b3;
   --sidebar-primary-foreground: #ffffff;
   --sidebar-accent: #e8f1f8;
   --sidebar-accent-foreground: #004d8c;
-  --sidebar-border: #dce4ec;
+  --sidebar-border: #e2e8f0;
   --sidebar-ring: #0066b3;
 
   --shadow-sm: 0 1px 2px rgba(15, 40, 70, 0.05), 0 1px 3px rgba(15, 40, 70, 0.04);
@@ -254,6 +254,16 @@
   .sc-page-sub {
     @apply mt-1 text-sm text-muted-foreground;
   }
+
+  .sc-panel {
+    @apply rounded-xl border border-border/80 bg-card p-4 sm:p-5;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .sc-panel-title {
+    @apply text-sm font-semibold tracking-tight text-foreground;
+  }
+
 
   .sc-metric {
     @apply rounded-lg border border-border/80 bg-card px-3.5 py-3.5 text-left transition-all duration-150;
@@ -614,4 +624,33 @@ a:focus-visible,
   border-radius: 999px;
   background: currentColor;
   animation: status-dot-ping 1.8s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+
+/* Robot 3D / 4D — perspective & respiration */
+.bot-avatar-3d {
+  transform-style: preserve-3d;
+  transform: perspective(520px) rotateY(-14deg) rotateX(8deg);
+  transition: transform 0.35s ease;
+}
+.bot-avatar-3d:hover {
+  transform: perspective(520px) rotateY(-6deg) rotateX(4deg) scale(1.04);
+}
+@keyframes bot-alive-4d {
+  0%, 100% {
+    transform: perspective(520px) rotateY(-14deg) rotateX(8deg) translateY(0);
+  }
+  50% {
+    transform: perspective(520px) rotateY(-10deg) rotateX(10deg) translateY(-5px);
+  }
+}
+.bot-alive.bot-avatar-3d {
+  animation: bot-alive-4d 3.4s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .bot-avatar-3d,
+  .bot-alive.bot-avatar-3d {
+    animation: none !important;
+    transform: none;
+  }
 }
