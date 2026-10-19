@@ -372,7 +372,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         </div>
 
         <section
-          className="w-full rounded-[28px] border border-white/30 bg-white/15 p-6 shadow-[0_30px_60px_-20px_rgba(8,6,30,0.55)] backdrop-blur-[24px] sm:p-9"
+          className="w-full rounded-[28px] border border-white/40 bg-white/20 p-6 shadow-[0_30px_60px_-16px_rgba(8,6,30,0.6)] backdrop-blur-[28px] sm:p-9"
           aria-labelledby="scandoc-auth-title"
         >
           <div className="mb-6 lg:hidden">
@@ -380,11 +380,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           </div>
           <h1
             id="scandoc-auth-title"
-            className="text-[1.85rem] font-semibold tracking-tight text-white"
+            className="text-[1.85rem] font-bold tracking-tight text-white drop-shadow-sm"
           >
             Connexion
           </h1>
-          <p className="mb-6 text-sm text-white/85">
+          <p className="mb-6 text-sm font-medium text-white/95">
             Accédez à ScanDoc avec votre compte professionnel MNDPT.
           </p>
           <div className="auth-glass-form">

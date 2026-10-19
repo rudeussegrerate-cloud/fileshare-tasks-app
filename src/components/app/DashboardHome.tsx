@@ -121,7 +121,7 @@ export function DashboardHome({
         </div>
         <Button
           onClick={onSend}
-          className="h-11 gap-2 rounded-xl bg-white px-5 font-semibold text-[#1e1250] shadow-lg hover:bg-white/95"
+          className="h-11 gap-2 rounded-xl bg-[#5b4cdb] px-5 font-semibold text-white shadow-md hover:bg-[#4c3ec7]"
           data-scandoc-tour="home-actions"
         >
           <Send className="size-4" />
@@ -286,7 +286,7 @@ export function DashboardHome({
             Aucun courrier reçu pour le moment.
           </p>
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background/60">
+          <ul className="divide-y divide-[#ebe7f5] overflow-hidden rounded-xl border border-[#e4dff2] bg-white">
             {recent.map((courrier) => {
               return (
                 <li key={courrier._id}>
@@ -1173,19 +1173,19 @@ function Metric({
   className?: string;
   onClick?: () => void;
 }) {
-  const cls = `rounded-lg border border-border/80 bg-muted/30 px-3 py-2 text-left transition ${className} ${
+  const cls = `rounded-xl border border-[#e4dff2] bg-white px-3.5 py-3 text-left shadow-sm transition ${className} ${
     onClick
-      ? "cursor-pointer hover:border-brand/40 hover:bg-brand-soft/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+      ? "cursor-pointer hover:border-[#5b4cdb]/45 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b4cdb]/30"
       : ""
   }`;
   const inner = (
     <>
-      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-[#5b5678]">
         {label}
       </p>
-      <p className="text-xl font-semibold tabular-nums">{value}</p>
+      <p className="text-xl font-bold tabular-nums text-[#1a1238]">{value}</p>
       {onClick ? (
-        <p className="mt-0.5 text-[10px] text-brand">Voir le détail →</p>
+        <p className="mt-0.5 text-[10px] font-medium text-[#5b4cdb]">Voir le détail →</p>
       ) : null}
     </>
   );
@@ -1214,7 +1214,7 @@ function StatTile({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-xl border border-border bg-background/70 p-3.5 text-left shadow-sm transition hover:border-brand/40 hover:bg-brand-soft/50"
+      className="rounded-xl border border-[#ddd6f3] bg-[#faf9fd] p-3.5 text-left shadow-sm transition hover:border-[#5b4cdb]/40 hover:bg-[#efeaff]"
     >
       <p className="text-2xl font-semibold tabular-nums tracking-tight text-brand-deep">
         {value}
@@ -1240,7 +1240,7 @@ function QuickLink({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-start gap-3 rounded-xl border border-border bg-background/70 p-3.5 text-left shadow-sm transition hover:border-brand/40 hover:bg-brand-soft/40"
+      className="flex items-start gap-3 rounded-xl border border-[#ddd6f3] bg-[#faf9fd] p-3.5 text-left shadow-sm transition hover:border-[#5b4cdb]/40 hover:bg-[#efeaff]"
     >
       <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
         <Icon className="size-4" />
