@@ -108,17 +108,20 @@ export function DashboardHome({
   const showDeptPanel = Boolean(selectedDeptId) && isManager;
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6" data-scandoc-tour="home-stats">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div className="space-y-0.5">
-          <h2 className="text-2xl font-semibold tracking-tight">
+    <div className="space-y-6" data-scandoc-tour="home-stats">
+      <header className="sc-dash-hero flex flex-wrap items-end justify-between gap-4">
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-brand">
+            Tableau de bord
+          </p>
+          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
             Bonjour{firstName ? `, ${firstName}` : ""}
           </h2>
           <p className="text-sm text-muted-foreground">{roleLine}</p>
         </div>
         <Button
           onClick={onSend}
-          className="h-10 gap-2"
+          className="h-11 gap-2 rounded-xl px-5 shadow-sm"
           data-scandoc-tour="home-actions"
         >
           <Send className="size-4" />
@@ -206,10 +209,10 @@ export function DashboardHome({
       ) : null}
 
       {!isManager ? (
-        <div className="rounded-sm border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+        <div className="sc-dash-card text-sm text-muted-foreground">
           Espace personnel. Le tableau de bord de pilotage (indicateurs de
-          structure) est réservé au <strong>chef</strong> et au{" "}
-          <strong>DG</strong>.
+          structure) est réservé au <strong className="text-foreground">chef</strong> et au{" "}
+          <strong className="text-foreground">DG</strong>.
         </div>
       ) : null}
 
@@ -283,7 +286,7 @@ export function DashboardHome({
             Aucun courrier reçu pour le moment.
           </p>
         ) : (
-          <ul className="divide-y divide-border overflow-hidden rounded-sm border border-border bg-card">
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-background/60">
             {recent.map((courrier) => {
               return (
                 <li key={courrier._id}>
@@ -337,10 +340,10 @@ function Section({
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-3">
+    <section className="sc-dash-card space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
+          <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
             {Icon ? <Icon className="size-4 text-brand" /> : null}
             {title}
           </h3>
@@ -435,14 +438,14 @@ function AlertsBlock({
               onClick={item.onClick}
               className={
                 item.tone === "amber"
-                  ? "flex w-full items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left"
-                  : "flex w-full items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left hover:bg-secondary/40"
+                  ? "flex w-full items-start gap-3 rounded-xl border border-brand/25 bg-brand-soft px-4 py-3 text-left"
+                  : "flex w-full items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left hover:bg-brand-soft/40"
               }
             >
               <Icon
                 className={
                   item.tone === "amber"
-                    ? "mt-0.5 size-4 shrink-0 text-amber-700"
+                    ? "mt-0.5 size-4 shrink-0 text-brand-deep"
                     : "mt-0.5 size-4 shrink-0 text-brand"
                 }
               />
@@ -538,7 +541,7 @@ function EnterprisePanel({
   const [busyId, setBusyId] = useState<string | null>(null);
 
   return (
-    <div className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+    <div className="space-y-4">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Metric
           label="Courriers actifs"
@@ -548,7 +551,7 @@ function EnterprisePanel({
         <Metric
           label="En cours / à traiter"
           value={overview.totals.open}
-          className="border-amber-200/80 bg-amber-50/80 text-amber-900"
+          className="border-brand/20 bg-brand-soft text-brand-deep"
           onClick={() => setDrill("open")}
         />
         <Metric
@@ -1211,9 +1214,9 @@ function StatTile({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-xl border border-border/60 bg-card p-3 text-left transition hover:border-brand/30"
+      className="rounded-xl border border-border bg-background/70 p-3.5 text-left shadow-sm transition hover:border-brand/40 hover:bg-brand-soft/50"
     >
-      <p className="text-2xl font-semibold tabular-nums text-foreground">
+      <p className="text-2xl font-semibold tabular-nums tracking-tight text-brand-deep">
         {value}
       </p>
       <p className="text-xs font-medium text-foreground">{label}</p>
@@ -1237,9 +1240,9 @@ function QuickLink({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-start gap-3 rounded-xl border border-border/60 bg-card p-3 text-left transition hover:border-brand/30 hover:bg-secondary/30"
+      className="flex items-start gap-3 rounded-xl border border-border bg-background/70 p-3.5 text-left shadow-sm transition hover:border-brand/40 hover:bg-brand-soft/40"
     >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
         <Icon className="size-4" />
       </span>
       <span>

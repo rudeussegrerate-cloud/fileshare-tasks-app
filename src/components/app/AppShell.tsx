@@ -359,7 +359,7 @@ export function AppShell({
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-5 lg:px-8 lg:py-7">
+          <main className="sc-shell-main flex-1 px-4 py-5 lg:px-8 lg:py-7">
             <div className="sc-fade-in mx-auto w-full max-w-6xl">{children}</div>
           </main>
         </div>

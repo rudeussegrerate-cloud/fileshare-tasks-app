@@ -816,3 +816,32 @@ a:focus-visible,
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+
+/* Dashboard — harmonisé avec login violet, contenu lisible */
+.sc-dash-hero {
+  border-radius: 1.25rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 22%, var(--border));
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, var(--brand-soft) 100%);
+  padding: 1.25rem 1.35rem;
+  box-shadow: var(--shadow-sm);
+}
+.sc-dash-card {
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--brand) 12%, var(--border));
+  background: var(--card);
+  padding: 1rem 1.15rem;
+  box-shadow: var(--shadow-sm);
+}
+.sc-dash-card .sc-metric,
+.sc-dash-card [class*="grid"] > button,
+.sc-dash-card [class*="grid"] > a {
+  border-radius: 0.85rem;
+}
+/* Zone principale alignée palette login */
+.sc-shell-main {
+  background:
+    radial-gradient(ellipse 80% 50% at 100% 0%, color-mix(in srgb, var(--brand) 8%, transparent), transparent 55%),
+    var(--background);
+}
