@@ -526,6 +526,22 @@ export const send = mutation({
     requiresResponse: v.optional(v.boolean()),
     /** Structure qui émet le courrier (pour le N° hiérarchique) */
     emittingDepartmentId: v.optional(v.id("departments")),
+    /** Champs additionnels (max 8) */
+    customFields: v.optional(
+      v.array(
+        v.object({
+          label: v.string(),
+          value: v.string(),
+          source: v.optional(
+            v.union(
+              v.literal("manual"),
+              v.literal("courrier"),
+              v.literal("structure"),
+            ),
+          ),
+        }),
+      ),
+    ),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -917,6 +933,15 @@ export const send = mutation({
       onBehalfOfUserId = undefined;
     }
 
+    const sanitizedCustomFields = (args.customFields ?? [])
+      .slice(0, 8)
+      .map((f) => ({
+        label: f.label.trim().slice(0, 80),
+        value: f.value.trim().slice(0, 500),
+        source: f.source,
+      }))
+      .filter((f) => f.label.length > 0 && f.value.length > 0);
+
     // Courrier parent (réponse)
     let parentCourrierId = args.parentCourrierId;
     let referenceText = args.referenceText?.trim().slice(0, 500) || undefined;
@@ -956,6 +981,7 @@ export const send = mutation({
       onBehalfOfName,
       onBehalfOfFunction,
       onBehalfOfDepartment,
+      customFields: sanitizedCustomFields,
       extractedText: args.extractedText?.slice(0, 40000),
       summaryStatus: "en_attente",
       senderId: userId,

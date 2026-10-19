@@ -95,6 +95,13 @@ export function SendDocument({
     replyTo?.objet ? `Réponse à : ${replyTo.objet}` : "",
   );
   const [observations, setObservations] = useState("");
+  const [customFields, setCustomFields] = useState<
+    Array<{
+      label: string;
+      value: string;
+      source?: "manual" | "courrier" | "structure";
+    }>
+  >([]);
   const [referenceText, setReferenceText] = useState(
     replyTo?.publicRef ? replyTo.publicRef : "",
   );
@@ -457,6 +464,14 @@ export function SendDocument({
             onBehalfType === "external"
               ? onBehalfDepartmentText.trim() || undefined
               : undefined,
+          customFields: customFields
+            .filter((f) => f.label.trim() && f.value.trim())
+            .slice(0, 8)
+            .map((f) => ({
+              label: f.label.trim(),
+              value: f.value.trim(),
+              source: f.source,
+            })),
         });
         count += 1;
       }
@@ -1374,6 +1389,174 @@ export function SendDocument({
                 </p>
               </div>
 
+              <div className="space-y-3 rounded-lg border border-dashed border-border bg-muted/25 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-medium">Champs complémentaires</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Optionnel — les champs de base restent obligatoires.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    disabled={customFields.length >= 8}
+                    onClick={() =>
+                      setCustomFields((prev) => [
+                        ...prev,
+                        { label: "", value: "", source: "manual" },
+                      ])
+                    }
+                  >
+                    + Ajouter un champ
+                  </Button>
+                </div>
+                {customFields.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    Ex. Priorité, mention spéciale, référence interne…
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {customFields.map((field, i) => (
+                      <div
+                        key={i}
+                        className="space-y-2 rounded-md border border-border bg-card p-2.5"
+                      >
+                        <div className="flex gap-2">
+                          <Input
+                            value={field.label}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              setCustomFields((prev) =>
+                                prev.map((f, j) =>
+                                  j === i ? { ...f, label: v } : f,
+                                ),
+                              );
+                            }}
+                            placeholder="Libellé"
+                            className="h-8 flex-1 text-sm"
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 text-destructive"
+                            onClick={() =>
+                              setCustomFields((prev) =>
+                                prev.filter((_, j) => j !== i),
+                              )
+                            }
+                          >
+                            Retirer
+                          </Button>
+                        </div>
+                        <Input
+                          value={field.value}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setCustomFields((prev) =>
+                              prev.map((f, j) =>
+                                j === i
+                                  ? { ...f, value: v, source: "manual" as const }
+                                  : f,
+                              ),
+                            );
+                          }}
+                          placeholder="Valeur"
+                          className="h-8 text-sm"
+                        />
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] text-muted-foreground">
+                            Depuis le site :
+                          </span>
+                          <select
+                            className="h-7 max-w-[12rem] rounded-md border border-border bg-background px-1.5 text-[11px]"
+                            defaultValue=""
+                            onChange={(e) => {
+                              const ref = e.target.value;
+                              if (!ref) return;
+                              setCustomFields((prev) =>
+                                prev.map((f, j) =>
+                                  j === i
+                                    ? {
+                                        ...f,
+                                        value: ref,
+                                        source: "courrier" as const,
+                                        label: f.label.trim() || "Réf. liée",
+                                      }
+                                    : f,
+                                ),
+                              );
+                              e.target.value = "";
+                            }}
+                          >
+                            <option value="">Courrier reçu…</option>
+                            {(receivedRefs ?? []).map(
+                              (r: { documentId: string; publicRef?: string | null }) =>
+                                r.publicRef ? (
+                                  <option key={r.documentId} value={r.publicRef}>
+                                    {r.publicRef}
+                                  </option>
+                                ) : null,
+                            )}
+                          </select>
+                          <select
+                            className="h-7 max-w-[12rem] rounded-md border border-border bg-background px-1.5 text-[11px]"
+                            defaultValue=""
+                            onChange={(e) => {
+                              const name = e.target.value;
+                              if (!name) return;
+                              setCustomFields((prev) =>
+                                prev.map((f, j) =>
+                                  j === i
+                                    ? {
+                                        ...f,
+                                        value: name,
+                                        source: "structure" as const,
+                                        label:
+                                          f.label.trim() || "Structure liée",
+                                      }
+                                    : f,
+                                ),
+                              );
+                              e.target.value = "";
+                            }}
+                          >
+                            <option value="">Structure…</option>
+                            {(departments ?? [])
+                              .filter(
+                                (d: { active?: boolean }) => d.active !== false,
+                              )
+                              .map(
+                                (d: {
+                                  _id: string;
+                                  code?: string | null;
+                                  name: string;
+                                }) => (
+                                  <option
+                                    key={d._id}
+                                    value={
+                                      d.code
+                                        ? `${d.code} — ${d.name}`
+                                        : d.name
+                                    }
+                                  >
+                                    {d.code
+                                      ? `${d.code} — ${d.name}`
+                                      : d.name}
+                                  </option>
+                                ),
+                              )}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-3">
                 <Label>
                   <span data-scandoc-tour="send-tasks">Tâches à réaliser </span>
@@ -1538,6 +1721,19 @@ export function SendDocument({
                       {observations.trim() || "—"}
                     </dd>
                   </div>
+                  {customFields.some((f) => f.label.trim() && f.value.trim()) ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="shrink-0 text-muted-foreground">
+                        Compléments
+                      </dt>
+                      <dd className="max-w-[65%] text-right text-xs leading-relaxed">
+                        {customFields
+                          .filter((f) => f.label.trim() && f.value.trim())
+                          .map((f) => `${f.label} : ${f.value}`)
+                          .join(" · ")}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">Tâches</dt>
                     <dd className="max-w-[65%] text-right font-medium">

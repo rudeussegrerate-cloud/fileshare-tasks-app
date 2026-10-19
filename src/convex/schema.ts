@@ -182,6 +182,22 @@ const schema = defineSchema(
       onBehalfOfName: v.optional(v.string()),
       onBehalfOfFunction: v.optional(v.string()),
       onBehalfOfDepartment: v.optional(v.string()),
+      /** Champs complémentaires ajoutés par l'émetteur (optionnels) */
+      customFields: v.optional(
+        v.array(
+          v.object({
+            label: v.string(),
+            value: v.string(),
+            source: v.optional(
+              v.union(
+                v.literal("manual"),
+                v.literal("courrier"),
+                v.literal("structure"),
+              ),
+            ),
+          }),
+        ),
+      ),
       // text pulled from the file on the client, used to build the summary
       extractedText: v.optional(v.string()),
       summary: v.optional(v.string()),

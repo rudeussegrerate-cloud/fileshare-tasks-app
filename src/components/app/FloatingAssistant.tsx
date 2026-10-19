@@ -534,24 +534,27 @@ export function FloatingAssistant() {
       setIdleEmotion("idle");
       return;
     }
+    // Séquence douce : peu de changements, majoritairement calme
     const sequence: IdleEmotion[] = [
       "idle",
-      "look",
-      "curious",
-      "wave",
-      "happy",
-      "think",
-      "excited",
       "idle",
       "look",
+      "idle",
+      "curious",
+      "idle",
+      "think",
+      "idle",
+      "happy",
+      "idle",
       "sleep",
+      "idle",
     ];
     let i = 0;
     const tick = () => {
       i = (i + 1) % sequence.length;
       setIdleEmotion(sequence[i]!);
     };
-    const id = window.setInterval(tick, 2600);
+    const id = window.setInterval(tick, 4500);
     return () => window.clearInterval(id);
   }, [open, dragging]);
 

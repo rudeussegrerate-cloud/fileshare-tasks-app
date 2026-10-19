@@ -382,6 +382,33 @@ export function DocumentDetailDialog({
               </p>
             </section>
 
+            {Array.isArray(
+              (documentOrNull as { customFields?: { label: string; value: string }[] })
+                .customFields,
+            ) &&
+            (
+              (documentOrNull as { customFields?: { label: string; value: string }[] })
+                .customFields?.length ?? 0
+            ) > 0 ? (
+              <section className="space-y-2 rounded-sm border border-border bg-card px-4 py-3 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Champs complémentaires
+                </p>
+                <ul className="space-y-1">
+                  {(
+                    documentOrNull as {
+                      customFields: { label: string; value: string }[];
+                    }
+                  ).customFields.map((f, i) => (
+                    <li key={i}>
+                      <span className="text-muted-foreground">{f.label} : </span>
+                      <span className="font-medium">{f.value}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
             {documentOrNull.objet ? (
               <section className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
