@@ -39,7 +39,6 @@ import {
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
-import mndptLogo from "@/assets/mndpt-logo.jpg";
 import { NotificationsBell } from "./NotificationsBell";
 import { OnlinePeople } from "./OnlinePeople";
 import { PresenceDot } from "./PresenceDot";
@@ -297,18 +296,7 @@ export function AppShell({
 
   return (
     <div className="sc-app-shell relative min-h-screen overflow-hidden bg-[#f3f0fa]">
-      {/* Logo en filigrane — discret sur fond clair */}
-      <div
-        className="pointer-events-none absolute inset-0 z-0"
-        aria-hidden
-        style={{
-          backgroundImage: `url(${mndptLogo})`,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center 40%",
-          backgroundSize: "min(55vmin, 420px)",
-          opacity: 0.06,
-        }}
-      />
+      {
       <div className="relative z-10 mx-auto flex w-full max-w-[1280px]">
         {/* Sidebar desktop */}
         <aside className="sc-shell-sidebar sticky top-0 hidden h-screen w-[15.5rem] shrink-0 flex-col border-r px-3 py-5 lg:flex">

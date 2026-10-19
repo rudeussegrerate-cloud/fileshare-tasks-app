@@ -12,15 +12,20 @@ import { FileManagerView } from "@/components/app/FileManagerView";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { SmartTips } from "@/components/app/SmartTips";
-import { FloatingAssistant } from "@/components/app/FloatingAssistant";
 import { SettingsView } from "@/components/app/SettingsView";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { MndptLoader } from "@/components/MndptLoader";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+
+const FloatingAssistant = lazy(() =>
+  import("@/components/app/FloatingAssistant").then((m) => ({
+    default: m.FloatingAssistant,
+  })),
+);
 
 class ViewErrorBoundary extends React.Component<
   { children: React.ReactNode; label: string },
@@ -190,7 +195,9 @@ export default function Dashboard() {
         </ViewErrorBoundary>
       ) : null}
 
-      <FloatingAssistant />
+      <Suspense fallback={null}>
+        <FloatingAssistant />
+      </Suspense>
       <SmartTips />
 
       <ViewErrorBoundary label="la fiche document">

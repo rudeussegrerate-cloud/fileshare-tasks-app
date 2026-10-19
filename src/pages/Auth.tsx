@@ -16,8 +16,6 @@ import {
 } from "@/components/ui/tabs";
 
 import { useAuth } from "@/hooks/use-auth";
-import mndptLoginBg from "@/assets/mndpt-login-bg.jpg";
-import loginBackdrop from "@/assets/login-backdrop.jpg";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -328,26 +326,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   return (
-    <div className="relative isolate min-h-screen overflow-hidden bg-[#231a52] text-white">
-      <img
-        src={loginBackdrop}
-        alt=""
-        className="pointer-events-none absolute inset-0 -z-20 h-full w-full object-cover"
+    <div className="relative isolate min-h-screen overflow-hidden bg-[#1b1440] text-white">
+      {/* Fond dégradé léger — sans photo (perf + clarté) */}
+      <div
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-[#1b1440] via-[#2a1f5c] to-[#3b2f7a]"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-br from-[#0a0828]/55 via-[#0a0828]/20 to-[#0a0828]/40"
+        className="pointer-events-none absolute -left-24 top-1/4 -z-10 size-[28rem] rounded-full bg-[#5b4cdb]/25 blur-3xl"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-0 -z-10 opacity-[0.12]"
+        className="pointer-events-none absolute -right-16 bottom-0 -z-10 size-[22rem] rounded-full bg-[#00a3e0]/15 blur-3xl"
         aria-hidden
-        style={{
-          backgroundImage: `url(${mndptLoginBg})`,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center left",
-          backgroundSize: "min(48vw, 420px)",
-        }}
       />
 
       <main className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-4 py-12 lg:grid-cols-[1.1fr_minmax(0,440px)] lg:gap-16 lg:px-10">
@@ -372,7 +363,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         </div>
 
         <section
-          className="w-full rounded-[28px] border border-white/40 bg-white/20 p-6 shadow-[0_30px_60px_-16px_rgba(8,6,30,0.6)] backdrop-blur-[28px] sm:p-9"
+          className="w-full rounded-[28px] border border-white/40 bg-white/20 p-6 shadow-[0_30px_60px_-16px_rgba(8,6,30,0.6)] backdrop-blur-md sm:p-9"
           aria-labelledby="scandoc-auth-title"
         >
           <div className="mb-6 lg:hidden">
