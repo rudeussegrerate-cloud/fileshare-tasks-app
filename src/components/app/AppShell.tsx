@@ -154,7 +154,7 @@ function NavList({
         if (items.length === 0) return null;
         return (
           <div key={group.title}>
-            <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/90">
               {group.title}
             </p>
             <div className="space-y-0.5">
@@ -299,7 +299,7 @@ export function AppShell({
       <div className="mt-3 border-t border-border pt-3">
         <button
           type="button"
-          className="mb-1 flex w-full items-center justify-between px-3 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
+          className="mb-1 flex w-full items-center justify-between px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/90 hover:text-foreground"
           onClick={() => setPeopleOpen((v) => !v)}
         >
           Collègues
@@ -322,12 +322,12 @@ export function AppShell({
     <div className="min-h-screen bg-muted/30">
       <div className="mx-auto flex w-full max-w-[1280px]">
         {/* Sidebar desktop */}
-        <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-border/70 bg-card/90 px-3 py-5 lg:flex">
+        <aside className="sticky top-0 hidden h-screen w-[15.5rem] shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-5 lg:flex">
           {sidebarInner}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border/60 bg-card/95 px-4 py-3.5 shadow-sm backdrop-blur-md lg:px-8">
+          <header className="sc-app-header sticky top-0 z-20 flex items-center justify-between gap-3 px-4 py-3.5 lg:px-8">
             <div className="flex items-center gap-3">
               <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
                 <SheetTrigger asChild>
@@ -389,8 +389,8 @@ export function AppShell({
             </div>
           </header>
 
-          <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
-            <div className="sc-fade-in mx-auto w-full max-w-4xl">{children}</div>
+          <main className="flex-1 px-4 py-5 lg:px-8 lg:py-7">
+            <div className="sc-fade-in mx-auto w-full max-w-[52rem]">{children}</div>
           </main>
         </div>
       </div>

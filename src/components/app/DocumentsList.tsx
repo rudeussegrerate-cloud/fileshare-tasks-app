@@ -161,7 +161,7 @@ export function DocumentsList({
             )}
           </div>
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">
+            <h2 className="sc-page-title">
               {mode === "inbox" ? "Courriers reçus" : "Courriers envoyés"}
             </h2>
             <p className="text-xs text-muted-foreground">
@@ -272,7 +272,7 @@ export function DocumentsList({
                     type="button"
                     onClick={() => onOpen(document._id)}
                     className={cn(
-                      "group flex w-full items-start gap-3 rounded-sm border border-border bg-card p-3 text-left transition-all hover:border-brand-sky/50 sm:gap-4 sm:p-4",
+                      "sc-mail-row group flex w-full items-start gap-3 p-3 text-left sm:gap-4 sm:p-4",
                       document.archivedAt && "opacity-70",
                     )}
                   >

@@ -65,7 +65,7 @@
     - Cyan #00A3E0  → lettre T
     Fond clair neutre pour lisibilité institutionnelle.
   */
-  --background: #f4f7fa;
+  --background: #f0f4f8;
   --foreground: #1a2332;
   --card: #ffffff;
   --card-foreground: #1a2332;
@@ -105,9 +105,9 @@
   --sidebar-border: #dce4ec;
   --sidebar-ring: #0066b3;
 
-  --shadow-sm: 0 1px 2px rgba(0, 51, 102, 0.05);
-  --shadow-md: 0 2px 8px rgba(0, 51, 102, 0.07), 0 0 0 1px rgba(0, 51, 102, 0.04);
-  --shadow-lg: 0 8px 24px rgba(0, 51, 102, 0.09), 0 0 0 1px rgba(0, 51, 102, 0.04);
+  --shadow-sm: 0 1px 2px rgba(15, 40, 70, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 40, 70, 0.06), 0 0 0 1px rgba(15, 40, 70, 0.03);
+  --shadow-lg: 0 12px 32px rgba(15, 40, 70, 0.08), 0 0 0 1px rgba(15, 40, 70, 0.04);
 }
 
 .dark {
@@ -164,6 +164,7 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family:
+      "Inter",
       "Segoe UI",
       system-ui,
       -apple-system,
@@ -173,41 +174,43 @@
       Arial,
       sans-serif;
     font-size: 15px;
-    line-height: 1.5;
-    letter-spacing: 0.01em;
+    line-height: 1.55;
+    letter-spacing: 0.005em;
     text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
   }
 
-  /* Hiérarchie typographique (Material / HIG) */
+  /* Typo institutionnelle claire (sans-serif partout = plus pro, moins « AI ») */
   h1 {
-    font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
-    font-size: 1.75rem;
-    line-height: 1.25;
-    letter-spacing: -0.025em;
-    font-weight: 600;
-  }
-  h2 {
-    font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
-    font-size: 1.35rem;
+    font-size: 1.625rem;
     line-height: 1.3;
     letter-spacing: -0.02em;
-    font-weight: 600;
+    font-weight: 650;
+    color: var(--foreground);
   }
-  h3 {
-    font-family: Georgia, "Times New Roman", "Palatino Linotype", serif;
-    font-size: 1.1rem;
+  h2 {
+    font-size: 1.25rem;
     line-height: 1.35;
     letter-spacing: -0.015em;
     font-weight: 600;
   }
+  h3 {
+    font-size: 1.05rem;
+    line-height: 1.4;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+  }
 
-  /* Accessibilité : focus visible (This is for everyone) */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
   }
 
-  /* Réduction de mouvement */
+  ::selection {
+    background: color-mix(in srgb, var(--brand) 22%, transparent);
+    color: var(--foreground);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
@@ -223,60 +226,90 @@
 }
 
 @layer components {
-  /* Carte standard — élévation légère, bordure discrète */
+  /* Cartes — ombre douce, coins homogènes */
   .fb-card {
-    @apply rounded-xl border border-border/60 bg-card;
-    box-shadow: var(--shadow-md);
+    @apply rounded-lg border border-border/80 bg-card;
+    box-shadow: var(--shadow-sm);
   }
 
   .editorial-panel {
-    @apply rounded-xl bg-card px-5 py-6 sm:px-6 sm:py-8;
-    box-shadow: var(--shadow-md);
+    @apply rounded-lg border border-border/70 bg-card px-5 py-5 sm:px-6 sm:py-6;
+    box-shadow: var(--shadow-sm);
   }
 
-  /* Section de page (hiérarchie visuelle) */
   .sc-section {
     @apply space-y-3;
   }
 
   .sc-section-title {
-    @apply text-xs font-semibold uppercase tracking-wider text-muted-foreground;
+    @apply text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground;
   }
 
-  /* Tuile métrique cliquable */
+  .sc-page-title {
+    @apply text-xl font-semibold tracking-tight text-foreground sm:text-[1.35rem];
+  }
+
+  .sc-page-sub {
+    @apply mt-1 text-sm text-muted-foreground;
+  }
+
   .sc-metric {
-    @apply rounded-xl border border-border/70 bg-card px-3 py-3 text-left transition;
+    @apply rounded-lg border border-border/80 bg-card px-3.5 py-3.5 text-left transition-all duration-150;
     box-shadow: var(--shadow-sm);
   }
   .sc-metric:hover {
-    border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
+    border-color: color-mix(in srgb, var(--brand) 40%, var(--border));
+    box-shadow: var(--shadow-md);
     background: var(--brand-soft);
   }
 
-  /* Lien de navigation latérale */
+  /* Navigation : accent latéral discret (pas de bloc coloré saturé) */
   .sc-nav-item {
-    @apply flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition;
+    @apply relative flex w-full items-center gap-2.5 rounded-md px-3 py-2 text-[13.5px] font-medium text-muted-foreground transition-colors duration-150;
   }
   .sc-nav-item:hover {
-    @apply bg-secondary/80 text-foreground;
+    @apply bg-secondary/90 text-foreground;
   }
   .sc-nav-item[data-active="true"] {
-    @apply bg-brand text-primary-foreground shadow-sm;
+    @apply bg-brand-soft font-semibold text-brand;
+  }
+  .sc-nav-item[data-active="true"]::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 20%;
+    bottom: 20%;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    background: var(--brand);
   }
 
-  /* Zone de contenu principale */
   .sc-main {
     @apply mx-auto w-full max-w-4xl;
   }
 
-  /* Fade d'entrée doux (désactivé si reduced-motion) */
+  /* En-tête de page applicative */
+  .sc-app-header {
+    @apply sticky top-0 z-20 border-b border-border/80 bg-card/90 backdrop-blur-md;
+  }
+
+  /* Liste de courriers */
+  .sc-mail-row {
+    @apply rounded-lg border border-border/80 bg-card transition-all duration-150;
+    box-shadow: var(--shadow-sm);
+  }
+  .sc-mail-row:hover {
+    border-color: color-mix(in srgb, var(--brand) 30%, var(--border));
+    box-shadow: var(--shadow-md);
+  }
+
   .sc-fade-in {
-    animation: sc-fade-in 0.28s ease-out;
+    animation: sc-fade-in 0.32s ease-out;
   }
   @keyframes sc-fade-in {
     from {
       opacity: 0;
-      transform: translateY(4px);
+      transform: translateY(6px);
     }
     to {
       opacity: 1;
@@ -288,7 +321,7 @@
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #c9bba8 transparent;
+    scrollbar-color: color-mix(in srgb, var(--border) 80%, #94a3b8) transparent;
   }
   .shadow-elevated {
     box-shadow: var(--shadow-md);
