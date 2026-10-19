@@ -538,21 +538,31 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
               Continuer avec Google
             </Button>
 
-            <div className="relative mb-4">
+            <div className="relative mb-5">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
+                <span className="w-full border-t border-white/35" />
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">
+              <div className="relative flex justify-center text-xs uppercase tracking-wide">
+                <span className="bg-[#1e1750] px-3 font-semibold text-white/90">
                   ou avec email
                 </span>
               </div>
             </div>
 
             <Tabs defaultValue="signIn">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signIn">Se connecter</TabsTrigger>
-                <TabsTrigger value="signUp">Créer un compte</TabsTrigger>
+              <TabsList className="auth-tabs grid h-12 w-full grid-cols-2 gap-1 rounded-full border border-white/25 bg-white/10 p-1">
+                <TabsTrigger
+                  value="signIn"
+                  className="rounded-full text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-[#1a1238] data-[state=inactive]:text-white/90"
+                >
+                  Se connecter
+                </TabsTrigger>
+                <TabsTrigger
+                  value="signUp"
+                  className="rounded-full text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-[#1a1238] data-[state=inactive]:text-white/90"
+                >
+                  Créer un compte
+                </TabsTrigger>
               </TabsList>
 
               <TabsContent value="signIn" className="mt-5">
@@ -582,7 +592,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     />
                     <button
                       type="button"
-                      className="text-sm font-medium text-brand underline-offset-2 hover:underline"
+                      className="mt-1 text-sm font-bold text-white underline underline-offset-4 hover:text-white/90"
                       onClick={() => {
                         setAuthView("forgot");
                         setError(null);
