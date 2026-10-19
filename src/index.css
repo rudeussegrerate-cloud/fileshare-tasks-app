@@ -65,50 +65,53 @@
     - Cyan #00A3E0  → lettre T
     Fond clair neutre pour lisibilité institutionnelle.
   */
-  --background: #eef2f7;
-  --foreground: #152033;
+  /* Contenu clair type admin (Filament-inspired, sobre) */
+  --background: #f1f5f9;
+  --foreground: #0f172a;
   --card: #ffffff;
-  --card-foreground: #1a2332;
+  --card-foreground: #0f172a;
   --popover: #ffffff;
-  --popover-foreground: #1a2332;
-  --primary: #0066b3;
+  --popover-foreground: #0f172a;
+  --primary: #2563eb;
   --primary-foreground: #ffffff;
-  --secondary: #e8f0f7;
-  --secondary-foreground: #1a2332;
-  --muted: #eef2f6;
-  --muted-foreground: #5c6b7c;
-  --accent: #e6f4ec;
-  --accent-foreground: #007a3d;
-  --destructive: #e31c23;
-  --border: #d0d9e4;
-  --input: #b8c5d4;
-  --ring: #0066b3;
+  --secondary: #e2e8f0;
+  --secondary-foreground: #0f172a;
+  --muted: #e2e8f0;
+  --muted-foreground: #475569;
+  --accent: #e8f1f8;
+  --accent-foreground: #1e3a5f;
+  --destructive: #dc2626;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --ring: #2563eb;
 
-  --brand: #0066b3;
-  --brand-deep: #004d8c;
-  --brand-sky: #3d8fd1;
+  --brand: #2563eb;
+  --brand-deep: #1d4ed8;
+  --brand-sky: #3b82f6;
   --brand-accent: #007a3d;
-  --brand-soft: #e8f1f8;
+  --brand-soft: #eff6ff;
 
-  --chart-1: #0066b3;
+  --chart-1: #2563eb;
   --chart-2: #007a3d;
   --chart-3: #f36c00;
-  --chart-4: #e31c23;
-  --chart-5: #00a3e0;
+  --chart-4: #dc2626;
+  --chart-5: #0ea5e9;
 
-  --sidebar: #f8fafc;
-  --sidebar-foreground: #1a2332;
-  --sidebar-primary: #0066b3;
+  /* Sidebar sombre permanente (comme la référence admin) */
+  --sidebar: #0b1220;
+  --sidebar-foreground: #e2e8f0;
+  --sidebar-primary: #3b82f6;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e8f1f8;
-  --sidebar-accent-foreground: #004d8c;
-  --sidebar-border: #e2e8f0;
-  --sidebar-ring: #0066b3;
+  --sidebar-accent: #1e293b;
+  --sidebar-accent-foreground: #f1f5f9;
+  --sidebar-border: #1e293b;
+  --sidebar-ring: #3b82f6;
+  --sidebar-muted: #94a3b8;
 
-  --shadow-sm: 0 1px 2px rgba(15, 40, 70, 0.05), 0 1px 3px rgba(15, 40, 70, 0.04);
-  --shadow-md: 0 4px 14px rgba(15, 40, 70, 0.07), 0 2px 4px rgba(15, 40, 70, 0.04);
-  --shadow-lg: 0 14px 38px rgba(15, 40, 70, 0.10), 0 4px 10px rgba(15, 40, 70, 0.05);
-  --shadow-brand: 0 8px 24px rgba(0, 102, 179, 0.22), 0 2px 6px rgba(0, 102, 179, 0.12);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.08);
+  --shadow-brand: 0 4px 14px rgba(37, 99, 235, 0.25);
 }
 
 .dark {
@@ -412,7 +415,7 @@
   transition: background-color 0.18s ease, color 0.18s ease, transform 0.15s ease;
 }
 .sc-nav-item:hover {
-  transform: translateX(2px);
+  transform: none;
 }
 [data-scandoc-tour] {
   scroll-margin-top: 5rem;
@@ -424,7 +427,7 @@
   border-radius: 0.5rem;
 }
 .sc-nav-item:hover {
-  transform: translateX(1px);
+  transform: none;
 }
 button:focus-visible,
 a:focus-visible,
@@ -521,18 +524,19 @@ a:focus-visible,
     filter: brightness(0.98);
   }
 
-  /* Élément de navigation actif — dégradé + halo */
+  /* Nav active — style admin sobre (pas de dégradé saturé) */
   .sc-nav-item[data-active="true"] {
-    background: linear-gradient(90deg, var(--brand) 0%, color-mix(in srgb, var(--brand) 82%, var(--brand-sky)) 100%);
+    background: color-mix(in srgb, var(--sidebar-primary) 18%, transparent);
     color: #fff;
-    box-shadow: var(--shadow-brand);
+    box-shadow: none;
   }
   .sc-nav-item[data-active="true"]:hover {
-    background: linear-gradient(90deg, var(--brand) 0%, color-mix(in srgb, var(--brand) 82%, var(--brand-sky)) 100%);
+    background: color-mix(in srgb, var(--sidebar-primary) 24%, transparent);
     color: #fff;
   }
   .sc-nav-item[data-active="true"]::before {
-    display: none;
+    display: block;
+    background: var(--sidebar-primary);
   }
 
   /* Apparition en cascade (à combiner avec un délai inline) */
@@ -710,4 +714,49 @@ a:focus-visible,
 }
 .sc-metric:hover {
   transform: none;
+}
+
+
+/* Shell admin — sidebar sombre + zone contenu claire */
+.sc-shell-sidebar {
+  background: var(--sidebar);
+  color: var(--sidebar-foreground);
+  border-color: var(--sidebar-border);
+  /* local tokens so logo / titres restent lisibles sur fond sombre */
+  --foreground: #e2e8f0;
+  --muted-foreground: #94a3b8;
+  --background: #0b1220;
+  --card: #132033;
+  --border: #1e293b;
+  --secondary: #1e293b;
+}
+.sc-shell-sidebar .sc-nav-item {
+  color: var(--sidebar-muted, #94a3b8);
+}
+.sc-shell-sidebar .sc-nav-item:hover {
+  background: var(--sidebar-accent);
+  color: var(--sidebar-foreground);
+}
+.sc-shell-sidebar .text-muted-foreground {
+  color: var(--sidebar-muted, #94a3b8) !important;
+}
+.sc-shell-sidebar .border-border,
+.sc-shell-sidebar .border-sidebar-border {
+  border-color: var(--sidebar-border) !important;
+}
+.sc-metric {
+  border-radius: 0.75rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
+.sc-metric:hover {
+  background: var(--card);
+  border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
+  box-shadow: var(--shadow-sm);
+}
+.sc-shell-header {
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(8px);
 }

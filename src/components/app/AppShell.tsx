@@ -295,10 +295,10 @@ export function AppShell({
   );
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="min-h-screen bg-background">
       <div className="mx-auto flex w-full max-w-[1280px]">
         {/* Sidebar desktop */}
-        <aside className="sticky top-0 hidden h-screen w-[15.5rem] shrink-0 flex-col border-r border-sidebar-border bg-sidebar px-3 py-5 lg:flex">
+        <aside className="sc-shell-sidebar sticky top-0 hidden h-screen w-[15.5rem] shrink-0 flex-col border-r px-3 py-5 lg:flex">
           {sidebarInner}
         </aside>
 
@@ -311,7 +311,7 @@ export function AppShell({
                     <Menu className="size-4" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="flex w-72 flex-col p-4">
+                <SheetContent side="left" className="sc-shell-sidebar flex w-72 flex-col border-sidebar-border p-4">
                   <SheetHeader className="p-0">
                     <SheetTitle className="sr-only">Menu ScanDoc</SheetTitle>
                   </SheetHeader>
@@ -360,7 +360,7 @@ export function AppShell({
           </header>
 
           <main className="flex-1 px-4 py-5 lg:px-8 lg:py-7">
-            <div className="sc-fade-in mx-auto w-full max-w-[52rem]">{children}</div>
+            <div className="sc-fade-in mx-auto w-full max-w-6xl">{children}</div>
           </main>
         </div>
       </div>
