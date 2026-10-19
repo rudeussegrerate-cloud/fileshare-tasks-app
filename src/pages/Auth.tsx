@@ -327,41 +327,43 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#eef4f9] px-4 py-12">
-      {/* Fond logo MNDPT */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        aria-hidden
-        style={{
-          backgroundImage: `url(${mndptLoginBg})`,
-          backgroundRepeat: "no-repeat",
-          backgroundPosition: "center center",
-          backgroundSize: "min(72vw, 520px)",
-          opacity: 0.14,
-        }}
-      />
-      {/* Voile clair pour lisibilité du formulaire */}
-      <div
-        className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/70 via-[#eef4f9]/80 to-[#eef4f9]/95"
-        aria-hidden
-      />
-
-      <div className="relative z-10 w-full max-w-md">
+    <div className="relative grid min-h-screen overflow-hidden bg-[#f6f8fb] lg:grid-cols-[minmax(0,0.92fr)_minmax(520px,1.08fr)]">
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(0,102,179,0.08),transparent_48%)]" />
+      <aside
+        className="relative hidden min-h-full flex-col justify-between overflow-hidden bg-[#092b49] px-10 py-10 text-white lg:flex xl:px-14 xl:py-12"
+        style={{ backgroundImage: `linear-gradient(145deg, rgba(7, 36, 62, 0.97), rgba(0, 82, 145, 0.88)), url(${mndptLoginBg})`, backgroundSize: "cover", backgroundPosition: "center" }}
+      >
+        <div aria-hidden className="pointer-events-none absolute -right-24 top-24 size-80 rounded-full border border-white/10" />
+        <div aria-hidden className="pointer-events-none absolute -right-10 top-36 size-52 rounded-full border border-white/10" />
+        <div className="relative z-10">
+          <div className="inline-flex items-center gap-3 rounded-2xl border border-white/15 bg-white/10 px-4 py-3 backdrop-blur-sm">
+            <BrandLogo className="[&_span_span:first-child]:text-white [&_span_span:last-child]:text-blue-100" />
+          </div>
+        </div>
+        <div className="relative z-10 my-12 max-w-xl">
+          <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-emerald-200/25 bg-emerald-300/10 px-3 py-1.5 text-xs font-semibold tracking-wide text-emerald-100"><span className="size-1.5 rounded-full bg-emerald-300" />ESPACE PROFESSIONNEL SÉCURISÉ</p>
+          <h1 className="max-w-lg text-4xl font-semibold leading-[1.12] tracking-tight text-white xl:text-5xl">Vos documents, <span className="text-sky-200">en toute clarté.</span></h1>
+          <p className="mt-5 max-w-md text-base leading-7 text-blue-100/85">Retrouvez un espace de travail conçu pour faciliter les échanges, suivre les transmissions et garder chaque étape visible.</p>
+          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-sm"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-emerald-200"><ShieldCheck className="size-5" /></span><span><span className="block text-sm font-semibold text-white">Accès maîtrisé</span><span className="mt-1 block text-xs leading-5 text-blue-100/75">Un espace réservé au personnel autorisé.</span></span></div>
+            <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.07] p-4 backdrop-blur-sm"><span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/10 text-sky-200"><ArrowRight className="size-5" /></span><span><span className="block text-sm font-semibold text-white">Suivi simplifié</span><span className="mt-1 block text-xs leading-5 text-blue-100/75">Des échanges plus lisibles et mieux organisés.</span></span></div>
+          </div>
+        </div>
+        <div className="relative z-10 flex items-center justify-between border-t border-white/15 pt-5 text-xs text-blue-100/65"><span>MNDPT · Échange de documents</span><span>© ScanDoc</span></div>
+      </aside>
+      <main className="relative z-10 flex min-w-0 items-center justify-center px-4 py-8 sm:px-8 lg:px-10 xl:px-16">
+        <div className="w-full max-w-xl">
         {/* Accueil = page de connexion : pas de lien retour superflu */}
 
-        <Card className="rounded-xl border border-border/60 bg-card/95 shadow-xl backdrop-blur-sm">
-          <CardHeader className="text-center">
-            <div className="flex justify-center">
-              <BrandLogo />
-            </div>
+        <Card className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_80px_-36px_rgba(15,48,78,0.28)]">
+          <CardHeader className="space-y-4 px-6 pb-2 pt-8 text-center sm:px-9 sm:pt-9">
+            <div className="flex justify-center lg:hidden"><BrandLogo /></div>
+            <div className="space-y-2"><p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand">Bienvenue sur ScanDoc</p><h2 className="text-2xl font-semibold tracking-tight text-slate-900 sm:text-[1.75rem]">Accédez à votre espace</h2></div>
             <CardTitle className="sr-only">ScanDoc</CardTitle>
-            <CardDescription>
-              Connectez-vous ou créez votre compte pour accéder à l'espace de
-              travail.
-            </CardDescription>
+            <CardDescription className="mx-auto max-w-sm text-sm leading-6 text-slate-500">Connectez-vous ou créez votre compte pour gérer vos échanges de documents en toute simplicité.</CardDescription>
           </CardHeader>
 
-          <CardContent>
+          <CardContent className="px-6 pb-7 pt-5 sm:px-9">
             {error ? (
               <p className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                 {error}
@@ -391,7 +393,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   Nous enverrons un code à usage unique (valable 15 min). Aucune
                   information n’indique si l’email existe ou non.
                 </p>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="h-11 w-full rounded-xl shadow-sm transition hover:shadow-md" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 size-4 animate-spin" />
@@ -460,7 +462,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     minLength={8}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="h-11 w-full rounded-xl shadow-sm transition hover:shadow-md" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 size-4 animate-spin" />
@@ -489,7 +491,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             <Button
               type="button"
               variant="outline"
-              className="mb-4 w-full gap-2"
+              className="mb-4 h-11 w-full gap-2 rounded-xl border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
               disabled={isLoading || googleLoading || authLoading}
               onClick={() => void handleGoogleSignIn()}
             >
@@ -534,9 +536,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             </div>
 
             <Tabs defaultValue="signIn">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signIn">Se connecter</TabsTrigger>
-                <TabsTrigger value="signUp">Créer un compte</TabsTrigger>
+              <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl bg-slate-100 p-1">
+                <TabsTrigger value="signIn" className="rounded-lg text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Se connecter</TabsTrigger>
+                <TabsTrigger value="signUp" className="rounded-lg text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Créer un compte</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signIn" className="mt-5">
@@ -576,7 +578,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       Mot de passe oublié ?
                     </button>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="h-11 w-full rounded-xl shadow-sm transition hover:shadow-md" disabled={isLoading}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 size-4 animate-spin" />
@@ -628,7 +630,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <Label htmlFor="signup-department">Département souhaité</Label>
                       <select
                         id="signup-department"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:border-brand"
                         value={requestedDepartmentId}
                         onChange={(e) => setRequestedDepartmentId(e.target.value)}
                         disabled={isLoading}
@@ -701,7 +703,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       professionnelles, usage interne uniquement).
                     </span>
                   </label>
-                  <Button type="submit" className="w-full" disabled={isLoading || !cguAccepted}>
+                  <Button type="submit" className="h-11 w-full rounded-xl shadow-sm transition hover:shadow-md" disabled={isLoading || !cguAccepted}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 size-4 animate-spin" />
@@ -725,12 +727,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             )}
           </CardContent>
 
-          <div className="flex items-center justify-center gap-1.5 rounded-b-xl border-t border-border/50 bg-[#ebe4d8]/60 px-6 py-3 text-xs text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 border-t border-slate-100 bg-slate-50/80 px-6 py-4 text-xs text-slate-500">
             <ShieldCheck className="size-3.5" />
             Accès réservé au personnel de l'entreprise
           </div>
         </Card>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
