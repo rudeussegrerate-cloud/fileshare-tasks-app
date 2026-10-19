@@ -393,7 +393,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   Nous enverrons un code à usage unique (valable 15 min). Aucune
                   information n’indique si l’email existe ou non.
                 </p>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="h-11 w-full rounded-xl shadow-sm transition hover:shadow-md" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 size-4 animate-spin" />
@@ -491,7 +491,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             <Button
               type="button"
               variant="outline"
-              className="mb-4 w-full gap-2"
+              className="mb-4 h-11 w-full gap-2 rounded-xl border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
               disabled={isLoading || googleLoading || authLoading}
               onClick={() => void handleGoogleSignIn()}
             >
@@ -536,9 +536,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             </div>
 
             <Tabs defaultValue="signIn">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signIn">Se connecter</TabsTrigger>
-                <TabsTrigger value="signUp">Créer un compte</TabsTrigger>
+              <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl bg-slate-100 p-1">
+                <TabsTrigger value="signIn" className="rounded-lg text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Se connecter</TabsTrigger>
+                <TabsTrigger value="signUp" className="rounded-lg text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm">Créer un compte</TabsTrigger>
               </TabsList>
 
               <TabsContent value="signIn" className="mt-5">
@@ -630,7 +630,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <Label htmlFor="signup-department">Département souhaité</Label>
                       <select
                         id="signup-department"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex h-11 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 shadow-sm outline-none transition placeholder:text-slate-400 focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:border-brand"
                         value={requestedDepartmentId}
                         onChange={(e) => setRequestedDepartmentId(e.target.value)}
                         disabled={isLoading}
