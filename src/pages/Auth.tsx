@@ -462,7 +462,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     minLength={8}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <Button type="submit" className="h-11 w-full rounded-xl shadow-sm transition hover:shadow-md" disabled={isLoading}>
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 size-4 animate-spin" />
@@ -578,7 +578,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       Mot de passe oublié ?
                     </button>
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="h-11 w-full rounded-xl shadow-sm transition hover:shadow-md" disabled={isLoading}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 size-4 animate-spin" />
@@ -703,7 +703,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       professionnelles, usage interne uniquement).
                     </span>
                   </label>
-                  <Button type="submit" className="w-full" disabled={isLoading || !cguAccepted}>
+                  <Button type="submit" className="h-11 w-full rounded-xl shadow-sm transition hover:shadow-md" disabled={isLoading || !cguAccepted}>
                     {isLoading ? (
                       <>
                         <Loader2 className="mr-2 size-4 animate-spin" />
