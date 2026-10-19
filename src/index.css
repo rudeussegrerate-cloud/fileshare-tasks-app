@@ -77,7 +77,7 @@
   --secondary: #ebe7f8;
   --secondary-foreground: #1a1238;
   --muted: #ebe7f8;
-  --muted-foreground: #4c4568;
+  --muted-foreground: #3f3a5c;
   --accent: #ebe7f8;
   --accent-foreground: #3b2f7a;
   --destructive: #dc2626;
@@ -1011,7 +1011,7 @@ a:focus-visible,
   --secondary: #ebe7f8;
   --secondary-foreground: #1a1238;
   --muted: #ebe7f8;
-  --muted-foreground: #4c4568;
+  --muted-foreground: #3f3a5c;
   --accent: #ebe7f8;
   --accent-foreground: #3b2f7a;
   --destructive: #dc2626;
@@ -1886,4 +1886,20 @@ a:focus-visible,
   [class*="backdrop-blur"] {
     background: #2a2158 !important;
   }
+}
+
+/* Contraste max login */
+.auth-glass-form label,
+.auth-glass-form .text-sm,
+.auth-glass-form p {
+  color: #ffffff !important;
+  opacity: 1 !important;
+}
+.auth-glass-form input {
+  color: #ffffff !important;
+  background: #3b2f7a !important;
+  border: 2px solid rgba(255,255,255,0.55) !important;
+}
+.auth-glass-form input::placeholder {
+  color: rgba(255,255,255,0.75) !important;
 }

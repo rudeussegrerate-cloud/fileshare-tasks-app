@@ -363,7 +363,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         </div>
 
         <section
-          className="w-full rounded-[28px] border border-white/40 bg-white/20 p-6 shadow-[0_30px_60px_-16px_rgba(8,6,30,0.6)] backdrop-blur-md sm:p-9"
+          className="w-full rounded-[28px] border border-white/25 bg-[#2a2158] p-6 shadow-[0_30px_60px_-16px_rgba(8,6,30,0.6)] sm:p-9"
           aria-labelledby="scandoc-auth-title"
         >
           <div className="mb-6 lg:hidden">

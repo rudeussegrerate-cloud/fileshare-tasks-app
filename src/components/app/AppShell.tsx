@@ -296,7 +296,6 @@ export function AppShell({
 
   return (
     <div className="sc-app-shell relative min-h-screen overflow-hidden bg-[#f3f0fa]">
-      {
       <div className="relative z-10 mx-auto flex w-full max-w-[1280px]">
         {/* Sidebar desktop */}
         <aside className="sc-shell-sidebar sticky top-0 hidden h-screen w-[15.5rem] shrink-0 flex-col border-r px-3 py-5 lg:flex">
