@@ -497,8 +497,8 @@ export function FloatingAssistant() {
     // Position par défaut : bas droite
     setPos(
       clampPos(
-        typeof window !== "undefined" ? window.innerWidth - 88 : 300,
-        typeof window !== "undefined" ? window.innerHeight - 100 : 400,
+        typeof window !== "undefined" ? window.innerWidth - 100 : 300,
+        typeof window !== "undefined" ? window.innerHeight - 120 : 400,
       ),
     );
   }, []);
