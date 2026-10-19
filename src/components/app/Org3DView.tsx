@@ -49,14 +49,12 @@ export function Org3DView() {
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 768px)");
-    const apply = () => {
-      setIsNarrow(mq.matches);
-      setViewMode(mq.matches ? "list" : "3d");
-    };
+    const apply = () => setIsNarrow(mq.matches);
     apply();
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
+  // Vue 3D désactivée par défaut : réservée au guide (bot), organigramme en liste.
 
   const isAdmin = Boolean(me?.isAdmin || me?.isRoot);
 

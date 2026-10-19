@@ -697,3 +697,17 @@ a:focus-visible,
     transform: none !important;
   }
 }
+
+
+/* site animations subdued — effets 3D/gestes réservés au bot (.bot-*) */
+.animate-in-up,
+.animate-msg {
+  animation: none !important;
+}
+.circuit-pulse-flow,
+.circuit-node-glow {
+  animation: none !important;
+}
+.sc-metric:hover {
+  transform: none;
+}

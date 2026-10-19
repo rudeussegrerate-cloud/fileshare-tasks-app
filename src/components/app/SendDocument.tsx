@@ -899,11 +899,11 @@ export function SendDocument({
           
           {step === 2 ? (
             <div className="space-y-4" data-scandoc-tour="send-emitter">
-              <div className="rounded-sm border border-amber-300/80 bg-amber-50 px-4 py-3">
-                <p className="text-sm font-semibold text-amber-950">
+              <div className="rounded-sm border border-border bg-muted/40 px-4 py-3">
+                <p className="text-sm font-semibold text-foreground">
                   Émetteur du courrier
                 </p>
-                <p className="mt-1 text-xs leading-relaxed text-amber-900/90">
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
                   Indiquez <strong>d&apos;où part</strong> le courrier (votre
                   direction ou service). Ce choix fixe le chemin du N° officiel
                   (ex. MNDPT/SG/DGDN/DTD). Ce n&apos;est pas le destinataire.
@@ -920,8 +920,8 @@ export function SendDocument({
                   className={cn(
                     "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
                     emitMode === "direction"
-                      ? "border-amber-600 bg-amber-100 text-amber-950"
-                      : "border-border bg-card text-muted-foreground hover:border-amber-400/50",
+                      ? "border-brand bg-brand-soft text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
                   )}
                 >
                   Direction
@@ -938,8 +938,8 @@ export function SendDocument({
                   className={cn(
                     "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
                     emitMode === "service"
-                      ? "border-amber-600 bg-amber-100 text-amber-950"
-                      : "border-border bg-card text-muted-foreground hover:border-amber-400/50",
+                      ? "border-brand bg-brand-soft text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
                   )}
                 >
                   Service
@@ -955,10 +955,10 @@ export function SendDocument({
                 </div>
               ) : emitMode === "direction" ? (
                 <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/80">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Structure émettrice (choix unique)
                   </p>
-                  <div className="max-h-72 space-y-1.5 overflow-y-auto rounded-sm border border-amber-200/60 bg-amber-50/30 p-2">
+                  <div className="max-h-72 space-y-1.5 overflow-y-auto rounded-sm border border-border bg-card p-2">
                     {directions.length === 0 ? (
                       <p className="p-2 text-sm text-muted-foreground">
                         Aucune direction. Le DG doit installer l&apos;arbre
@@ -979,15 +979,15 @@ export function SendDocument({
                             className={cn(
                               "flex w-full items-center gap-3 rounded-sm border px-3 py-2.5 text-left transition-all",
                               active
-                                ? "border-amber-600 bg-amber-100 shadow-sm"
-                                : "border-transparent bg-card hover:border-amber-300",
+                                ? "border-brand bg-brand-soft shadow-sm"
+                                : "border-transparent bg-card hover:border-brand-sky/40",
                             )}
                           >
                             <span
                               className={cn(
                                 "flex size-4 shrink-0 items-center justify-center rounded-full border-2",
                                 active
-                                  ? "border-amber-700 bg-amber-600"
+                                  ? "border-brand bg-brand"
                                   : "border-muted-foreground/40",
                               )}
                             >
@@ -1010,10 +1010,10 @@ export function SendDocument({
               ) : (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/80">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       1 · Direction de rattachement
                     </p>
-                    <div className="max-h-36 space-y-1 overflow-y-auto rounded-sm border border-amber-200/60 p-2">
+                    <div className="max-h-36 space-y-1 overflow-y-auto rounded-sm border border-border p-2">
                       {directions.map((dir) => {
                         const svcCount = (departments ?? []).filter(
                           (s) =>
@@ -1034,15 +1034,15 @@ export function SendDocument({
                             className={cn(
                               "flex w-full items-center gap-2 rounded-sm border px-3 py-2 text-left text-sm",
                               active
-                                ? "border-amber-600 bg-amber-100 font-medium"
-                                : "border-transparent bg-card hover:border-amber-300",
+                                ? "border-brand bg-brand-soft font-medium"
+                                : "border-transparent bg-card hover:border-brand-sky/40",
                             )}
                           >
                             <span
                               className={cn(
                                 "size-3 shrink-0 rounded-full border-2",
                                 active
-                                  ? "border-amber-700 bg-amber-600"
+                                  ? "border-brand bg-brand"
                                   : "border-muted-foreground/40",
                               )}
                             />
@@ -1055,10 +1055,10 @@ export function SendDocument({
                   </div>
                   {emitParentDirectionId ? (
                     <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-800/80">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         2 · Service qui envoie
                       </p>
-                      <div className="max-h-48 space-y-1 overflow-y-auto rounded-sm border border-amber-200/60 bg-amber-50/30 p-2">
+                      <div className="max-h-48 space-y-1 overflow-y-auto rounded-sm border border-border bg-card p-2">
                         {emitServicesOfParent.length === 0 ? (
                           <p className="text-xs text-muted-foreground">
                             Aucun service rattaché.
@@ -1078,15 +1078,15 @@ export function SendDocument({
                                 className={cn(
                                   "flex w-full items-center gap-3 rounded-sm border px-3 py-2.5 text-left",
                                   active
-                                    ? "border-amber-600 bg-amber-100 shadow-sm"
-                                    : "border-transparent bg-card hover:border-amber-300",
+                                    ? "border-brand bg-brand-soft shadow-sm"
+                                    : "border-transparent bg-card hover:border-brand-sky/40",
                                 )}
                               >
                                 <span
                                   className={cn(
                                     "flex size-4 shrink-0 items-center justify-center rounded-full border-2",
                                     active
-                                      ? "border-amber-700 bg-amber-600"
+                                      ? "border-brand bg-brand"
                                       : "border-muted-foreground/40",
                                   )}
                                 >
@@ -1113,11 +1113,11 @@ export function SendDocument({
               )}
 
               {onBehalfDepartmentId ? (
-                <div className="rounded-sm border border-amber-400 bg-amber-100/80 px-3 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-900">
+                <div className="rounded-sm border border-border bg-muted/50 px-3 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-foreground">
                     Émetteur retenu
                   </p>
-                  <p className="mt-1 text-sm font-semibold text-amber-950">
+                  <p className="mt-1 text-sm font-semibold text-foreground">
                     {(() => {
                       const d = departments?.find(
                         (x) => x._id === onBehalfDepartmentId,
@@ -1127,7 +1127,7 @@ export function SendDocument({
                     })()}
                   </p>
                   {emittingPathPreview ? (
-                    <p className="mt-1 font-mono text-[11px] text-amber-900/80">
+                    <p className="mt-1 font-mono text-[11px] text-foreground/80">
                       N° : …/{emittingPathPreview}
                     </p>
                   ) : null}
@@ -1153,7 +1153,7 @@ export function SendDocument({
                       className={cn(
                         "rounded-full border px-3 py-1 text-xs",
                         !onBehalfFunction.trim()
-                          ? "border-amber-600 bg-amber-100 font-medium"
+                          ? "border-brand bg-brand-soft font-medium"
                           : "border-border bg-card",
                       )}
                     >
@@ -1178,7 +1178,7 @@ export function SendDocument({
                           className={cn(
                             "rounded-full border px-3 py-1 text-xs",
                             onBehalfFunction.trim() === fn
-                              ? "border-amber-600 bg-amber-100 font-medium"
+                              ? "border-brand bg-brand-soft font-medium"
                               : "border-border bg-card",
                           )}
                         >
@@ -1313,7 +1313,7 @@ export function SendDocument({
                     className={
                       refLookup.isMyTurn
                         ? "rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
-                        : "rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+                        : "rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-foreground"
                     }
                   >
                     {refLookup.isMyTurn ? (
