@@ -130,7 +130,7 @@ const COLORS: Record<string, string> = {
 type IdleEmotion = "idle" | "wave" | "look" | "sleep" | "excited" | "think" | "happy" | "sad" | "curious";
 
 /**
- * Robot assistant 3D/4D — volume, reflets, profondeur, micro-animations.
+ * Robot assistant — texture métal/verre, animations idle + émotions.
  */
 function BotAvatar({
   color,
@@ -151,9 +151,9 @@ function BotAvatar({
 }) {
   void gender;
   const dim =
-    size === "lg" ? "size-[80px]" : size === "sm" ? "size-11" : "size-[64px]";
+    size === "lg" ? "size-[84px]" : size === "sm" ? "size-11" : "size-[68px]";
   const palette = ROBOT[color] ?? ROBOT.navy!;
-  const uid = `bot-${color}-${size}`;
+  const uid = `bot-${color}-${size}-${mood}`;
 
   const happy =
     mood === "joyeux" ||
@@ -164,43 +164,54 @@ function BotAvatar({
   const serious = mood === "sérieux" || emotion === "sad";
   const thinking = emotion === "think" || emotion === "curious";
   const sleepy = emotion === "sleep";
+  const looking = emotion === "look" || emotion === "curious";
+
+  const emotionClass =
+    emotion === "wave"
+      ? "bot-gesture-wave"
+      : emotion === "think" || emotion === "curious"
+        ? "bot-gesture-think"
+        : emotion === "sad"
+          ? "bot-gesture-shake"
+          : happy
+            ? "bot-emote-happy"
+            : "";
 
   if (photoUrl) {
     return (
       <div
-        className={`${dim} bot-avatar-3d overflow-hidden rounded-2xl border border-white/40 shadow-raised ring-2 ring-brand/25 ${bounce ? "bot-alive" : ""}`}
+        className={`${dim} bot-avatar-3d overflow-hidden rounded-2xl border border-white/50 shadow-raised ring-2 ring-brand/30 ${bounce ? "bot-alive" : ""}`}
       >
         <img src={photoUrl} alt="" className="size-full object-cover" />
       </div>
     );
   }
 
-  const eyeOpen = sleepy ? 2.2 : happy ? 9.5 : serious ? 5.5 : 8;
-  const eyeY = sleepy ? 31 : thinking ? 28 : 29;
-  const mouth =
-    sleepy
-      ? "M26 46 H38"
-      : happy
-        ? "M24 44 Q32 54 40 44"
-        : serious
-          ? "M26 47 H38"
-          : thinking
-            ? "M27 46 Q32 49 39 45"
-            : "M26 46 Q32 50 38 46";
+  const eyeOpen = sleepy ? 2 : happy ? 10 : serious ? 5.2 : 7.8;
+  const eyeY = sleepy ? 32 : thinking ? 27.5 : 29;
+  const pupilShift = looking ? 1.4 : thinking ? -1.1 : 0;
+  const mouth = sleepy
+    ? "M27 47 H37"
+    : happy
+      ? "M23 43.5 Q32 55 41 43.5"
+      : serious
+        ? "M27 47.5 H37"
+        : thinking
+          ? "M28 46.5 Q33 50 40 45"
+          : "M26 46 Q32 51 38 46";
 
-  const svgSize = size === "sm" ? 44 : size === "lg" ? 80 : 64;
+  const svgSize = size === "sm" ? 44 : size === "lg" ? 84 : 68;
 
   return (
     <div
-      className={`${dim} bot-avatar-3d relative ${bounce ? "bot-alive" : ""} ${emotion === "wave" ? "bot-gesture-wave" : ""} ${happy ? "bot-gesture-happy" : ""}`}
+      className={`${dim} bot-avatar-3d relative ${bounce ? "bot-alive" : ""} ${emotionClass}`}
       style={{
-        filter: `drop-shadow(0 10px 16px ${palette.bodyDark}55) drop-shadow(0 0 12px ${palette.led}33)`,
+        filter: `drop-shadow(0 12px 18px ${palette.bodyDark}66) drop-shadow(0 0 14px ${palette.led}40)`,
       }}
       aria-hidden
     >
-      {/* Ombre au sol */}
       <div
-        className="pointer-events-none absolute -bottom-1 left-1/2 h-2 w-[70%] -translate-x-1/2 rounded-[100%] opacity-40 blur-[3px]"
+        className="bot-ground-shadow pointer-events-none absolute -bottom-0.5 left-1/2 h-2.5 w-[72%] -translate-x-1/2 rounded-[100%] opacity-45 blur-[4px]"
         style={{ background: palette.bodyDark }}
       />
       <svg
@@ -211,28 +222,52 @@ function BotAvatar({
         role="img"
       >
         <defs>
-          <linearGradient id={`${uid}-body`} x1="0.15" y1="0" x2="0.9" y2="1">
+          {/* Texture métal brossé (lignes) */}
+          <pattern
+            id={`${uid}-brush`}
+            width="4"
+            height="4"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(25)"
+          >
+            <rect width="4" height="4" fill={palette.body} />
+            <line
+              x1="0"
+              y1="0"
+              x2="0"
+              y2="4"
+              stroke={palette.bodyDark}
+              strokeWidth="0.6"
+              opacity="0.35"
+            />
+          </pattern>
+          <linearGradient id={`${uid}-body`} x1="0.1" y1="0" x2="0.95" y2="1">
             <stop offset="0%" stopColor={palette.accent} />
-            <stop offset="45%" stopColor={palette.body} />
+            <stop offset="38%" stopColor={palette.body} />
             <stop offset="100%" stopColor={palette.bodyDark} />
           </linearGradient>
-          <linearGradient id={`${uid}-vis`} x1="0.5" y1="0" x2="0.5" y2="1">
-            <stop offset="0%" stopColor="#0f172a" stopOpacity="0.15" />
-            <stop offset="30%" stopColor={palette.panel} />
+          <linearGradient id={`${uid}-edge`} x1="0" y1="0.5" x2="1" y2="0.5">
+            <stop offset="0%" stopColor="#000000" stopOpacity="0.25" />
+            <stop offset="40%" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="100%" stopColor="#000000" stopOpacity="0.3" />
+          </linearGradient>
+          <linearGradient id={`${uid}-glass`} x1="0.5" y1="0" x2="0.5" y2="1">
+            <stop offset="0%" stopColor="#94a3b8" stopOpacity="0.35" />
+            <stop offset="25%" stopColor={palette.panel} stopOpacity="0.95" />
             <stop offset="100%" stopColor={palette.bodyDark} />
           </linearGradient>
-          <radialGradient id={`${uid}-spec`} cx="30%" cy="22%" r="55%">
+          <linearGradient id={`${uid}-shine`} x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#ffffff" stopOpacity="0.55" />
-            <stop offset="40%" stopColor="#ffffff" stopOpacity="0.12" />
+            <stop offset="35%" stopColor="#ffffff" stopOpacity="0.08" />
             <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-          </radialGradient>
+          </linearGradient>
           <radialGradient id={`${uid}-led`} cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#ffffff" />
-            <stop offset="40%" stopColor={palette.led} />
-            <stop offset="100%" stopColor={palette.led} stopOpacity="0.2" />
+            <stop offset="45%" stopColor={palette.led} />
+            <stop offset="100%" stopColor={palette.led} stopOpacity="0.15" />
           </radialGradient>
-          <filter id={`${uid}-glow`} x="-40%" y="-40%" width="180%" height="180%">
-            <feGaussianBlur stdDeviation="1.4" result="b" />
+          <filter id={`${uid}-glow`} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="1.6" result="b" />
             <feMerge>
               <feMergeNode in="b" />
               <feMergeNode in="SourceGraphic" />
@@ -243,142 +278,193 @@ function BotAvatar({
         {/* Antenne */}
         <line
           x1="32"
-          y1="6"
+          y1="5.5"
           x2="32"
-          y2="14"
+          y2="13.5"
           stroke={palette.bodyDark}
-          strokeWidth="2.6"
+          strokeWidth="2.8"
           strokeLinecap="round"
         />
         <circle
           className="bot-antenna-led"
           cx="32"
-          cy="5"
-          r="3.6"
+          cy="4.5"
+          r="3.8"
           fill={`url(#${uid}-led)`}
           filter={`url(#${uid}-glow)`}
         />
 
-        {/* Oreilles / joints */}
-        <rect x="4.5" y="26" width="5" height="14" rx="2.5" fill={palette.bodyDark} opacity="0.95" />
-        <rect x="54.5" y="26" width="5" height="14" rx="2.5" fill={palette.bodyDark} opacity="0.95" />
-        <rect x="5.5" y="28" width="3" height="10" rx="1.5" fill={palette.accent} opacity="0.5" />
-        <rect x="55.5" y="28" width="3" height="10" rx="1.5" fill={palette.accent} opacity="0.5" />
+        {/* Joints latéraux */}
+        <rect x="4" y="25" width="5.5" height="15" rx="2.6" fill={palette.bodyDark} />
+        <rect x="54.5" y="25" width="5.5" height="15" rx="2.6" fill={palette.bodyDark} />
+        <rect
+          x="5.2"
+          y="27.5"
+          width="3.2"
+          height="10"
+          rx="1.4"
+          fill={palette.accent}
+          opacity="0.55"
+          className="bot-joint-glow"
+        />
+        <rect
+          x="55.6"
+          y="27.5"
+          width="3.2"
+          height="10"
+          rx="1.4"
+          fill={palette.accent}
+          opacity="0.55"
+          className="bot-joint-glow"
+        />
 
-        {/* Corps tête arrondi */}
+        {/* Coque métal */}
         <rect
           x="9"
-          y="12"
+          y="11.5"
           width="46"
-          height="44"
-          rx="14"
+          height="45"
+          rx="14.5"
           fill={`url(#${uid}-body)`}
         />
-        {/* Biseau bas */}
-        <path
-          d="M12 48 Q32 56 52 48 L52 52 Q32 58 12 52 Z"
-          fill={palette.bodyDark}
-          opacity="0.35"
+        <rect
+          x="9"
+          y="11.5"
+          width="46"
+          height="45"
+          rx="14.5"
+          fill={`url(#${uid}-brush)`}
+          opacity="0.28"
+        />
+        <rect
+          x="9"
+          y="11.5"
+          width="46"
+          height="45"
+          rx="14.5"
+          fill={`url(#${uid}-edge)`}
+          opacity="0.5"
+        />
+        {/* Reflet latéral animé */}
+        <rect
+          className="bot-metal-sheen"
+          x="11"
+          y="13"
+          width="14"
+          height="40"
+          rx="8"
+          fill={`url(#${uid}-shine)`}
+          opacity="0.7"
         />
 
-        {/* Visière glass */}
+        {/* Visière verre */}
         <rect
           x="14"
-          y="19"
+          y="18.5"
           width="36"
-          height="30"
-          rx="10"
-          fill={`url(#${uid}-vis)`}
+          height="31"
+          rx="10.5"
+          fill={`url(#${uid}-glass)`}
         />
         <rect
+          className="bot-glass-shimmer"
           x="14"
-          y="19"
+          y="18.5"
           width="36"
-          height="30"
-          rx="10"
-          fill={`url(#${uid}-spec)`}
+          height="31"
+          rx="10.5"
+          fill={`url(#${uid}-shine)`}
+        />
+        {/* Bordure verre */}
+        <rect
+          x="14"
+          y="18.5"
+          width="36"
+          height="31"
+          rx="10.5"
+          fill="none"
+          stroke="#ffffff"
+          strokeOpacity="0.22"
+          strokeWidth="1.1"
         />
 
         {/* Yeux */}
         <g className="bot-eyes" style={{ transformOrigin: "32px 33px" }}>
           <rect
-            x="20.5"
+            x="20.2"
             y={eyeY}
-            width="8"
+            width="8.2"
             height={eyeOpen}
-            rx="4"
-            fill="#f8fafc"
+            rx="4.1"
+            fill="#f1f5f9"
           />
           <rect
-            x="35.5"
+            x="35.6"
             y={eyeY}
-            width="8"
+            width="8.2"
             height={eyeOpen}
-            rx="4"
-            fill="#f8fafc"
+            rx="4.1"
+            fill="#f1f5f9"
           />
           {!sleepy ? (
             <>
               <circle
-                cx="24.5"
+                className="bot-pupil"
+                cx={24.3 + pupilShift}
                 cy={eyeY + eyeOpen * 0.55}
-                r={happy ? 2.4 : 2.1}
+                r={happy ? 2.5 : 2.15}
                 fill={palette.led}
                 filter={`url(#${uid}-glow)`}
               />
               <circle
-                cx="39.5"
+                className="bot-pupil"
+                cx={39.7 + pupilShift}
                 cy={eyeY + eyeOpen * 0.55}
-                r={happy ? 2.4 : 2.1}
+                r={happy ? 2.5 : 2.15}
                 fill={palette.led}
                 filter={`url(#${uid}-glow)`}
               />
               <circle
-                cx="25.3"
-                cy={eyeY + eyeOpen * 0.4}
-                r="0.7"
+                cx={25.1 + pupilShift}
+                cy={eyeY + eyeOpen * 0.38}
+                r="0.75"
                 fill="#ffffff"
-                opacity="0.9"
               />
               <circle
-                cx="40.3"
-                cy={eyeY + eyeOpen * 0.4}
-                r="0.7"
+                cx={40.5 + pupilShift}
+                cy={eyeY + eyeOpen * 0.38}
+                r="0.75"
                 fill="#ffffff"
-                opacity="0.9"
               />
             </>
           ) : null}
         </g>
 
-        {/* Joues */}
         {happy ? (
           <>
-            <circle cx="18" cy="42" r="2.2" fill={palette.accent} opacity="0.45" />
-            <circle cx="46" cy="42" r="2.2" fill={palette.accent} opacity="0.45" />
+            <circle cx="17.5" cy="42.5" r="2.3" fill={palette.accent} opacity="0.5" />
+            <circle cx="46.5" cy="42.5" r="2.3" fill={palette.accent} opacity="0.5" />
           </>
         ) : null}
 
-        {/* Bouche */}
         <path
           d={mouth}
           fill="none"
           stroke="#e2e8f0"
-          strokeWidth={happy ? 2.6 : 2.2}
+          strokeWidth={happy ? 2.7 : 2.15}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
 
-        {/* Contour fin */}
         <rect
           x="9"
-          y="12"
+          y="11.5"
           width="46"
-          height="44"
-          rx="14"
+          height="45"
+          rx="14.5"
           fill="none"
           stroke="#ffffff"
-          strokeOpacity="0.18"
+          strokeOpacity="0.2"
           strokeWidth="1"
         />
       </svg>
