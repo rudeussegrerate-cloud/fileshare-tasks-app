@@ -165,7 +165,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
 
-  // Reprise OAuth : échanger le code Google si ConvexAuthProvider ne l'a pas fait
+  // Finaliser OAuth Google : échanger ?code= contre une session
   useEffect(() => {
     if (authLoading || isAuthenticated) return;
     let code: string | null = null;
@@ -183,19 +183,34 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
     if (!code) return;
 
+    // Éviter double échange (StrictMode / ConvexAuthProvider)
+    const lockKey = "scandoc_auth_code_lock";
+    try {
+      if (sessionStorage.getItem(lockKey) === code) return;
+      sessionStorage.setItem(lockKey, code);
+    } catch {
+      /* ignore */
+    }
+
     let cancelled = false;
     (async () => {
       setGoogleLoading(true);
       setError(null);
+      setInfo("Finalisation de la connexion Google…");
       try {
-        // @convex-dev/auth : signIn(undefined, { code }) finalise OAuth
-        await signIn(undefined as unknown as string, { code });
+        const result = await signIn(undefined as unknown as string, { code });
+        // tokens null → pas d'exception, mais session absente
+        if (!result || result.signingIn === false) {
+          throw new Error(
+            "Le serveur a refusé le code Google (verifier invalide, code expiré ou secret OAuth incorrect).",
+          );
+        }
         try {
           sessionStorage.removeItem("scandoc_auth_code");
+          sessionStorage.removeItem(lockKey);
         } catch {
           /* ignore */
         }
-        // nettoyer ?code= de l'URL
         try {
           const url = new URL(window.location.href);
           if (url.searchParams.has("code")) {
@@ -205,15 +220,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         } catch {
           /* ignore */
         }
+        setInfo(null);
       } catch (err) {
         console.error("OAuth code exchange failed:", err);
         if (!cancelled) {
+          setInfo(null);
           setError(
             friendlyError(err, "google") +
-              " Si le problème continue, vérifiez SITE_URL dans Convex (doit être l'URL GitHub Pages complète).",
+              " Vérifiez AUTH_GOOGLE_SECRET et SITE_URL dans Convex, puis réessayez en navigation privée.",
           );
           try {
             sessionStorage.removeItem("scandoc_auth_code");
+            sessionStorage.removeItem(lockKey);
           } catch {
             /* ignore */
           }
@@ -319,20 +337,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setError(null);
     try {
       /**
-       * redirectTo est relatif à SITE_URL (Convex).
-       * SITE_URL doit être EXACTEMENT :
-       *   https://rudeussegrerate-cloud.github.io/fileshare-tasks-app
-       * (sans slash final). On envoie alors "/dashboard".
+       * Toujours revenir sur /auth avec ?code=...
+       * La page Auth finalise la session puis envoie vers /dashboard
+       * (ou l'écran « en attente de validation »).
+       * SITE_URL Convex = https://rudeussegrerate-cloud.github.io/fileshare-tasks-app
        */
-      let path = redirect.startsWith("/") ? redirect : `/${redirect}`;
-      if (!path || path === "/") path = "/dashboard";
-      // Mémoriser pour reprise si le retour OAuth atterrit sur /auth
+      let dest = redirect.startsWith("/") ? redirect : `/${redirect}`;
+      if (!dest || dest === "/") dest = "/dashboard";
       try {
-        sessionStorage.setItem("scandoc_oauth_redirect", path);
+        sessionStorage.setItem("scandoc_oauth_redirect", dest);
       } catch {
         /* ignore */
       }
-      await signIn("google", { redirectTo: path });
+      await signIn("google", { redirectTo: "/auth" });
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError(friendlyError(err, "google"));

@@ -60,6 +60,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           prompt: "select_account",
           access_type: "online",
           response_type: "code",
+          scope: "openid email profile",
         },
       },
       profile(profile) {
