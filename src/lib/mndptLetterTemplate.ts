@@ -1,41 +1,46 @@
 /**
- * Modèle de courrier MNDPT — éléments FIXES (ne changent jamais)
- * vs champs VARIABLES à compléter par l'utilisateur / l'assistant.
+ * Modèle réel de courrier MNDPT (mise en page type fiche officielle).
  *
- * Les logos HD officiels seront branchés ici dès qu'ils sont fournis.
- * En attendant : libellés institutionnels stabilisés.
+ * FIXE (généré automatiquement / non inventé par l'utilisateur à chaque fois) :
+ * - Emblème République, logo MNDPT, intitulés institutionnels de base
+ * - Structure de page, formules types
+ *
+ * À COMPLÉTER (zones « rouges ») :
+ * - Date, qualité signataire, destinataire, N°, objet, réf., mandats, PJ, corps
+ * - Logos / photos personnalisables + éléments ajoutés
  */
 
-export const MNDPT_TEMPLATE_ID = "mndpt-courrier-v1";
-export const MNDPT_TEMPLATE_VERSION = "1.0";
+export const MNDPT_TEMPLATE_ID = "mndpt-courrier-officiel-v2";
+export const MNDPT_TEMPLATE_VERSION = "2.0";
 
-/** Bloc institutionnel — ne jamais laisser l'IA le modifier */
 export const MNDPT_FIXED = {
-  republic: "République de Madagascar",
-  ministry:
-    "Ministère du Numérique, de la Poste et des Télécommunications",
-  /** Sous-titre d'en-tête (peut être affiné par direction plus tard, hors IA) */
-  headerNote: "Secrétariat Général",
-  modelLabel: "Courrier administratif — modèle MNDPT",
+  republicMalagasy: "REPOBLIKAN'I MADAGASIKARA",
+  republicMotto: "Fitiavana - Tanindrazana - Fandrosoana",
+  logoText: "MNDPT",
+  logoSub:
+    "MINISTÈRE DU DÉVELOPPEMENT NUMÉRIQUE, DES POSTES ET DES TÉLÉCOMMUNICATIONS",
+  secretariat: "SECRÉTARIAT GÉNÉRAL",
+  directionGenerale: "DIRECTION GÉNÉRALE DU DÉVELOPPEMENT NUMÉRIQUE",
+  modelLabel: "Courrier administratif MNDPT",
   disclaimer:
-    "Brouillon généré dans ScanDoc — à valider et signer hors application avant usage officiel.",
-  /** Placeholders de mise en page (export) */
-  leftLogoLabel: "[Logo MNDPT]",
-  centerEmblemLabel: "[Emblème / Drapeau]",
+    "Brouillon ScanDoc — à valider et signer hors application avant usage officiel.",
 } as const;
 
-/** Champs indispensables que l'utilisateur doit pouvoir renseigner */
+/** Champs que l'utilisateur complète (équivalent des zones marquées en rouge) */
 export type LetterVariableKey =
   | "location_date"
-  | "outgoing_reference"
-  | "incoming_reference"
+  | "sender_title"
+  | "direction_line"
   | "recipient_block"
+  | "outgoing_number"
+  | "outgoing_path"
   | "subject"
-  | "body"
+  | "incoming_reference"
+  | "extra_refs"
   | "attachments"
+  | "body"
   | "signatory_title"
-  | "signatory_name"
-  | "sender_service";
+  | "signatory_name";
 
 export const LETTER_VARIABLE_META: Record<
   LetterVariableKey,
@@ -44,53 +49,93 @@ export const LETTER_VARIABLE_META: Record<
   location_date: {
     label: "Lieu et date",
     required: true,
-    hint: "Ex. Antananarivo, le 20 octobre 2026",
+    hint: "Ex. Antananarivo, le 03 Août 2026",
   },
-  outgoing_reference: {
-    label: "N° du courrier sortant",
-    required: false,
-    hint: "Saisie manuelle — jamais inventé par l'IA",
+  sender_title: {
+    label: "Qualité de l'émetteur (en-tête droit)",
+    required: true,
+    hint: "Ex. Le Directeur de la Transformation Digitale",
   },
-  incoming_reference: {
-    label: "Réf. du courrier reçu",
-    required: false,
-    hint: "N° et date de la correspondance à laquelle on répond",
+  direction_line: {
+    label: "Direction / service (colonne gauche)",
+    required: true,
+    hint: "Ex. DIRECTION DE LA TRANSFORMATION DIGITALE",
   },
   recipient_block: {
     label: "Destinataire",
     required: true,
-    hint: "Qualité, nom, organisme (plusieurs lignes possibles)",
+    hint: "Après « à » — qualité, organisme, adresse",
+  },
+  outgoing_number: {
+    label: "N° (séquence)",
+    required: false,
+    hint: "Ex. 071 — le chemin SG/DGDN/DTD est proposé automatiquement",
+  },
+  outgoing_path: {
+    label: "Chemin N° (structures)",
+    required: false,
+    hint: "Ex. MNDPT/SG/DGDN/DTD",
   },
   subject: {
     label: "Objet",
     required: true,
-    hint: "Objet du courrier de réponse",
+    hint: "Objet du courrier",
   },
-  body: {
-    label: "Corps du courrier",
-    required: true,
-    hint: "Texte principal — éditable après génération",
+  incoming_reference: {
+    label: "Réf.",
+    required: false,
+    hint: "Référence du courrier reçu",
+  },
+  extra_refs: {
+    label: "Références / mandats",
+    required: false,
+    hint: "Ex. N° Mandat Salohy …",
   },
   attachments: {
     label: "Pièces jointes",
     required: false,
     hint: "Uniquement si confirmées",
   },
-  signatory_title: {
-    label: "Fonction du signataire",
+  body: {
+    label: "Corps du courrier",
     required: true,
-    hint: "Ex. Le Directeur de la Transformation Digitale",
+    hint: "Texte principal — générable par l'assistant",
+  },
+  signatory_title: {
+    label: "Fonction en signature",
+    required: true,
+    hint: "Souvent identique à la qualité émetteur",
   },
   signatory_name: {
     label: "Nom du signataire",
     required: false,
-    hint: "Optionnel selon les usages",
+    hint: "Optionnel",
   },
-  sender_service: {
-    label: "Service / direction émettrice",
-    required: false,
-    hint: "Affiché sous l'en-tête institutionnel",
-  },
+};
+
+export type CanvasExtraElement = {
+  id: string;
+  type: "text" | "image";
+  label: string;
+  content: string; // texte ou data URL image
+};
+
+export type LetterAssets = {
+  /** Logo MNDPT (data URL ou chemin public) */
+  logoUrl: string | null;
+  /** Emblème République */
+  sealUrl: string | null;
+  /** Photo / tampon / autre image libre */
+  extraImageUrl: string | null;
+};
+
+export type BlankLetterModel = {
+  templateId: string;
+  templateVersion: string;
+  fixed: typeof MNDPT_FIXED;
+  assets: LetterAssets;
+  variables: Record<LetterVariableKey, string>;
+  extras: CanvasExtraElement[];
 };
 
 export function defaultLocationDate(): string {
@@ -106,38 +151,16 @@ export function defaultLocationDate(): string {
   }
 }
 
-/** Corps type vierge (structure administrative, sans décision inventée) */
 export function blankBodySkeleton(): string {
   return [
-    "Monsieur, Madame,",
+    "Monsieur le Directeur,",
     "",
-    "J'ai l'honneur de vous faire part de ce qui suit.",
+    "[À COMPLÉTER — le corps peut être généré par l'assistant selon votre intention]",
     "",
-    "[À COMPLÉTER — objet de la réponse / suite donnée]",
-    "",
-    "Je vous prie d'agréer, Monsieur, Madame, l'expression de ma considération distinguée.",
+    "Je vous prie d'agréer, Monsieur le Directeur, l'expression de ma considération distinguée.",
   ].join("\n");
 }
 
-export type BlankLetterModel = {
-  templateId: string;
-  templateVersion: string;
-  fixed: typeof MNDPT_FIXED;
-  variables: {
-    location_date: string;
-    outgoing_reference: string;
-    incoming_reference: string;
-    recipient_block: string;
-    subject: string;
-    body: string;
-    attachments: string;
-    signatory_title: string;
-    signatory_name: string;
-    sender_service: string;
-  };
-};
-
-/** Génère un modèle vierge prêt à compléter */
 export function createBlankMndptLetter(
   overrides?: Partial<BlankLetterModel["variables"]>,
 ): BlankLetterModel {
@@ -145,100 +168,123 @@ export function createBlankMndptLetter(
     templateId: MNDPT_TEMPLATE_ID,
     templateVersion: MNDPT_TEMPLATE_VERSION,
     fixed: { ...MNDPT_FIXED },
+    assets: {
+      logoUrl: `${import.meta.env.BASE_URL}mndpt-logo.jpg`,
+      sealUrl: null,
+      extraImageUrl: null,
+    },
     variables: {
       location_date: defaultLocationDate(),
-      outgoing_reference: "",
-      incoming_reference: "",
+      sender_title: "Le Directeur de la Transformation Digitale",
+      direction_line: "DIRECTION DE LA TRANSFORMATION DIGITALE",
       recipient_block: "",
+      outgoing_number: "",
+      outgoing_path: "MNDPT/SG/DGDN/DTD",
       subject: "",
-      body: blankBodySkeleton(),
+      incoming_reference: "",
+      extra_refs: "",
       attachments: "",
-      signatory_title: "",
+      body: blankBodySkeleton(),
+      signatory_title: "Le Directeur de la Transformation Digitale",
       signatory_name: "",
-      sender_service: "",
       ...overrides,
     },
+    extras: [],
   };
 }
 
-/** HTML d'export / aperçu — en-tête fixe + variables */
+export function formatOutgoingRef(v: BlankLetterModel["variables"]): string {
+  const num = v.outgoing_number.trim();
+  const path = v.outgoing_path.trim() || "MNDPT/SG/DGDN/DTD";
+  const year = new Date().getFullYear();
+  if (!num) return `N°………-${year}/${path}`;
+  // Si l'utilisateur a déjà collé un N° complet
+  if (/^N°/i.test(num) || num.includes("/")) return num.startsWith("N") ? num : `N°${num}`;
+  return `N°${num}-${year}/${path}`;
+}
+
+function esc(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 export function renderMndptLetterHtml(model: BlankLetterModel): string {
   const f = model.fixed;
   const v = model.variables;
-  const esc = (s: string) =>
-    s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-
+  const a = model.assets;
+  const refOut = formatOutgoingRef(v);
   const bodyHtml = v.body
     .split(/\n+/)
     .map((p) => p.trim())
     .filter(Boolean)
-    .map(
-      (p) =>
-        `<p style="margin:0 0 12px;text-align:justify;">${esc(p)}</p>`,
-    )
+    .map((p) => `<p style="margin:0 0 11px;text-align:justify;">${esc(p)}</p>`)
     .join("");
 
-  const dest = esc(v.recipient_block).replace(/\n/g, "<br/>");
-  const missing: string[] = [];
-  if (!v.subject.trim()) missing.push("Objet");
-  if (!v.recipient_block.trim()) missing.push("Destinataire");
-  if (!v.signatory_title.trim()) missing.push("Fonction du signataire");
-  if (!v.outgoing_reference.trim()) missing.push("N° sortant");
+  const logo = a.logoUrl
+    ? `<img src="${esc(a.logoUrl)}" alt="MNDPT" style="max-height:52px;max-width:140px;object-fit:contain"/>`
+    : `<div style="font-weight:800;font-size:22px;letter-spacing:1px">${esc(f.logoText)}</div>`;
+  const seal = a.sealUrl
+    ? `<img src="${esc(a.sealUrl)}" alt="Emblème" style="max-height:64px;max-width:64px;object-fit:contain"/>`
+    : `<div style="width:56px;height:56px;border:1px solid #ccc;border-radius:50%;margin:0 auto"></div>`;
+
+  const extrasHtml = model.extras
+    .map((el) => {
+      if (el.type === "image" && el.content) {
+        return `<div style="margin:12px 0"><img src="${esc(el.content)}" alt="${esc(el.label)}" style="max-width:100%;max-height:200px;object-fit:contain"/></div>`;
+      }
+      return `<div style="margin:8px 0;font-size:12px">${esc(el.content)}</div>`;
+    })
+    .join("");
 
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/>
-<title>${esc(v.subject || "Courrier MNDPT — brouillon")}</title>
+<title>${esc(v.subject || "Courrier MNDPT")}</title>
 <style>
-  body{font-family:"Times New Roman",Times,serif;max-width:720px;margin:28px auto;padding:20px;color:#111;line-height:1.5;font-size:14px}
-  .fixed-banner{font-size:11px;color:#555;border:1px dashed #94a3b8;background:#f8fafc;padding:8px 10px;margin-bottom:16px}
-  .header{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:8px;align-items:start;border-bottom:2px solid #0f2744;padding-bottom:12px;margin-bottom:18px}
-  .logo-box{border:1px solid #cbd5e1;min-height:64px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#64748b;text-align:center;padding:6px}
-  .inst{text-align:center;font-size:11px;text-transform:uppercase;letter-spacing:.03em}
-  .inst strong{display:block;font-size:12px;margin-top:4px}
-  .meta{display:flex;justify-content:space-between;gap:16px;margin:16px 0;font-size:13px}
-  .dest{margin:18px 0;white-space:pre-line}
-  .obj{margin:14px 0}
-  .sig{margin-top:40px;text-align:right}
-  .warn{background:#fff7ed;border:1px solid #fdba74;padding:8px 12px;font-size:12px;margin-bottom:14px}
+  body{font-family:"Times New Roman",Times,serif;max-width:720px;margin:24px auto;padding:20px;color:#111;font-size:13.5px;line-height:1.45}
+  .seal{text-align:center;margin-bottom:8px;font-size:9px}
+  .top{display:grid;grid-template-columns:1.1fr 1fr;gap:12px;margin-bottom:14px}
+  .left .dir{font-size:10px;text-transform:uppercase;letter-spacing:.02em;margin-top:6px;line-height:1.35}
+  .right{text-align:right;font-size:12.5px}
+  .meta{margin:14px 0 10px;font-size:12.5px}
+  .sig{margin-top:36px;text-align:right}
+  .warn{background:#fff7ed;border:1px solid #fdba74;padding:8px;font-size:11px;margin-bottom:12px}
   @media print{.no-print{display:none}}
 </style></head><body>
-<div class="fixed-banner no-print">${esc(f.disclaimer)} · Modèle ${esc(model.templateId)} v${esc(model.templateVersion)}</div>
-${
-  missing.length
-    ? `<div class="warn no-print"><strong>Champs à compléter :</strong> ${esc(missing.join(", "))}</div>`
-    : ""
-}
-<div class="header">
-  <div class="logo-box">${esc(f.leftLogoLabel)}</div>
-  <div class="inst">
-    <div>${esc(f.republic)}</div>
-    <strong>${esc(f.ministry)}</strong>
-    <div style="margin-top:6px;font-size:10px;text-transform:none;letter-spacing:0">${esc(f.headerNote)}</div>
-    ${v.sender_service ? `<div style="margin-top:4px;font-size:11px;text-transform:none;font-weight:600">${esc(v.sender_service)}</div>` : ""}
+<div class="no-print warn">${esc(f.disclaimer)}</div>
+<div class="seal">
+  ${seal}
+  <div style="font-weight:700;margin-top:4px">${esc(f.republicMalagasy)}</div>
+  <div style="font-size:8px">${esc(f.republicMotto)}</div>
+</div>
+<div class="top">
+  <div class="left">
+    ${logo}
+    <div style="font-size:8px;color:#444;margin-top:2px;max-width:200px">${esc(f.logoSub)}</div>
+    <div class="dir">${esc(f.secretariat)}</div>
+    <div class="dir">${esc(f.directionGenerale)}</div>
+    <div class="dir" style="font-weight:700">${esc(v.direction_line)}</div>
   </div>
-  <div class="logo-box">${esc(f.centerEmblemLabel)}</div>
+  <div class="right">
+    <div>${esc(v.location_date)}</div>
+    <div style="margin-top:10px">${esc(v.sender_title)}</div>
+    <div style="margin:8px 0">à</div>
+    <div style="white-space:pre-line;text-align:right">${esc(v.recipient_block) || "………………"}</div>
+  </div>
 </div>
 <div class="meta">
-  <div>
-    <div><strong>N°</strong> ${esc(v.outgoing_reference || "………………")}</div>
-    ${v.incoming_reference ? `<div style="margin-top:6px"><strong>Réf.</strong> ${esc(v.incoming_reference)}</div>` : ""}
-  </div>
-  <div style="text-align:right">${esc(v.location_date || "………………")}</div>
+  <div><strong>${esc(refOut)}</strong></div>
+  <div style="margin-top:8px"><strong>Objet :</strong> ${esc(v.subject || "………………")}</div>
+  ${v.incoming_reference ? `<div style="margin-top:4px"><strong>Réf. :</strong> ${esc(v.incoming_reference)}</div>` : ""}
+  ${v.extra_refs ? `<div style="margin-top:4px">${esc(v.extra_refs)}</div>` : ""}
+  ${v.attachments ? `<div style="margin-top:4px"><strong>Pièces jointes :</strong> ${esc(v.attachments)}</div>` : ""}
 </div>
-<div class="dest">${dest || "<em>Destinataire ………………</em>"}</div>
-<div class="obj"><strong>Objet :</strong> ${esc(v.subject || "………………")}</div>
-${bodyHtml || "<p><em>[Corps du courrier]</em></p>"}
-${
-  v.attachments.trim()
-    ? `<p style="margin-top:16px"><strong>P.J. :</strong> ${esc(v.attachments)}</p>`
-    : ""
-}
+${bodyHtml}
+${extrasHtml}
 <div class="sig">
-  <div>${esc(v.signatory_title || "………………………………")}</div>
-  <div style="margin-top:36px">${esc(v.signatory_name || "")}</div>
+  <div>${esc(v.signatory_title || v.sender_title)}</div>
+  <div style="margin-top:40px">${esc(v.signatory_name)}</div>
 </div>
 </body></html>`;
 }
