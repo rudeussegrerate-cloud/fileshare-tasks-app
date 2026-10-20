@@ -469,6 +469,7 @@ export const attachRevision = mutation({
 
     return {
       publicRef: document.publicRef ?? null,
+      mailKind: document.mailKind ?? "envoi",
       revisionCount: (document.revisionCount ?? 0) + 1,
       tasksForNext,
     };
@@ -526,6 +527,10 @@ export const send = mutation({
     requiresResponse: v.optional(v.boolean()),
     /** Structure qui émet le courrier (pour le N° hiérarchique) */
     emittingDepartmentId: v.optional(v.id("departments")),
+    /** envoi (défaut) ou transmission de courrier papier */
+    mailKind: v.optional(
+      v.union(v.literal("envoi"), v.literal("transmission")),
+    ),
     /** Champs additionnels (max 8) */
     customFields: v.optional(
       v.array(
@@ -961,8 +966,21 @@ export const send = mutation({
     const emittingDeptId =
       args.emittingDepartmentId ?? sender.departmentId ?? undefined;
 
-    let finalRef = manualRef;
-    if (!finalRef) {
+    const isTransmission = args.mailKind === "transmission";
+    if (isTransmission) {
+      const refTxt = (args.referenceText ?? "").trim();
+      if (!refTxt) {
+        throw new Error(
+          "Pour une transmission, indiquez la Réf. du courrier papier (obligatoire).",
+        );
+      }
+    }
+
+    let finalRef: string | undefined = manualRef || undefined;
+    if (isTransmission) {
+      // Pas de N° officiel de sortie
+      finalRef = undefined;
+    } else if (!finalRef) {
       finalRef = await generateOfficialNumero(ctx, emittingDeptId);
     }
 
@@ -997,6 +1015,7 @@ export const send = mutation({
         recipientDeptId ?? recipient?.departmentId ?? undefined,
       status: "envoye",
       publicRef: finalRef,
+      mailKind: isTransmission ? "transmission" : "envoi",
       parentCourrierId: parentCourrierId,
       referenceText,
       requiresResponse: args.requiresResponse === true,
@@ -1584,6 +1603,7 @@ export const get = query({
       ),
       isSender,
       publicRef: document.publicRef ?? null,
+      mailKind: document.mailKind ?? "envoi",
       referenceText: document.referenceText ?? null,
       requiresResponse: Boolean(document.requiresResponse),
       parentCourrierId: document.parentCourrierId ?? null,
@@ -2403,6 +2423,7 @@ export const documentHistory = query({
 
     return {
       publicRef: document.publicRef ?? null,
+      mailKind: document.mailKind ?? "envoi",
       objet: document.objet ?? document.fileName,
       currentStatus: document.status,
       currentStructure: recipientDep

@@ -409,6 +409,16 @@ export function DocumentDetailDialog({
               </section>
             ) : null}
 
+            {(documentOrNull as { mailKind?: string }).mailKind ===
+            "transmission" ? (
+              <p className="rounded-sm border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-900">
+                <strong>Transmission</strong> — courrier papier enregistré
+                (sans N° de sortie). Réf. :{" "}
+                {(documentOrNull as { referenceText?: string }).referenceText ||
+                  "—"}
+              </p>
+            ) : null}
+
             {documentOrNull.objet ? (
               <section className="space-y-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

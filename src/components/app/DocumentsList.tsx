@@ -21,6 +21,7 @@ import {
   EmptyState,
   STATUS_META,
   StatusBadge,
+  MailKindBadge,
   FileThumb,
   formatBytes,
   formatDateTime,
@@ -286,6 +287,11 @@ export function DocumentsList({
                         <p className="truncate text-sm font-semibold text-foreground">
                           {title}
                         </p>
+                        <MailKindBadge
+                          kind={
+                            (document as { mailKind?: string }).mailKind
+                          }
+                        />
                         <StatusBadge
                           status={
                             (["envoye", "consulte", "en_cours", "traite"].includes(

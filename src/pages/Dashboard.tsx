@@ -180,6 +180,7 @@ export default function Dashboard() {
       {view === "send" ? (
         <SendDocument
           key={replyTo ? `reply-${replyTo.documentId}` : continueRef ?? "new"}
+          mode="envoi"
           initialPublicRef={continueRef}
           replyTo={replyTo}
           onSent={() => {
@@ -187,6 +188,15 @@ export default function Dashboard() {
             setReplyTo(null);
             setView("inbox");
           }}
+          onManageDepartments={() => setView("departments")}
+        />
+      ) : null}
+
+      {view === "transmit" ? (
+        <SendDocument
+          key="transmit"
+          mode="transmission"
+          onSent={() => setView("inbox")}
           onManageDepartments={() => setView("departments")}
         />
       ) : null}

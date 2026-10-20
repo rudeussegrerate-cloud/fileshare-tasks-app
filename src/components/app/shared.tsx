@@ -65,6 +65,28 @@ export const STATUS_ORDER: DocumentStatus[] = [
   "traite",
 ];
 
+export function MailKindBadge({
+  kind,
+  className,
+}: {
+  kind?: "envoi" | "transmission" | string | null;
+  className?: string;
+}) {
+  if (kind !== "transmission") return null;
+  return (
+    <Badge
+      variant="outline"
+      title="Courrier papier enregistré et transmis (sans N° de sortie)"
+      className={cn(
+        "rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-800",
+        className,
+      )}
+    >
+      Transmission
+    </Badge>
+  );
+}
+
 export function StatusBadge({
   status,
   className,

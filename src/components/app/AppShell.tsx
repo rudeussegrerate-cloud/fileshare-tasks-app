@@ -33,6 +33,7 @@ import {
   FolderOpen,
   Settings,
   Upload,
+  Forward,
   UserCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -48,6 +49,7 @@ import { initialsOf } from "./shared";
 export type AppView =
   | "home"
   | "send"
+  | "transmit"
   | "inbox"
   | "sent"
   | "fichiers"
@@ -80,6 +82,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
     title: "Courrier",
     items: [
       { key: "send", label: "Nouveau courrier", icon: Upload },
+      { key: "transmit", label: "Transmission de courrier", icon: Forward },
       { key: "inbox", label: "Courriers reçus", icon: Inbox },
       { key: "sent", label: "Courriers envoyés", icon: Send },
       { key: "fichiers", label: "Recherche", icon: FolderOpen },

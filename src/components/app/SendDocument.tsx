@@ -75,9 +75,12 @@ export function SendDocument({
   onManageDepartments,
   initialPublicRef,
   replyTo,
+  mode = "envoi",
 }: {
   onSent: (documentId?: Id<"documents">) => void;
   onManageDepartments: () => void;
+  /** envoi = N° officiel · transmission = papier (Réf. seule) */
+  mode?: "envoi" | "transmission";
   /** Préremplir l'identifiant (continuation de circuit). */
   initialPublicRef?: string;
   /** Mode réponse à un courrier reçu */
@@ -94,6 +97,7 @@ export function SendDocument({
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const sendDocument = useMutation(api.documents.send);
 
+  const isTransmission = mode === "transmission";
   const [step, setStep] = useState(0);
   // L'étape « Qui envoie » (index 2) est sautée : émetteur = profil connecté
   const goNext = () => setStep((s) => (s === 1 ? 3 : Math.min(3, s + 1)));
@@ -564,6 +568,11 @@ export function SendDocument({
           ...metaFields,
         ].slice(0, 8);
 
+        if (isTransmission && !referenceText.trim()) {
+          toast.error("Indiquez la Réf. du courrier papier.");
+          setSending(false);
+          return;
+        }
         lastId = await sendDocument({
           storageId: up.storageId,
           fileName: up.fileName,
@@ -576,7 +585,8 @@ export function SendDocument({
           recipientDepartmentId: destIds[0],
           recipientTargets,
           recipientId: fi === 0 ? recipientId ?? undefined : undefined,
-          publicRef: ref || undefined,
+          publicRef: isTransmission ? undefined : ref || undefined,
+          mailKind: isTransmission ? "transmission" : "envoi",
           stepDeadlineHours: undefined,
           parentCourrierId: replyTo?.documentId,
           referenceText: referenceText.trim() || undefined,
@@ -644,16 +654,26 @@ export function SendDocument({
     <div className="space-y-5">
       <div>
         <h2 className="text-lg font-semibold tracking-tight">
-          Envoyer des documents
+          {isTransmission
+            ? "Transmission de courrier"
+            : "Nouveau courrier"}
         </h2>
         <p className="text-xs text-muted-foreground">
-          Envoi vers une ou plusieurs directions ou services. Indiquez l&apos;objet et la personne au nom de
-          qui vous envoyez et les tâches à réaliser.
+          {isTransmission
+            ? "Enregistrez un courrier papier reçu : numérisez le fichier, indiquez la Réf. d'origine, puis transmettez-le au chef ou au service compétent. Aucun N° de sortie n'est créé."
+            : "Courrier sortant officiel : un N° MNDPT est attribué. Destinez-le à une ou plusieurs structures, avec objet et tâches."}
         </p>
       </div>
 
       <Card className="border-border/80 ">
         <CardContent className="space-y-6 pt-6">
+          {isTransmission ? (
+            <p className="rounded-sm border border-amber-300/80 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+              <strong>Transmission</strong> — courrier papier entrant. Renseignez
+              obligatoirement la <strong>Réf.</strong> figurant sur le document.
+              Pas de numéro officiel de sortie.
+            </p>
+          ) : null}
           {replyTo ? (
             <p className="rounded-sm border border-brand/30 bg-brand-soft/50 px-3 py-2 text-xs">
               <strong>Réponse</strong> au courrier
@@ -1327,19 +1347,31 @@ export function SendDocument({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="publicRef">N° du courrier</Label>
-                <Input
-                  id="publicRef"
-                  value={publicRef}
-                  onChange={(e) => setPublicRef(e.target.value)}
-                  className="w-full font-mono text-base"
-                  autoComplete="off"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Saisissez le numéro de courrier tel quel (sans suffixe automatique).
-                </p>
-                <div className="relative space-y-1.5 pt-2">
-                  <Label htmlFor="referenceText">Réf.</Label>
+                {!isTransmission ? (
+                  <>
+                    <Label htmlFor="publicRef">N° du courrier</Label>
+                    <Input
+                      id="publicRef"
+                      value={publicRef}
+                      onChange={(e) => setPublicRef(e.target.value)}
+                      className="w-full font-mono text-base"
+                      autoComplete="off"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Numéro officiel de sortie (laissé vide = génération auto
+                      selon la structure émettrice).
+                    </p>
+                  </>
+                ) : null}
+                <div className={isTransmission ? "relative space-y-1.5" : "relative space-y-1.5 pt-2"}>
+                  <Label htmlFor="referenceText">
+                    Réf.
+                    {isTransmission ? (
+                      <span className="ml-1 font-normal text-destructive">
+                        (obligatoire — courrier papier)
+                      </span>
+                    ) : null}
+                  </Label>
                   <Textarea
                     id="referenceText"
                     className="w-full resize-y font-mono text-sm"

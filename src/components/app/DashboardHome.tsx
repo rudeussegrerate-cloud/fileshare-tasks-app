@@ -25,6 +25,7 @@ import { useEffect, useState } from "react";
 import type { AppView } from "@/components/app/AppShell";
 import {
   StatusBadge,
+  MailKindBadge,
   FileThumb,
   formatDateTime,
   initialsOf,
@@ -310,6 +311,7 @@ export function DashboardHome({
                         {formatDateTime(courrier.createdAt)}
                       </span>
                     </span>
+                    <MailKindBadge kind={(courrier as { mailKind?: string }).mailKind} />
                     <StatusBadge status={courrier.status} />
                   </button>
                 </li>

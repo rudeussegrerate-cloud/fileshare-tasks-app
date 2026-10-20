@@ -219,6 +219,10 @@ const schema = defineSchema(
       // Identité unique (survît à l'impression / photocopie via QR + n°)
       /** N° officiel du courrier (ex. N°071-2026/MNDPT/SG/DGDN/DTD) */
       publicRef: v.optional(v.string()),
+      /** envoi = courrier sortant (N°) · transmission = papier reçu (Réf. seule) */
+      mailKind: v.optional(
+        v.union(v.literal("envoi"), v.literal("transmission")),
+      ),
       /** Courrier parent (réponse à un courrier reçu) */
       parentCourrierId: v.optional(v.id("documents")),
       /** Réf. textuelle (ex. N° du courrier d'origine) */
