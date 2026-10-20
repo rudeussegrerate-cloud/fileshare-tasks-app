@@ -13,15 +13,6 @@ import { MndptLoader } from "@/components/MndptLoader";
 import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 
-/**
- * Wraps a route that requires a signed-in user.
- *
- * Signed-out visitors used to be bounced straight to `/auth`, which left them
- * on a bare sign-in form with no idea which page they had asked for or why they
- * were moved. The block is now stated on the page they landed on, and sign-in
- * still returns them to it via `returnTo`. Pass `redirectImmediately` for a
- * route where the bounce really is the better experience.
- */
 export function RequireAuth({
   children,
   title = "Connexion requise",
@@ -29,19 +20,15 @@ export function RequireAuth({
   redirectImmediately = false,
 }: {
   children: ReactNode;
-  /** Headline on the blocked screen. */
   title?: string;
-  /** Says what the visitor gets by signing in. */
   description?: string;
-  /** Skip the explanation and go straight to `/auth`. */
   redirectImmediately?: boolean;
 }) {
   const { isLoading, isAuthenticated, authTimedOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Après Google OAuth, le token peut mettre un instant à être pris en compte.
-  // Évite de renvoyer vers /auth trop tôt (perte de session).
+  // Attente OAuth uniquement s'il y a vraiment un code en cours
   const [oauthWait, setOauthWait] = useState(() => {
     if (typeof window === "undefined") return false;
     try {
@@ -49,49 +36,39 @@ export function RequireAuth({
     } catch {
       /* ignore */
     }
-    const ref = document.referrer || "";
     const q = window.location.search || "";
-    const h = window.location.hash || "";
-    return (
-      ref.includes("accounts.google.com") ||
-      ref.includes("convex.site") ||
-      q.includes("code=") ||
-      h.includes("token") ||
-      h.includes("access_token")
-    );
+    return q.includes("code=");
   });
+
   useEffect(() => {
     if (!oauthWait) return;
-    // Laisser jusqu'à 12s pour échanger le code contre une session
-    const t = window.setTimeout(() => setOauthWait(false), 12_000);
+    const t = window.setTimeout(() => {
+      setOauthWait(false);
+      try {
+        sessionStorage.removeItem("scandoc_auth_code");
+        sessionStorage.removeItem("scandoc_auth_code_lock");
+      } catch {
+        /* ignore */
+      }
+    }, 6_000);
     return () => window.clearTimeout(t);
   }, [oauthWait]);
+
   useEffect(() => {
     if (isAuthenticated) {
       setOauthWait(false);
       try {
         sessionStorage.removeItem("scandoc_auth_code");
+        sessionStorage.removeItem("scandoc_auth_code_lock");
       } catch {
         /* ignore */
       }
     }
   }, [isAuthenticated]);
 
+  // Timeout auth → page login (évite le spinner infini)
   if (authTimedOut) {
-    return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center">
-        <p className="text-lg font-semibold text-foreground">Connexion difficile</p>
-        <p className="max-w-md text-sm text-muted-foreground">
-          Le serveur met trop de temps à répondre. Vérifiez votre réseau puis réessayez.
-        </p>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button type="button" onClick={() => window.location.reload()}>Réessayer</Button>
-          <Button type="button" variant="outline" onClick={() => navigate("/auth", { replace: true })}>
-            Page de connexion
-          </Button>
-        </div>
-      </main>
-    );
+    return <Navigate to="/auth?reason=timeout" replace />;
   }
 
   if (isLoading || (oauthWait && !isAuthenticated)) {
@@ -127,14 +104,7 @@ export function RequireAuth({
           </CardContent>
           <CardFooter className="flex flex-col gap-2">
             <Button className="w-full" onClick={() => navigate(signInHref)}>
-              Sign in
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full"
-              onClick={() => navigate("/")}
-            >
-              Back to home
+              Se connecter
             </Button>
           </CardFooter>
         </Card>

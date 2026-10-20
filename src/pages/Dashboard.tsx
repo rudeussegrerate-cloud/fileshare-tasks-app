@@ -73,6 +73,18 @@ export default function Dashboard() {
     senderDepartmentId?: import("@/convex/_generated/dataModel").Id<"departments"> | null;
   } | null>(null);
   const syncedRef = useRef(false);
+  const [meTimedOut, setMeTimedOut] = useState(false);
+
+  // Évite le spinner infini si workspace.me ne répond jamais (token périmé)
+  useEffect(() => {
+    if (me !== undefined) {
+      setMeTimedOut(false);
+      return;
+    }
+    const t = window.setTimeout(() => setMeTimedOut(true), 10_000);
+    return () => window.clearTimeout(t);
+  }, [me]);
+
 
   // On first load: promote the very first account to DG and give this account
   // its approval status (the DG is approved automatically).
@@ -95,6 +107,31 @@ export default function Dashboard() {
   }, []);
 
   // Attendre le statut de compte (syncProfile).
+  if (meTimedOut && !me) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center">
+        <p className="text-lg font-semibold">Chargement trop long</p>
+        <p className="max-w-md text-sm text-muted-foreground">
+          La session semble bloquée. Reconnectez-vous pour continuer.
+        </p>
+        <button
+          type="button"
+          className="rounded-md bg-brand px-4 py-2 text-sm text-white"
+          onClick={() => {
+            try {
+              localStorage.clear();
+              sessionStorage.clear();
+            } catch { /* ignore */ }
+            const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+            window.location.href = `${base}/auth`;
+          }}
+        >
+          Revenir à la connexion
+        </button>
+      </main>
+    );
+  }
+
   if (!me || !me.accountStatus) {
     return (
       <main className="bg-background">

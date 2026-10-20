@@ -145,6 +145,19 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [resetEmail, setResetEmail] = useState("");
   const [info, setInfo] = useState<string | null>(null);
   const [cguAccepted, setCguAccepted] = useState(false);
+  // Message si redirection après timeout de session
+  useEffect(() => {
+    try {
+      const reason = new URLSearchParams(window.location.search).get("reason");
+      if (reason === "timeout") {
+        setError(
+          "La session précédente était bloquée et a été réinitialisée. Connectez-vous à nouveau.",
+        );
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [requestedDepartmentId, setRequestedDepartmentId] = useState<string>("");
   const departments = useQuery(api.departmentMembership.listDepartmentsPublic);
   const requestJoin = useMutation(api.departmentMembership.requestJoin);
