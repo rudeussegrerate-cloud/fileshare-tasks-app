@@ -50,7 +50,7 @@ export function RequireAuth({
       } catch {
         /* ignore */
       }
-    }, 6_000);
+    }, 20_000);
     return () => window.clearTimeout(t);
   }, [oauthWait]);
 

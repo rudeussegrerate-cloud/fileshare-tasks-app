@@ -1044,7 +1044,7 @@ const stats = useQuery(api.documents.stats);
               Déconnexion automatique
             </p>
             <p className="mt-1">
-              Après 30 minutes sans activité, la session est fermée pour
+              Après 45 minutes sans activité, la session est fermée pour
               protéger vos documents.
             </p>
           </div>

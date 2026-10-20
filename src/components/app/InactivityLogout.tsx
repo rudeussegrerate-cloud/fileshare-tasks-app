@@ -3,8 +3,8 @@ import { useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 
-/** Déconnexion après 30 minutes sans interaction. */
-const TIMEOUT_MS = 30 * 60 * 1000;
+/** Déconnexion après inactivité prolongée (onglet visible). */
+const TIMEOUT_MS = 45 * 60 * 1000;
 const EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"] as const;
 
 export function InactivityLogout() {
@@ -15,28 +15,49 @@ export function InactivityLogout() {
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    const reset = () => {
-      if (timer.current) window.clearTimeout(timer.current);
+    const clear = () => {
+      if (timer.current) {
+        window.clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+
+    const arm = () => {
+      clear();
+      // Ne pas compter l'inactivité si l'onglet est en arrière-plan
+      if (document.visibilityState === "hidden") return;
       timer.current = window.setTimeout(() => {
         void (async () => {
-          await signOut();
-          toast.message("Session expirée", {
-            description: "Déconnexion après 30 minutes d'inactivité.",
+          try {
+            await signOut();
+          } catch {
+            /* ignore */
+          }
+          toast.message("Session fermée", {
+            description:
+              "Déconnexion après une longue période sans activité. Reconnectez-vous.",
           });
           navigate("/auth", { replace: true });
         })();
       }, TIMEOUT_MS);
     };
 
-    reset();
+    arm();
     for (const ev of EVENTS) {
-      window.addEventListener(ev, reset, { passive: true });
+      window.addEventListener(ev, arm, { passive: true });
     }
+    const onVis = () => {
+      if (document.visibilityState === "visible") arm();
+      else clear();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
     return () => {
-      if (timer.current) window.clearTimeout(timer.current);
+      clear();
       for (const ev of EVENTS) {
-        window.removeEventListener(ev, reset);
+        window.removeEventListener(ev, arm);
       }
+      document.removeEventListener("visibilitychange", onVis);
     };
   }, [isAuthenticated, signOut, navigate]);
 
