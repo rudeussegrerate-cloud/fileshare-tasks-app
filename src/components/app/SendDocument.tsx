@@ -1199,9 +1199,9 @@ export function SendDocument({
                 </p>
                 <div className="relative space-y-1.5 pt-2">
                   <Label htmlFor="referenceText">Réf.</Label>
-                  <Input
+                  <Textarea
                     id="referenceText"
-                    className="w-full font-mono text-sm"
+                    className="w-full resize-y font-mono text-sm"
                     value={referenceText}
                     onChange={(e) => {
                       setReferenceText(e.target.value);
@@ -1211,7 +1211,7 @@ export function SendDocument({
                     onBlur={() => {
                       window.setTimeout(() => setRefPickerOpen(false), 180);
                     }}
-                    autoComplete="off"
+                    rows={2}
                   />
                   {refPickerOpen ? (
                     <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-sm border border-border bg-card shadow-md">
@@ -1292,7 +1292,9 @@ export function SendDocument({
               <div className="space-y-2">
                 <Label htmlFor="objet">Objet de l&apos;envoi</Label>
                 <Textarea
-                  id="objet" data-scandoc-tour="send-objet"
+                  id="objet"
+                  data-scandoc-tour="send-objet"
+                  className="w-full resize-y text-sm"
                   value={objet}
                   onChange={(e) => setObjet(e.target.value)}
                   rows={2}
