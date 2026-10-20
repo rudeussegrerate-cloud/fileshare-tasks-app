@@ -13,6 +13,7 @@ import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { SmartTips } from "@/components/app/SmartTips";
 import { SettingsView } from "@/components/app/SettingsView";
+import { LetterWorkspace } from "@/components/app/LetterWorkspace";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
@@ -199,6 +200,12 @@ export default function Dashboard() {
           onSent={() => setView("inbox")}
           onManageDepartments={() => setView("departments")}
         />
+      ) : null}
+
+      {view === "workspace" ? (
+        <ViewErrorBoundary label="l'espace de travail">
+          <LetterWorkspace />
+        </ViewErrorBoundary>
       ) : null}
 
       {view === "inbox" ? (

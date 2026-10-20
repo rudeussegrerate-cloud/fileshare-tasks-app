@@ -23,6 +23,7 @@ import type * as documents from "../documents.js";
 import type * as entities from "../entities.js";
 import type * as http from "../http.js";
 import type * as inAppNotifications from "../inAppNotifications.js";
+import type * as letterAssistant from "../letterAssistant.js";
 import type * as lib_groq from "../lib/groq.js";
 import type * as lib_security from "../lib/security.js";
 import type * as notifications from "../notifications.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   entities: typeof entities;
   http: typeof http;
   inAppNotifications: typeof inAppNotifications;
+  letterAssistant: typeof letterAssistant;
   "lib/groq": typeof lib_groq;
   "lib/security": typeof lib_security;
   notifications: typeof notifications;
