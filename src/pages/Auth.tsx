@@ -149,6 +149,29 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const departments = useQuery(api.departmentMembership.listDepartmentsPublic);
   const requestJoin = useMutation(api.departmentMembership.requestJoin);
 
+  // Afficher les erreurs renvoyées par Google (?error=...)
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const oauthErr = params.get("error");
+      const desc = params.get("error_description");
+      if (oauthErr) {
+        setError(
+          oauthErr === "access_denied"
+            ? "Connexion Google refusée. Si l'app est en mode test, ajoutez votre email comme utilisateur de test dans Google Cloud."
+            : `Google : ${desc || oauthErr}`,
+        );
+        params.delete("error");
+        params.delete("error_description");
+        const url = new URL(window.location.href);
+        url.search = params.toString();
+        window.history.replaceState({}, "", url.pathname + url.search);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       let dest = redirect;
