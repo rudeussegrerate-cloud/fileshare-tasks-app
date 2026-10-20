@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { api } from "@/convex/_generated/api";
 import {
   LETTER_VARIABLE_META,
   MNDPT_FIXED,
@@ -15,15 +14,12 @@ import {
   renderMndptLetterHtml,
 } from "@/lib/mndptLetterTemplate";
 import { cn } from "@/lib/utils";
-import { useAction } from "convex/react";
 import {
   Download,
   FilePlus2,
   ImagePlus,
-  Loader2,
   Plus,
   Printer,
-  Sparkles,
   Trash2,
   Type,
   ZoomIn,
@@ -33,15 +29,6 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 type Selectable = LetterVariableKey | "logo" | "seal" | "extra_image" | string | null;
-
-const INTENTS = [
-  "Accusé de réception",
-  "Demande de complément d'information",
-  "Transmission pour suite à donner",
-  "Acceptation",
-  "Refus",
-  "Information / notification",
-];
 
 function downloadBlob(filename: string, content: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -131,8 +118,6 @@ function FixedBlock({
 }
 
 export function LetterWorkspace() {
-  const extractFields = useAction(api.letterAssistant.extractFields);
-  const generateDraft = useAction(api.letterAssistant.generateDraft);
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<
     "logo" | "seal" | "extra_image" | "extra_el" | null
@@ -144,11 +129,7 @@ export function LetterWorkspace() {
   );
   const [selected, setSelected] = useState<Selectable>(null);
   const [zoom, setZoom] = useState(0.88);
-  const [panel, setPanel] = useState<"edit" | "ai" | "media" | "export">("edit");
-  const [sourceText, setSourceText] = useState("");
-  const [intent, setIntent] = useState(INTENTS[0]!);
-  const [instructions, setInstructions] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [panel, setPanel] = useState<"edit" | "media" | "export">("edit");
 
   const v = model.variables;
 
@@ -172,7 +153,6 @@ export function LetterWorkspace() {
   const newBlank = () => {
     setModel(createBlankMndptLetter());
     setSelected(null);
-    setSourceText("");
     toast.success("Modèle vierge officiel MNDPT");
   };
 
@@ -266,90 +246,9 @@ export function LetterWorkspace() {
     if (selected === id) setSelected(null);
   };
 
-  const runExtract = async () => {
-    if (sourceText.trim().length < 20) {
-      toast.error("Collez le texte du courrier reçu.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const res = await extractFields({ sourceText });
-      setModel((m) => {
-        const vars = { ...m.variables };
-        if (res.subject) vars.subject = res.subject;
-        if (res.incoming_number || res.incoming_date) {
-          vars.incoming_reference = [res.incoming_number, res.incoming_date]
-            .filter(Boolean)
-            .join(" — ");
-        }
-        const dest = [res.recipient_title, res.recipient_name, res.recipient_org]
-          .filter(Boolean)
-          .join("\n");
-        if (dest) vars.recipient_block = dest;
-        return { ...m, variables: vars };
-      });
-      setPanel("edit");
-      toast.success("Zones à compléter préremplies");
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Extraction impossible");
-    } finally {
-      setBusy(false);
-    }
-  };
+;
 
-  const runGenerate = async () => {
-    setBusy(true);
-    try {
-      const res = await generateDraft({
-        sourceText: sourceText || v.subject || "Sans texte source",
-        confirmedFields: {
-          subject: v.subject,
-          incoming_number: v.incoming_reference,
-          incoming_date: "",
-          sender_title: v.sender_title,
-          sender_name: "",
-          sender_org: v.direction_line,
-          recipient_title: "",
-          recipient_name: "",
-          recipient_org: v.recipient_block,
-          location_date: v.location_date,
-          outgoing_reference: formatOutgoingRef(v),
-          signatory_title: v.signatory_title,
-          signatory_name: v.signatory_name,
-        },
-        responseIntent: intent,
-        additionalInstructions: instructions || undefined,
-      });
-      setModel((m) => ({
-        ...m,
-        variables: {
-          ...m.variables,
-          subject: res.subject || m.variables.subject,
-          body: res.body_paragraphs.join("\n\n"),
-          recipient_block:
-            [
-              res.recipient.title,
-              res.recipient.name,
-              res.recipient.organization,
-              res.recipient.address,
-            ]
-              .filter(Boolean)
-              .join("\n") || m.variables.recipient_block,
-          incoming_reference:
-            [res.incoming_reference.number, res.incoming_reference.date]
-              .filter(Boolean)
-              .join(" — ") || m.variables.incoming_reference,
-        },
-      }));
-      setSelected("body");
-      setPanel("edit");
-      toast.success("Corps généré sur le modèle");
-    } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Génération impossible");
-    } finally {
-      setBusy(false);
-    }
-  };
+;
 
   const openPrint = () => {
     const w = window.open("", "_blank");
@@ -873,7 +772,6 @@ export function LetterWorkspace() {
             {(
               [
                 ["edit", "Édition"],
-                ["ai", "IA"],
                 ["media", "Médias"],
                 ["export", "Export"],
               ] as const
@@ -895,68 +793,6 @@ export function LetterWorkspace() {
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
             {panel === "edit" ? editorPanel() : null}
-
-            {panel === "ai" ? (
-              <div className="space-y-3 text-xs">
-                <p className="text-muted-foreground">
-                  L&apos;IA complète les zones rouges (objet, corps…). Pas
-                  l&apos;en-tête fixe.
-                </p>
-                <Textarea
-                  rows={5}
-                  className="font-mono text-xs"
-                  placeholder="Coller le courrier reçu…"
-                  value={sourceText}
-                  onChange={(e) => setSourceText(e.target.value)}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  disabled={busy || sourceText.trim().length < 20}
-                  onClick={() => void runExtract()}
-                >
-                  {busy ? (
-                    <Loader2 className="mr-2 size-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-2 size-3.5" />
-                  )}
-                  Extraire les champs
-                </Button>
-                <select
-                  className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
-                  value={intent}
-                  onChange={(e) => setIntent(e.target.value)}
-                >
-                  {INTENTS.map((i) => (
-                    <option key={i} value={i}>
-                      {i}
-                    </option>
-                  ))}
-                </select>
-                <Textarea
-                  rows={2}
-                  placeholder="Consignes…"
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  className="w-full"
-                  disabled={busy}
-                  onClick={() => void runGenerate()}
-                >
-                  {busy ? (
-                    <Loader2 className="mr-2 size-3.5 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-2 size-3.5" />
-                  )}
-                  Générer le corps
-                </Button>
-              </div>
-            ) : null}
 
             {panel === "media" ? (
               <div className="space-y-2 text-xs">
