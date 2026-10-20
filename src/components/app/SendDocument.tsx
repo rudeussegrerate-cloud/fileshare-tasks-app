@@ -352,10 +352,8 @@ export function SendDocument({
       ? files.length > 0
       : step === 1
         ? destIds.length > 0
-        : step === 2
-          ? Boolean(onBehalfDepartmentId) ||
-            (onBehalfType === "external" && onBehalfName.trim().length > 0)
-          : (() => {
+        : (() => {
+              // Étape détails (index 3)
               if (!objet.trim()) return false;
               if (selectedTasks.length === 0 && !customTask.trim()) return false;
               return true;
@@ -371,8 +369,8 @@ export function SendDocument({
       toast.error("Sélectionnez au moins une tâche.");
       return;
     }
-    if (!onBehalfDepartmentId && onBehalfType === "internal") {
-      toast.error("Choisissez la structure qui émet le courrier.");
+    if (!me?.user?._id) {
+      toast.error("Profil non chargé. Reconnectez-vous puis réessayez.");
       return;
     }
     setSending(true);
@@ -1567,7 +1565,7 @@ export function SendDocument({
                 ) : null}
               </div>
 
-              <div className="rounded-sm border border-border bg-brand-soft/40 p-4">
+                            <div className="rounded-sm border border-border bg-brand-soft/40 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Récapitulatif — vérifiez avant d&apos;envoyer
                 </p>
@@ -1583,66 +1581,45 @@ export function SendDocument({
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt
-                      className="shrink-0 text-muted-foreground"
-                      data-scandoc-tour="send-recipient"
-                    >
-                      Qui reçoit
-                    </dt>
-                    <dd className="text-right font-medium">
+                    <dt className="shrink-0 text-muted-foreground">Qui reçoit</dt>
+                    <dd className="max-w-[65%] text-right font-medium">
                       {destIds
                         .map((id) => {
                           const d = departments?.find((x) => x._id === id);
                           if (!d) return null;
-                          return d.code ? `${d.code} — ${d.name}` : d.name;
+                          const kind =
+                            (d as { kind?: string | null }).kind === "service"
+                              ? "Service"
+                              : "Direction";
+                          const label = d.code
+                            ? `${d.code} — ${d.name}`
+                            : d.name;
+                          return `${kind} : ${label}`;
                         })
                         .filter(Boolean)
-                        .join(", ") || "—"}
+                        .join(" · ") || "—"}
                     </dd>
                   </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="shrink-0 text-muted-foreground">Qui envoie</dt>
-                    <dd className="text-right font-medium">
-                      {onBehalfDepartment
-                        ? onBehalfDepartment.code
-                          ? `${onBehalfDepartment.code} — ${onBehalfDepartment.name}`
-                          : onBehalfDepartment.name
-                        : "—"}
-                    </dd>
-                  </div>
-                  {emittingPathPreview ? (
+                  {destFonction.trim() ? (
                     <div className="flex justify-between gap-4">
                       <dt className="shrink-0 text-muted-foreground">
-                        Chemin N°
+                        Fonction
                       </dt>
-                      <dd className="text-right font-mono text-xs font-medium break-all">
-                        {emittingPathPreview}
+                      <dd className="text-right font-medium">
+                        {destFonction.trim()}
                       </dd>
                     </div>
                   ) : null}
                   <div className="flex justify-between gap-4">
-                    <dt className="shrink-0 text-muted-foreground">
-                      De la part de
-                    </dt>
-                    <dd className="text-right font-medium">
-                      {onBehalfType === "external"
-                        ? [
-                            onBehalfFunction.trim() || null,
-                            onBehalfName.trim() || null,
-                            onBehalfDepartmentText.trim() || null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ") || "—"
-                        : [
-                            onBehalfFunction.trim() || null,
-                            onBehalfDepartment
-                              ? onBehalfDepartment.code
-                                ? `${onBehalfDepartment.code} — ${onBehalfDepartment.name}`
-                                : onBehalfDepartment.name
-                              : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ") || "—"}
+                    <dt className="shrink-0 text-muted-foreground">Émetteur</dt>
+                    <dd className="max-w-[65%] text-right font-medium">
+                      {[
+                        me?.user?.name?.trim() || null,
+                        me?.user?.fonction?.trim() || null,
+                        me?.department?.name?.trim() || null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ") || "—"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
@@ -1657,17 +1634,29 @@ export function SendDocument({
                       {referenceText.trim() || "—"}
                     </dd>
                   </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="shrink-0 text-muted-foreground">
-                      Réponse attendue
-                    </dt>
-                    <dd className="text-right font-medium">
-                      {requiresResponse ? "Oui" : "Non"}
-                    </dd>
-                  </div>
+                  {arriveeLe.trim() ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="shrink-0 text-muted-foreground">
+                        Arrivée le
+                      </dt>
+                      <dd className="text-right font-medium">{arriveeLe}</dd>
+                    </div>
+                  ) : null}
+                  {duField.trim() ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="shrink-0 text-muted-foreground">Du</dt>
+                      <dd className="text-right font-medium">{duField.trim()}</dd>
+                    </div>
+                  ) : null}
+                  {dateCourrier.trim() ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="shrink-0 text-muted-foreground">Date</dt>
+                      <dd className="text-right font-medium">{dateCourrier}</dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">Objet</dt>
-                    <dd className="line-clamp-3 text-right font-medium">
+                    <dd className="line-clamp-3 max-w-[65%] text-right font-medium">
                       {objet.trim() || "—"}
                     </dd>
                   </div>
@@ -1700,26 +1689,17 @@ export function SendDocument({
                         : "—"}
                     </dd>
                   </div>
-                  {circuitExtra.length > 0 ? (
-                    <div className="flex justify-between gap-4">
-                      <dt className="shrink-0 text-muted-foreground">
-                        Circuit personnes
-                      </dt>
-                      <dd className="text-right font-medium">
-                        {circuitExtra.map((c) => c.name).join(" → ")}
-                      </dd>
-                    </div>
-                  ) : null}
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">
-                      Résumé automatique
+                      Résumé
                     </dt>
-                    <dd className="text-right font-medium">
+                    <dd className="max-w-[65%] text-right text-xs leading-relaxed whitespace-pre-wrap">
                       {extracting
                         ? "en préparation…"
-                        : extractedText
-                          ? "activé"
-                          : "indisponible (fichier sans texte)"}
+                        : extractedText.trim()
+                          ? extractedText.trim().slice(0, 400) +
+                            (extractedText.trim().length > 400 ? "…" : "")
+                          : "—"}
                     </dd>
                   </div>
                 </dl>
@@ -1739,7 +1719,7 @@ export function SendDocument({
               Retour
             </Button>
 
-            {step < STEPS.length - 1 ? (
+            {step === 0 || step === 1 ? (
               <Button
                 type="button"
                 className="gap-2"
