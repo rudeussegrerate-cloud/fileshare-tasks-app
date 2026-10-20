@@ -61,6 +61,7 @@ class ViewErrorBoundary extends React.Component<
 
 export default function Dashboard() {
   const syncProfile = useMutation(api.workspace.syncProfile);
+  const claimBootstrapRoot = useMutation(api.workspace.claimBootstrapRoot);
   const me = useQuery(api.workspace.me);
   const [view, setView] = useState<AppView>("home");
   const [openDocumentId, setOpenDocumentId] = useState<Id<"documents"> | null>(
@@ -82,7 +83,7 @@ export default function Dashboard() {
       setMeTimedOut(false);
       return;
     }
-    const t = window.setTimeout(() => setMeTimedOut(true), 10_000);
+    const t = window.setTimeout(() => setMeTimedOut(true), 45_000);
     return () => window.clearTimeout(t);
   }, [me]);
 
@@ -92,11 +93,21 @@ export default function Dashboard() {
   useEffect(() => {
     if (syncedRef.current) return;
     syncedRef.current = true;
-    void syncProfile().catch((error: unknown) => {
-      console.error("[syncProfile]", error);
-      toast.error("Impossible de préparer votre espace de travail.");
-    });
-  }, [syncProfile]);
+    void (async () => {
+      try {
+        await syncProfile({});
+        // Si aucun root réel : tenter d'élever ce compte (sans erreur visible sinon)
+        try {
+          await claimBootstrapRoot({});
+        } catch {
+          /* un root existe déjà — normal */
+        }
+      } catch (error: unknown) {
+        console.error("[syncProfile]", error);
+        toast.error("Impossible de préparer votre espace de travail.");
+      }
+    })();
+  }, [syncProfile, claimBootstrapRoot]);
 
   useEffect(() => {
     const onNav = (e: Event) => {

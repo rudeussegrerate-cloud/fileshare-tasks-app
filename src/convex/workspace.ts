@@ -205,20 +205,35 @@ export const syncProfile = mutation({
     // deployments where accounts were created before the role existed, and it
     // deliberately ignores anonymous accounts.
     if (user.role !== "root") {
-      const anyRoot = await ctx.db
+      // Un « root » sans email (compte fantôme) ne compte pas
+      const roots = await ctx.db
         .query("users")
         .filter((q) => q.eq(q.field("role"), "root"))
-        .first();
-      const hasIdentity = Boolean(
-        user.email && (user.profileCompletedAt || user.name),
-      );
+        .collect();
+      const anyRealRoot = roots.some((r) => Boolean(r.email));
+      const hasIdentity = Boolean(user.email);
 
-      if (!anyRoot && hasIdentity) {
+      if (!anyRealRoot && hasIdentity) {
+        // Premier compte réel = super utilisateur (DG / admin technique)
         patch.role = "root";
         patch.accountStatus = "valide";
+        if (!user.profileCompletedAt && user.name) {
+          patch.profileCompletedAt = Date.now();
+        }
       } else if (!user.role) {
         patch.role = "user";
       }
+    }
+
+    // Réparer un root/admin bloqué en « en_attente »
+    if (
+      (user.role === "root" ||
+        user.role === "admin" ||
+        patch.role === "root" ||
+        patch.role === "admin") &&
+      (user.accountStatus === "en_attente" || user.accountStatus === "rejete")
+    ) {
+      patch.accountStatus = "valide";
     }
 
     // Validation DG : les nouveaux comptes restent « en_attente » jusqu'à
@@ -237,6 +252,54 @@ export const syncProfile = mutation({
       await ctx.db.patch(userId, patch);
     }
     return null;
+  },
+});
+
+/**
+ * Secours : s'il n'existe aucun super utilisateur avec email,
+ * le compte connecté (avec email) devient root + validé.
+ * Inutile si un root réel existe déjà.
+ */
+export const claimBootstrapRoot = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Non authentifié.");
+    const user = await ctx.db.get(userId);
+    if (!user) throw new Error("Compte introuvable.");
+    if (!user.email) {
+      throw new Error("Votre compte doit avoir un email pour devenir administrateur.");
+    }
+
+    const roots = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("role"), "root"))
+      .collect();
+    const anyRealRoot = roots.some((r) => Boolean(r.email));
+
+    if (anyRealRoot) {
+      // Si l'appelant est déjà root/admin, s'assurer qu'il est validé
+      if (user.role === "root" || user.role === "admin") {
+        if (user.accountStatus !== "valide") {
+          await ctx.db.patch(userId, { accountStatus: "valide" });
+        }
+        return { ok: true as const, role: user.role, message: "Compte admin déjà actif." };
+      }
+      throw new Error(
+        "Un administrateur existe déjà. Demandez-lui de valider votre compte ou de vous nommer DG.",
+      );
+    }
+
+    await ctx.db.patch(userId, {
+      role: "root",
+      accountStatus: "valide",
+      profileCompletedAt: user.profileCompletedAt ?? Date.now(),
+    });
+    return {
+      ok: true as const,
+      role: "root" as const,
+      message: "Vous êtes maintenant super utilisateur (admin).",
+    };
   },
 });
 
