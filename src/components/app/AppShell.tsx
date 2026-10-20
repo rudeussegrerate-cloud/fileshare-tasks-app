@@ -36,7 +36,7 @@ import {
   UserCheck,
   type LucideIcon,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
 import loginBackdrop from "@/assets/login-backdrop.jpg";
@@ -200,6 +200,17 @@ export function AppShell({
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Évite le double menu (sidebar + tiroir mobile) quand on passe en grand écran
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const closeIfDesktop = () => {
+      if (mq.matches) setMobileNavOpen(false);
+    };
+    closeIfDesktop();
+    mq.addEventListener("change", closeIfDesktop);
+    return () => mq.removeEventListener("change", closeIfDesktop);
+  }, []);
   const [peopleOpen, setPeopleOpen] = useState(true);
 
   const handleSignOut = async () => {
@@ -316,13 +327,26 @@ export function AppShell({
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sc-app-header sticky top-0 z-20 flex items-center justify-between gap-3 px-4 py-3.5 lg:px-8">
             <div className="flex items-center gap-3">
-              <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+              <Sheet
+                open={mobileNavOpen}
+                onOpenChange={(open) => {
+                  // Ne jamais laisser le tiroir ouvert en mode bureau
+                  if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+                    setMobileNavOpen(false);
+                    return;
+                  }
+                  setMobileNavOpen(open);
+                }}
+              >
                 <SheetTrigger asChild>
-                  <Button variant="outline" size="icon" className="lg:hidden">
+                  <Button variant="outline" size="icon" className="lg:hidden" aria-label="Ouvrir le menu">
                     <Menu className="size-4" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="left" className="sc-shell-sidebar flex w-72 flex-col border-sidebar-border p-4">
+                <SheetContent
+                  side="left"
+                  className="sc-shell-sidebar flex w-[min(18rem,85vw)] flex-col border-sidebar-border p-4 lg:hidden"
+                >
                   <SheetHeader className="p-0">
                     <SheetTitle className="sr-only">Menu ScanDoc</SheetTitle>
                   </SheetHeader>

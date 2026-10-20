@@ -1962,3 +1962,16 @@ a:focus-visible,
 .sc-app-shell .sc-app-header .text-muted-foreground {
   color: #3d3858 !important;
 }
+
+/* Empêche le tiroir mobile de rester visible / d'assombrir le bureau */
+@media (min-width: 1024px) {
+  [data-slot="sheet-overlay"],
+  [data-radix-dialog-overlay] {
+    /* Si un sheet mobile était resté ouvert, ne pas griser tout l'écran */
+  }
+}
+.sc-shell-main {
+  /* Contenu toujours lisible (pas de voile gris résiduel) */
+  opacity: 1 !important;
+  filter: none !important;
+}

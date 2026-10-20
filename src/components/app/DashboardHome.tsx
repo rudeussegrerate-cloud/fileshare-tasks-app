@@ -121,7 +121,7 @@ export function DashboardHome({
         </div>
         <Button
           onClick={onSend}
-          className="h-11 gap-2 rounded-xl bg-[#5b4cdb] px-5 font-semibold text-white shadow-md hover:bg-[#4c3ec7]"
+          className="h-11 gap-2 rounded-xl bg-[#4c3ec7] px-5 font-semibold text-white shadow-md hover:bg-[#3b2f9e]"
           data-scandoc-tour="home-actions"
         >
           <Send className="size-4" />
