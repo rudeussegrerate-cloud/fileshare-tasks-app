@@ -145,6 +145,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [resetEmail, setResetEmail] = useState("");
   const [info, setInfo] = useState<string | null>(null);
   const [cguAccepted, setCguAccepted] = useState(false);
+  const [pwdDraft, setPwdDraft] = useState("");
+
   // Message si redirection après timeout de session
   useEffect(() => {
     try {
@@ -542,7 +544,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     name="email"
                     type="email"
                     autoComplete="email"
-                    placeholder="prenom.nom@entreprise.com"
                     disabled={isLoading}
                     required
                   />
@@ -588,7 +589,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     name="code"
                     inputMode="numeric"
                     autoComplete="one-time-code"
-                    placeholder="8 chiffres"
                     disabled={isLoading}
                     required
                     minLength={6}
@@ -602,7 +602,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     name="newPassword"
                     type="password"
                     autoComplete="new-password"
-                    placeholder="Au moins 8 caractères"
                     disabled={isLoading}
                     required
                     minLength={8}
@@ -699,13 +698,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   value="signIn"
                   className="rounded-full text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-[#1a1238] data-[state=inactive]:text-white/90"
                 >
-                  Se connecter
+                  S'authentifier
                 </TabsTrigger>
                 <TabsTrigger
                   value="signUp"
                   className="rounded-full text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-[#1a1238] data-[state=inactive]:text-white/90"
                 >
-                  Créer un compte
+                  Valider
                 </TabsTrigger>
               </TabsList>
 
@@ -718,7 +717,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       name="email"
                       type="email"
                       autoComplete="email"
-                      placeholder="prenom.nom@entreprise.com"
                       disabled={isLoading}
                       required
                     />
@@ -730,7 +728,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       name="password"
                       type="password"
                       autoComplete="current-password"
-                      placeholder="••••••••"
                       disabled={isLoading}
                       required
                     />
@@ -754,7 +751,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </>
                     ) : (
                       <>
-                        Se connecter
+                        S&apos;authentifier
                         <ArrowRight className="ml-2 size-4" />
                       </>
                     )}
@@ -769,7 +766,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     <Input
                       id="signup-name"
                       name="name"
-                      placeholder="Ex : Awa Diop"
                       disabled={isLoading}
                       required
                       minLength={3}
@@ -781,16 +777,14 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <Input
                         id="signup-fonction"
                         name="fonction"
-                        placeholder="Ex : Comptable"
                         disabled={isLoading}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-phone">Téléphone</Label>
+                      <Label htmlFor="signup-phone">WhatsApp</Label>
                       <Input
                         id="signup-phone"
                         name="phone"
-                        placeholder="Ex : +228 90 00 00 00"
                         disabled={isLoading}
                       />
                     </div>
@@ -828,7 +822,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       name="email"
                       type="email"
                       autoComplete="email"
-                      placeholder="prenom.nom@entreprise.com"
                       disabled={isLoading}
                       required
                     />
@@ -841,11 +834,32 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         name="password"
                         type="password"
                         autoComplete="new-password"
-                        placeholder="Majuscule, minuscule, chiffre — 8+ car."
                         disabled={isLoading}
                         required
                         minLength={8}
+                        value={pwdDraft}
+                        onChange={(e) => setPwdDraft(e.target.value)}
                       />
+                      <ul className="mt-2 space-y-1 text-xs" aria-live="polite">
+                        {[
+                          { ok: pwdDraft.length >= 8, label: "Au moins 8 caractères" },
+                          { ok: /[a-z]/.test(pwdDraft), label: "Une lettre minuscule" },
+                          { ok: /[A-Z]/.test(pwdDraft), label: "Une lettre majuscule" },
+                          { ok: /[0-9]/.test(pwdDraft), label: "Un chiffre" },
+                        ].map((r) => (
+                          <li
+                            key={r.label}
+                            className={
+                              r.ok
+                                ? "flex items-center gap-1.5 font-medium text-emerald-300"
+                                : "flex items-center gap-1.5 text-white/70"
+                            }
+                          >
+                            <span aria-hidden>{r.ok ? "✓" : "○"}</span>
+                            {r.label}
+                          </li>
+                        ))}
+                      </ul>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-confirmation">Confirmation</Label>
@@ -854,7 +868,6 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         name="confirmation"
                         type="password"
                         autoComplete="new-password"
-                        placeholder="••••••••"
                         disabled={isLoading}
                         required
                         minLength={8}
@@ -885,7 +898,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </>
                     ) : (
                       <>
-                        Créer mon compte
+                        Valider
                         <ArrowRight className="ml-2 size-4" />
                       </>
                     )}

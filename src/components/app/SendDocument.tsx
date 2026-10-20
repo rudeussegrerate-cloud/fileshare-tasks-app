@@ -35,7 +35,7 @@ function isOnline(lastSeenAt?: number | null) {
 }
 
 
-const STEPS = ["Fichier", "Qui reçoit", "Qui envoie", "Détails"];
+const STEPS = ["Fichier", "Destinataires", "Détails"];
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
@@ -65,6 +65,11 @@ export function SendDocument({
   const sendDocument = useMutation(api.documents.send);
 
   const [step, setStep] = useState(0);
+  // L'étape « Qui envoie » (index 2) est sautée : émetteur = profil connecté
+  const goNext = () => setStep((s) => (s === 1 ? 3 : Math.min(3, s + 1)));
+  const goBack = () => setStep((s) => (s === 3 ? 1 : Math.max(0, s - 1)));
+  const stepDot = step === 3 ? 2 : step === 2 ? 1 : step;
+
   const [files, setFiles] = useState<File[]>([]);
   const [extractedText, setExtractedText] = useState("");
   const [extracting, setExtracting] = useState(false);
@@ -106,6 +111,11 @@ export function SendDocument({
     replyTo?.publicRef ? replyTo.publicRef : "",
   );
   const [requiresResponse, setRequiresResponse] = useState(false);
+  const [destFonction, setDestFonction] = useState("");
+  const [arriveeLe, setArriveeLe] = useState("");
+  const [duField, setDuField] = useState("");
+  const [dateCourrier, setDateCourrier] = useState("");
+
   const [refPickerOpen, setRefPickerOpen] = useState(false);
   const [publicRef, setPublicRef] = useState(initialPublicRef ?? "");
   const filteredReceivedRefs = useMemo(() => {
@@ -417,15 +427,11 @@ export function SendDocument({
       for (let fi = 0; fi < uploaded.length; fi++) {
         const up = uploaded[fi]!;
         // N° complet = N°{séquence}-{année}/{hiérarchie émetteur}
-        const seqDigits = publicRef.replace(/\D/g, "").slice(0, 4);
-        const path = emittingPathPreview ?? "MNDPT";
         let refBase: string | undefined;
-        if (publicRef.trim().startsWith("N°") || publicRef.trim().startsWith("REF-")) {
+        if (publicRef.trim()) {
           refBase = publicRef.trim();
-        } else if (seqDigits) {
-          refBase = `N°${seqDigits.padStart(3, "0")}-${courrierYear}/${path}`;
         } else {
-          refBase = undefined; // serveur génère tout
+          refBase = undefined;
         }
         const ref =
           refBase && uploaded.length === 1
@@ -433,6 +439,39 @@ export function SendDocument({
             : refBase
               ? `${refBase}#${fi + 1}`
               : undefined;
+        const metaFields = [
+          arriveeLe.trim()
+            ? { label: "Arrivée le", value: arriveeLe.trim(), source: "manual" as const }
+            : null,
+          duField.trim()
+            ? { label: "Du", value: duField.trim(), source: "manual" as const }
+            : null,
+          dateCourrier.trim()
+            ? { label: "Date", value: dateCourrier.trim(), source: "manual" as const }
+            : null,
+          destFonction.trim()
+            ? {
+                label: "Fonction destinataire",
+                value: destFonction.trim(),
+                source: "structure" as const,
+              }
+            : null,
+        ].filter(Boolean) as Array<{
+          label: string;
+          value: string;
+          source?: "manual" | "courrier" | "structure";
+        }>;
+        const mergedFields = [
+          ...customFields
+            .filter((f) => f.label.trim() && f.value.trim())
+            .map((f) => ({
+              label: f.label.trim(),
+              value: f.value.trim(),
+              source: f.source,
+            })),
+          ...metaFields,
+        ].slice(0, 8);
+
         lastId = await sendDocument({
           storageId: up.storageId,
           fileName: up.fileName,
@@ -446,32 +485,24 @@ export function SendDocument({
           recipientTargets,
           recipientId: fi === 0 ? recipientId ?? undefined : undefined,
           publicRef: ref || undefined,
-          stepDeadlineHours: stepDeadlineHours,
+          stepDeadlineHours: undefined,
           parentCourrierId: replyTo?.documentId,
           referenceText: referenceText.trim() || undefined,
-          requiresResponse: requiresResponse ? true : undefined,
-          emittingDepartmentId: onBehalfDepartmentId ?? undefined,
+          requiresResponse: false,
+          emittingDepartmentId:
+            (me?.user?.departmentId as Id<"departments"> | undefined) ??
+            onBehalfDepartmentId ??
+            undefined,
           circuitAssigneeIds:
             fi === 0 && circuitExtra.length > 0
               ? circuitExtra.map((c) => c.userId)
               : undefined,
-          onBehalfOfType: onBehalfType,
-          onBehalfOfUserId: resolvedOnBehalfUserId,
-          onBehalfOfName:
-            onBehalfType === "external" ? onBehalfName.trim() : undefined,
-          onBehalfOfFunction: onBehalfFunction.trim() || undefined,
-          onBehalfOfDepartment:
-            onBehalfType === "external"
-              ? onBehalfDepartmentText.trim() || undefined
-              : undefined,
-          customFields: customFields
-            .filter((f) => f.label.trim() && f.value.trim())
-            .slice(0, 8)
-            .map((f) => ({
-              label: f.label.trim(),
-              value: f.value.trim(),
-              source: f.source,
-            })),
+          onBehalfOfType: "internal",
+          onBehalfOfUserId: me?.user?._id ?? undefined,
+          onBehalfOfName: me?.user?.name?.trim() || undefined,
+          onBehalfOfFunction: me?.user?.fonction?.trim() || undefined,
+          onBehalfOfDepartment: me?.department?.name?.trim() || undefined,
+          customFields: mergedFields.length ? mergedFields : undefined,
         });
         count += 1;
       }
@@ -538,7 +569,7 @@ export function SendDocument({
               référence préremplis.
             </p>
           ) : null}
-          <StepDots steps={STEPS} current={step} />
+          <StepDots steps={STEPS} current={stepDot} />
 
           {step === 0 ? (
             <div className="space-y-4">
@@ -893,11 +924,30 @@ export function SendDocument({
                   Aucune destination sélectionnée.
                 </p>
               )}
+
+              {destIds.length > 0 ? (
+                <div className="space-y-2 pt-2">
+                  <Label htmlFor="destFonction">
+                    Fonction dans le service{" "}
+                    <span className="font-normal text-muted-foreground">(optionnel)</span>
+                  </Label>
+                  <Input
+                    id="destFonction"
+                    value={destFonction}
+                    onChange={(e) => setDestFonction(e.target.value)}
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Ex. Comptable, Secrétaire… Le document appartient au service ;
+                    tous les membres pourront le voir. La fonction précise le rôle
+                    concerné si besoin.
+                  </p>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
           
-          {step === 2 ? (
+          {false && step === 2 ? (
             <div className="space-y-4" data-scandoc-tour="send-emitter">
               <div className="rounded-sm border border-border bg-muted/40 px-4 py-3">
                 <p className="text-sm font-semibold text-foreground">
@@ -1123,7 +1173,7 @@ export function SendDocument({
                         (x) => x._id === onBehalfDepartmentId,
                       );
                       if (!d) return "—";
-                      return d.code ? `${d.code} — ${d.name}` : d.name;
+                      return d!.code ? `${d!.code} — ${d!.name}` : d!.name;
                     })()}
                   </p>
                   {emittingPathPreview ? (
@@ -1207,6 +1257,20 @@ export function SendDocument({
 
 {step === 3 ? (
             <div className="space-y-6">
+              {(extractedText.trim() || objet.trim()) ? (
+                <div className="rounded-sm border border-border bg-muted/30 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Résumé du document
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
+                    {extractedText.trim()
+                      ? extractedText.trim().slice(0, 600) +
+                        (extractedText.trim().length > 600 ? "…" : "")
+                      : objet.trim()}
+                  </p>
+                </div>
+              ) : null}
+
               <div className="space-y-2">
                 <Label htmlFor="publicRef">N° du courrier</Label>
                 <div className="flex flex-wrap items-center gap-2">
@@ -1215,13 +1279,9 @@ export function SendDocument({
                   </span>
                   <Input
                     id="publicRef"
-                    value={sequenceOnly || publicRef.replace(/\D/g, "")}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "").slice(0, 4);
-                      setPublicRef(digits);
-                    }}
-                    placeholder="071"
-                    className="font-mono w-24 text-center text-base"
+                    value={publicRef}
+                    onChange={(e) => setPublicRef(e.target.value)}
+                    className="w-full font-mono text-base"
                     inputMode="numeric"
                     autoComplete="off"
                   />
@@ -1233,14 +1293,13 @@ export function SendDocument({
                   {fullNumeroPreview}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  Saisissez uniquement le numéro (ex. 071). L&apos;année et le
-                  chemin hiérarchique (structure émettrice) sont remplis
-                  automatiquement. Laissez vide pour un numéro auto.
+                  Saisissez le numéro de courrier manuellement (ex. N°071-2026/MNDPT/DTD).
                 </p>
                 <div className="relative space-y-1.5 pt-2">
                   <Label htmlFor="referenceText">Réf.</Label>
                   <Input
                     id="referenceText"
+                    className="w-full font-mono text-sm"
                     value={referenceText}
                     onChange={(e) => {
                       setReferenceText(e.target.value);
@@ -1248,16 +1307,9 @@ export function SendDocument({
                     }}
                     onFocus={() => setRefPickerOpen(true)}
                     onBlur={() => {
-                      // délai pour laisser le clic sur une option
                       window.setTimeout(() => setRefPickerOpen(false), 180);
                     }}
-                    placeholder={
-                      receivedRefs === undefined
-                        ? "Chargement…"
-                        : "Rechercher un N° de courrier reçu…"
-                    }
                     autoComplete="off"
-                    className="font-mono text-sm"
                   />
                   {refPickerOpen ? (
                     <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-sm border border-border bg-card shadow-md">
@@ -1301,13 +1353,6 @@ export function SendDocument({
                     Uniquement les N° des courriers que vous avez reçus.
                   </p>
                 </div>
-                <label className="flex cursor-pointer items-center gap-2 pt-1 text-sm">
-                  <Checkbox
-                    checked={requiresResponse}
-                    onCheckedChange={(v) => setRequiresResponse(v === true)}
-                  />
-                  Une réponse est attendue
-                </label>
                 {refLookup?.found && !refLookup.isClosed ? (
                   <div
                     className={
@@ -1343,25 +1388,6 @@ export function SendDocument({
                 ) : null}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="sla">Délai max par étape (heures)</Label>
-                <Input
-                  id="sla"
-                  type="number"
-                  min={1}
-                  max={168}
-                  value={stepDeadlineHours}
-                  onChange={(e) =>
-                    setStepDeadlineHours(
-                      Math.min(168, Math.max(1, Number(e.target.value) || 48)),
-                    )
-                  }
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Au-delà, le dossier apparaît en retard (défaut 48 h). Max 7
-                  jours par étape.
-                </p>
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="objet">Objet de l&apos;envoi</Label>
                 <Textarea
                   id="objet" data-scandoc-tour="send-objet"
@@ -1370,9 +1396,39 @@ export function SendDocument({
                   rows={2}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Indiquez l'objet du courrier.
+                  Indiquez l&apos;objet du courrier.
                 </p>
               </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <Label htmlFor="arriveeLe">Arrivée le</Label>
+                  <Input
+                    id="arriveeLe"
+                    type="date"
+                    value={arriveeLe}
+                    onChange={(e) => setArriveeLe(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duField">Du</Label>
+                  <Input
+                    id="duField"
+                    value={duField}
+                    onChange={(e) => setDuField(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dateCourrier">Date</Label>
+                  <Input
+                    id="dateCourrier"
+                    type="date"
+                    value={dateCourrier}
+                    onChange={(e) => setDateCourrier(e.target.value)}
+                  />
+                </div>
+              </div>
+
 
               <div className="space-y-2">
                 <Label htmlFor="observations">Observations / instructions</Label>
@@ -1435,7 +1491,6 @@ export function SendDocument({
                                 ),
                               );
                             }}
-                            placeholder="Libellé"
                             className="h-8 flex-1 text-sm"
                           />
                           <Button
@@ -1464,7 +1519,6 @@ export function SendDocument({
                               ),
                             );
                           }}
-                          placeholder="Valeur"
                           className="h-8 text-sm"
                         />
                         <div className="flex flex-wrap items-center gap-1.5">
@@ -1775,7 +1829,7 @@ export function SendDocument({
               variant="ghost"
               className="gap-2"
               disabled={step === 0 || sending}
-              onClick={() => setStep((value) => Math.max(0, value - 1))}
+              onClick={goBack}
             >
               <ArrowLeft className="size-4" />
               Retour
@@ -1786,7 +1840,7 @@ export function SendDocument({
                 type="button"
                 className="gap-2"
                 disabled={!canContinue}
-                onClick={() => setStep((value) => value + 1)}
+                onClick={goNext}
               >
                 Continuer
                 <ArrowRight className="size-4" />
