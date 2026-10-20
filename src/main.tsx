@@ -176,6 +176,16 @@ if (localStorage.getItem("scandoc-anim") === "on") {
   document.documentElement.classList.add("scandoc-anim");
 }
 
+// Capturer le code OAuth Google avant que React / StrictMode ne le perde
+try {
+  const _oauthCode = new URLSearchParams(window.location.search).get("code");
+  if (_oauthCode) {
+    sessionStorage.setItem("scandoc_auth_code", _oauthCode);
+  }
+} catch {
+  /* ignore */
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <RootErrorBoundary>

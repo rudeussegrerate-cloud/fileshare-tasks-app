@@ -165,6 +165,68 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
 
+  // Reprise OAuth : échanger le code Google si ConvexAuthProvider ne l'a pas fait
+  useEffect(() => {
+    if (authLoading || isAuthenticated) return;
+    let code: string | null = null;
+    try {
+      code = sessionStorage.getItem("scandoc_auth_code");
+    } catch {
+      /* ignore */
+    }
+    if (!code) {
+      try {
+        code = new URLSearchParams(window.location.search).get("code");
+      } catch {
+        /* ignore */
+      }
+    }
+    if (!code) return;
+
+    let cancelled = false;
+    (async () => {
+      setGoogleLoading(true);
+      setError(null);
+      try {
+        // @convex-dev/auth : signIn(undefined, { code }) finalise OAuth
+        await signIn(undefined as unknown as string, { code });
+        try {
+          sessionStorage.removeItem("scandoc_auth_code");
+        } catch {
+          /* ignore */
+        }
+        // nettoyer ?code= de l'URL
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.has("code")) {
+            url.searchParams.delete("code");
+            window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+          }
+        } catch {
+          /* ignore */
+        }
+      } catch (err) {
+        console.error("OAuth code exchange failed:", err);
+        if (!cancelled) {
+          setError(
+            friendlyError(err, "google") +
+              " Si le problème continue, vérifiez SITE_URL dans Convex (doit être l'URL GitHub Pages complète).",
+          );
+          try {
+            sessionStorage.removeItem("scandoc_auth_code");
+          } catch {
+            /* ignore */
+          }
+        }
+      } finally {
+        if (!cancelled) setGoogleLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, isAuthenticated, signIn]);
+
   const handleForgotRequest = async (
     event: React.FormEvent<HTMLFormElement>,
   ) => {

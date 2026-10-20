@@ -44,6 +44,11 @@ export function RequireAuth({
   // Évite de renvoyer vers /auth trop tôt (perte de session).
   const [oauthWait, setOauthWait] = useState(() => {
     if (typeof window === "undefined") return false;
+    try {
+      if (sessionStorage.getItem("scandoc_auth_code")) return true;
+    } catch {
+      /* ignore */
+    }
     const ref = document.referrer || "";
     const q = window.location.search || "";
     const h = window.location.hash || "";
@@ -57,11 +62,19 @@ export function RequireAuth({
   });
   useEffect(() => {
     if (!oauthWait) return;
-    const t = window.setTimeout(() => setOauthWait(false), 4000);
+    // Laisser jusqu'à 12s pour échanger le code contre une session
+    const t = window.setTimeout(() => setOauthWait(false), 12_000);
     return () => window.clearTimeout(t);
   }, [oauthWait]);
   useEffect(() => {
-    if (isAuthenticated) setOauthWait(false);
+    if (isAuthenticated) {
+      setOauthWait(false);
+      try {
+        sessionStorage.removeItem("scandoc_auth_code");
+      } catch {
+        /* ignore */
+      }
+    }
   }, [isAuthenticated]);
 
   if (authTimedOut) {
