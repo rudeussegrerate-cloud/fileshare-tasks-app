@@ -762,14 +762,20 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <Label htmlFor="signup-department">Département souhaité</Label>
                       <select
                         id="signup-department"
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="auth-dept-select flex h-12 w-full rounded-xl border-2 border-white/55 bg-white px-3 py-2 text-sm font-semibold text-[#1a1238] ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
                         value={requestedDepartmentId}
                         onChange={(e) => setRequestedDepartmentId(e.target.value)}
                         disabled={isLoading}
                       >
-                        <option value="">— Choisir (optionnel) —</option>
+                        <option value="" className="bg-white text-[#1a1238]">
+                          — Choisir (optionnel) —
+                        </option>
                         {(departments ?? []).map((d) => (
-                          <option key={d._id} value={d._id}>
+                          <option
+                            key={d._id}
+                            value={d._id}
+                            className="bg-white text-[#1a1238]"
+                          >
                             {d.name}
                           </option>
                         ))}

@@ -1975,3 +1975,18 @@ a:focus-visible,
   opacity: 1 !important;
   filter: none !important;
 }
+
+/* Liste départements inscription — texte bien lisible */
+.auth-glass-form select.auth-dept-select,
+.auth-glass-form .auth-dept-select {
+  color: #1a1238 !important;
+  background: #ffffff !important;
+  border: 2px solid rgba(255, 255, 255, 0.85) !important;
+  font-weight: 600 !important;
+  min-height: 50px !important;
+}
+.auth-glass-form select.auth-dept-select option {
+  color: #1a1238 !important;
+  background: #ffffff !important;
+  font-weight: 500;
+}
