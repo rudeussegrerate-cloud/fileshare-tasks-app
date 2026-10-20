@@ -2,6 +2,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -134,11 +141,12 @@ export function SendDocument({
     replyTo?.publicRef ? replyTo.publicRef : "",
   );
   const [requiresResponse, setRequiresResponse] = useState(false);
-  const [destFonction, setDestFonction] = useState("");
   const [arriveeLe, setArriveeLe] = useState("");
   const [duField, setDuField] = useState("");
   const [dateCourrier, setDateCourrier] = useState("");
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [precisionOpen, setPrecisionOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const [refPickerOpen, setRefPickerOpen] = useState(false);
   const [publicRef, setPublicRef] = useState(initialPublicRef ?? "");
@@ -189,14 +197,83 @@ export function SendDocument({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (files.length === 0) {
+      setPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      return;
+    }
+    const f = files[0]!;
+    const url = URL.createObjectURL(f);
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+    return () => URL.revokeObjectURL(url);
+  }, [files]);
+
   const selectedDepartment = departments?.find((d) => d._id === departmentId);
   const selectableMembers =
     selectedDepartment?.members.filter(
       (member) => member._id !== me?.user._id,
     ) ?? [];
-  const selectedRecipient = selectedDepartment?.members.find(
-    (member) => member._id === recipientId,
-  );
+  const selectedRecipient = (() => {
+    if (!recipientId) return null;
+    for (const id of destIds) {
+      const d = departments?.find((x) => x._id === id);
+      const m = d?.members?.find((member) => member._id === recipientId);
+      if (m) return m;
+    }
+    return (
+      departments
+        ?.flatMap((d) => d.members ?? [])
+        .find((member) => member._id === recipientId) ?? null
+    );
+  })();
+
+  /** Personnes des structures cochées, regroupables par fonction */
+  const precisionCandidates = useMemo(() => {
+    const list: Array<{
+      userId: Id<"users">;
+      name: string;
+      fonction: string;
+      deptLabel: string;
+      deptId: Id<"departments">;
+      online: boolean;
+    }> = [];
+    for (const id of destIds) {
+      const d = departments?.find((x) => x._id === id);
+      if (!d) continue;
+      const deptLabel = d.code ? `${d.code} — ${d.name}` : d.name;
+      for (const m of d.members ?? []) {
+        if (m._id === me?.user._id) continue;
+        list.push({
+          userId: m._id as Id<"users">,
+          name: m.name,
+          fonction: (m.fonction ?? "").trim() || "Sans fonction",
+          deptLabel,
+          deptId: d._id as Id<"departments">,
+          online: isOnline(m.lastSeenAt),
+        });
+      }
+    }
+    return list.sort((a, b) =>
+      a.fonction.localeCompare(b.fonction, "fr") ||
+      a.name.localeCompare(b.name, "fr"),
+    );
+  }, [destIds, departments, me?.user._id]);
+
+  const precisionByFonction = useMemo(() => {
+    const map = new Map<string, typeof precisionCandidates>();
+    for (const c of precisionCandidates) {
+      const arr = map.get(c.fonction) ?? [];
+      arr.push(c);
+      map.set(c.fonction, arr);
+    }
+    return [...map.entries()];
+  }, [precisionCandidates]);
 
   /** Tous les membres validés de tous les départements (pour le circuit inter-services) */
   const allCircuitCandidates = (departments ?? []).flatMap((d) =>
@@ -470,13 +547,6 @@ export function SendDocument({
             : null,
           dateCourrier.trim()
             ? { label: "Date", value: dateCourrier.trim(), source: "manual" as const }
-            : null,
-          destFonction.trim()
-            ? {
-                label: "Fonction destinataire",
-                value: destFonction.trim(),
-                source: "structure" as const,
-              }
             : null,
         ].filter(Boolean) as Array<{
           label: string;
@@ -866,24 +936,49 @@ export function SendDocument({
               )}
 
               {destIds.length > 0 ? (
-                <div className="space-y-2 pt-1">
-                  <Label htmlFor="destFonction">
-                    Fonction dans le service{" "}
-                    <span className="font-normal text-muted-foreground">
-                      (optionnel)
-                    </span>
-                  </Label>
-                  <Input
-                    id="destFonction"
-                    value={destFonction}
-                    onChange={(e) => setDestFonction(e.target.value)}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Ex. Comptable… Le document reste au service ; tous les
-                    membres peuvent le voir.
-                  </p>
+                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-brand/30 bg-brand-soft/30 px-3 py-2.5">
+                  <div className="min-w-0 text-xs text-muted-foreground">
+                    {recipientId && selectedRecipient ? (
+                      <span className="text-foreground">
+                        Destinataire précis :{" "}
+                        <strong>{selectedRecipient.name}</strong>
+                        {selectedRecipient.fonction
+                          ? ` · ${selectedRecipient.fonction}`
+                          : ""}
+                      </span>
+                    ) : (
+                      <span>
+                        Optionnel — préciser une personne par sa{" "}
+                        <strong className="text-foreground">fonction</strong>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    {recipientId ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-xs"
+                        onClick={() => setRecipientId(null)}
+                      >
+                        Effacer
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={() => setPrecisionOpen(true)}
+                    >
+                      <UserRound className="size-3.5" />
+                      Choisir par fonction
+                    </Button>
+                  </div>
                 </div>
               ) : null}
+
+
             </div>
           ) : null}
 
@@ -1193,8 +1288,8 @@ export function SendDocument({
 
 {step === 3 ? (
             <div className="space-y-6">
-              <div className="rounded-sm border border-border bg-muted/25 px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
+              <div className="rounded-lg border border-border bg-muted/25 px-5 py-4 text-center">
+                <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:justify-between sm:text-left">
                   <div className="min-w-0">
                     <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Aperçu du contenu
@@ -1613,11 +1708,11 @@ export function SendDocument({
                 ) : null}
               </div>
 
-                            <div className="rounded-sm border border-border bg-brand-soft/40 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <div className="rounded-lg border border-border bg-brand-soft/40 p-5 text-center sm:text-left">
+                <p className="text-center text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Récapitulatif — vérifiez avant d&apos;envoyer
                 </p>
-                <dl className="mt-3 space-y-2.5 text-sm">
+                <dl className="mx-auto mt-4 max-w-lg space-y-2.5 text-sm">
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">Fichier(s)</dt>
                     <dd className="text-right font-medium break-all">
@@ -1648,16 +1743,7 @@ export function SendDocument({
                         .join(" · ") || "—"}
                     </dd>
                   </div>
-                  {destFonction.trim() ? (
-                    <div className="flex justify-between gap-4">
-                      <dt className="shrink-0 text-muted-foreground">
-                        Fonction
-                      </dt>
-                      <dd className="text-right font-medium">
-                        {destFonction.trim()}
-                      </dd>
-                    </div>
-                  ) : null}
+
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">Émetteur</dt>
                     <dd className="max-w-[65%] text-right font-medium">
@@ -1754,7 +1840,46 @@ export function SendDocument({
             </div>
           ) : null}
 
-          <div className="flex items-center justify-between border-t border-border pt-4">
+          {step === 3 && files.length > 0 ? (
+            <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
+              <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                <p className="text-xs font-semibold text-foreground">
+                  Prévisualisation
+                </p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {files[0]?.name}
+                  {files.length > 1 ? ` (+${files.length - 1})` : ""}
+                </p>
+              </div>
+              <div className="flex max-h-56 items-center justify-center bg-background/80 p-2">
+                {previewUrl && files[0]?.type?.startsWith("image/") ? (
+                  <img
+                    src={previewUrl}
+                    alt="Aperçu du document"
+                    className="max-h-52 max-w-full rounded object-contain"
+                  />
+                ) : previewUrl && files[0]?.type === "application/pdf" ? (
+                  <iframe
+                    title="Aperçu PDF"
+                    src={previewUrl}
+                    className="h-52 w-full rounded border-0 bg-white"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
+                    <FileText className="size-10 opacity-50" />
+                    <p className="text-xs">
+                      Aperçu non disponible pour ce type de fichier
+                    </p>
+                    <p className="text-[11px] font-medium text-foreground">
+                      {files[0]?.name}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
             <Button
               type="button"
               variant="ghost"
@@ -1779,7 +1904,7 @@ export function SendDocument({
             ) : (
               <Button
                 type="button"
-                className="gap-2"
+                className="gap-2 px-6"
                 disabled={!canContinue || sending}
                 onClick={() => void handleSend()}
               >
@@ -1794,6 +1919,77 @@ export function SendDocument({
           </div>
         </CardContent>
       </Card>
+
+      {/* Sélecteur flottant : personne par fonction */}
+      <Dialog open={precisionOpen} onOpenChange={setPrecisionOpen}>
+        <DialogContent className="max-h-[85vh] max-w-md overflow-hidden p-0 sm:max-w-lg">
+          <DialogHeader className="border-b border-border px-5 py-4">
+            <DialogTitle>Préciser le destinataire</DialogTitle>
+            <DialogDescription>
+              Choisissez une personne selon sa fonction dans les structures
+              sélectionnées. Le courrier reste visible pour tout le service.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto px-2 py-3">
+            {precisionCandidates.length === 0 ? (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+                Aucun membre trouvé dans les destinations cochées.
+              </p>
+            ) : (
+              precisionByFonction.map(([fn, people]) => (
+                <div key={fn} className="mb-3">
+                  <p className="sticky top-0 z-10 bg-background/95 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
+                    {fn}
+                  </p>
+                  <ul className="space-y-1 px-1">
+                    {people.map((p) => {
+                      const active = recipientId === p.userId;
+                      return (
+                        <li key={p.userId}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setRecipientId(p.userId);
+                              setPrecisionOpen(false);
+                            }}
+                            className={cn(
+                              "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
+                              active
+                                ? "border-brand bg-brand-soft shadow-sm"
+                                : "border-transparent hover:border-border hover:bg-muted/50",
+                            )}
+                          >
+                            <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
+                              {initialsOf(p.name)}
+                              <span
+                                className={cn(
+                                  "absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-background",
+                                  p.online ? "bg-emerald-500" : "bg-muted-foreground/40",
+                                )}
+                              />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block text-sm font-semibold text-foreground">
+                                {p.name}
+                              </span>
+                              <span className="block truncate text-[11px] text-muted-foreground">
+                                {p.deptLabel}
+                              </span>
+                            </span>
+                            {active ? (
+                              <CheckCircle2 className="size-4 shrink-0 text-brand" />
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
