@@ -151,7 +151,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      navigate(redirect);
+      let dest = redirect;
+      try {
+        const saved = sessionStorage.getItem("scandoc_oauth_redirect");
+        if (saved) {
+          dest = saved;
+          sessionStorage.removeItem("scandoc_oauth_redirect");
+        }
+      } catch {
+        /* ignore */
+      }
+      navigate(dest);
     }
   }, [authLoading, isAuthenticated, navigate, redirect]);
 
@@ -246,12 +256,21 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     setGoogleLoading(true);
     setError(null);
     try {
-      // Chemin après OAuth (relatif à SITE_URL Convex = URL publique du site)
-      // Sur GitHub Pages le basename est géré par le routeur ; on reste en chemin app.
+      /**
+       * redirectTo est relatif à SITE_URL (Convex).
+       * SITE_URL doit être EXACTEMENT :
+       *   https://rudeussegrerate-cloud.github.io/fileshare-tasks-app
+       * (sans slash final). On envoie alors "/dashboard".
+       */
       let path = redirect.startsWith("/") ? redirect : `/${redirect}`;
       if (!path || path === "/") path = "/dashboard";
+      // Mémoriser pour reprise si le retour OAuth atterrit sur /auth
+      try {
+        sessionStorage.setItem("scandoc_oauth_redirect", path);
+      } catch {
+        /* ignore */
+      }
       await signIn("google", { redirectTo: path });
-      // En cas de succès le navigateur est redirigé vers Google ; pas de reset ici.
     } catch (err) {
       console.error("Google sign-in error:", err);
       setError(friendlyError(err, "google"));

@@ -10,7 +10,7 @@ import {
 import { useAuth } from "@/hooks/use-auth";
 import { Lock } from "lucide-react";
 import { MndptLoader } from "@/components/MndptLoader";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router";
 
 /**
@@ -40,6 +40,30 @@ export function RequireAuth({
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Après Google OAuth, le token peut mettre un instant à être pris en compte.
+  // Évite de renvoyer vers /auth trop tôt (perte de session).
+  const [oauthWait, setOauthWait] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const ref = document.referrer || "";
+    const q = window.location.search || "";
+    const h = window.location.hash || "";
+    return (
+      ref.includes("accounts.google.com") ||
+      ref.includes("convex.site") ||
+      q.includes("code=") ||
+      h.includes("token") ||
+      h.includes("access_token")
+    );
+  });
+  useEffect(() => {
+    if (!oauthWait) return;
+    const t = window.setTimeout(() => setOauthWait(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [oauthWait]);
+  useEffect(() => {
+    if (isAuthenticated) setOauthWait(false);
+  }, [isAuthenticated]);
+
   if (authTimedOut) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-6 text-center">
@@ -57,7 +81,7 @@ export function RequireAuth({
     );
   }
 
-  if (isLoading) {
+  if (isLoading || (oauthWait && !isAuthenticated)) {
     return (
       <main className="bg-background">
         <MndptLoader size="full" />

@@ -3,7 +3,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 
-const AUTH_TIMEOUT_MS = 12_000;
+const AUTH_TIMEOUT_MS = 20_000;
 
 export function useAuth() {
   const { isLoading: isAuthLoading, isAuthenticated } = useConvexAuth();
