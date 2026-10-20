@@ -1926,3 +1926,39 @@ a:focus-visible,
   transition: background-color 9999s ease-in-out 0s;
   box-shadow: 0 0 0 1000px #3b2f7a inset !important;
 }
+
+/* Contraste titres dashboard (Bonjour, sections, listes) */
+.sc-app-shell .sc-shell-main,
+.sc-app-shell .sc-shell-main * {
+  /* ne pas forcer * trop large — règles ciblées ci-dessous */
+}
+.sc-app-shell .sc-shell-main {
+  color: #0f0a24;
+}
+.sc-app-shell .sc-shell-main h1,
+.sc-app-shell .sc-shell-main h2,
+.sc-app-shell .sc-shell-main h3,
+.sc-app-shell .sc-shell-main h4 {
+  color: #0f0a24 !important;
+}
+.sc-app-shell .sc-shell-main .text-foreground {
+  color: #0f0a24 !important;
+}
+.sc-app-shell .sc-shell-main .text-muted-foreground {
+  color: #3d3858 !important;
+}
+.sc-dash-hero h2,
+.sc-dash-card h3 {
+  color: #0f0a24 !important;
+  font-weight: 700;
+}
+.sc-dash-hero .text-muted-foreground,
+.sc-dash-card .text-muted-foreground {
+  color: #3d3858 !important;
+}
+.sc-app-shell .sc-app-header h1 {
+  color: #0f0a24 !important;
+}
+.sc-app-shell .sc-app-header .text-muted-foreground {
+  color: #3d3858 !important;
+}

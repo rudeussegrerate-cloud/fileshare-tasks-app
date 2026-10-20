@@ -111,13 +111,13 @@ export function DashboardHome({
     <div className="space-y-6" data-scandoc-tour="home-stats">
       <header className="sc-dash-hero flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-brand">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#4c3ec7]">
             Tableau de bord
           </p>
-          <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+          <h2 className="text-2xl font-bold tracking-tight text-[#0f0a24]">
             Bonjour{firstName ? `, ${firstName}` : ""}
           </h2>
-          <p className="text-sm text-muted-foreground">{roleLine}</p>
+          <p className="text-sm font-medium text-[#3d3858]">{roleLine}</p>
         </div>
         <Button
           onClick={onSend}
@@ -343,12 +343,12 @@ function Section({
     <section className="sc-dash-card space-y-3">
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h3 className="flex items-center gap-2 text-sm font-semibold tracking-tight text-foreground">
+          <h3 className="flex items-center gap-2 text-sm font-bold tracking-tight text-[#0f0a24]">
             {Icon ? <Icon className="size-4 text-brand" /> : null}
             {title}
           </h3>
           {subtitle ? (
-            <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>
+            <p className="mt-0.5 text-xs font-medium text-[#3d3858]">{subtitle}</p>
           ) : null}
         </div>
         {action}
