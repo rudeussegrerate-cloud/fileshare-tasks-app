@@ -698,13 +698,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   value="signIn"
                   className="rounded-full text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-[#1a1238] data-[state=inactive]:text-white/90"
                 >
-                  S'authentifier
+                  Se connecter
                 </TabsTrigger>
                 <TabsTrigger
                   value="signUp"
                   className="rounded-full text-sm font-semibold data-[state=active]:bg-white data-[state=active]:text-[#1a1238] data-[state=inactive]:text-white/90"
                 >
-                  Valider
+                  Créer un compte
                 </TabsTrigger>
               </TabsList>
 
@@ -898,7 +898,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       </>
                     ) : (
                       <>
-                        Valider
+                        Créer un compte
                         <ArrowRight className="ml-2 size-4" />
                       </>
                     )}
