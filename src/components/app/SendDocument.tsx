@@ -685,223 +685,137 @@ export function SendDocument({
               <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
                 <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
                 <p className="font-medium text-foreground">
-                  <strong>Destinataires</strong> — qui <strong>reçoit</strong> le
-                  courrier. Une ou plusieurs directions / services. Cliquez à
-                  nouveau pour retirer. Au moins une destination est requise.
+                  <strong>Destinataires</strong> — cochez la{" "}
+                  <strong>direction</strong> (chef / structure) et/ou un ou
+                  plusieurs <strong>services</strong> rattachés. Vous pouvez
+                  combiner des choix issus de <strong>plusieurs directions</strong>.
                 </p>
-              </div>
-
-              {/* Mode */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDestMode("direction");
-                    setDestIds([]);
-                    setSelectedDirectionId(null);
-                  }}
-                  className={cn(
-                    "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
-                    destMode === "direction"
-                      ? "border-brand bg-brand-soft text-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
-                  )}
-                >
-                  Directions
-                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
-                    Toute la structure
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDestMode("service");
-                    setDestIds([]);
-                  }}
-                  className={cn(
-                    "rounded-sm border px-3 py-2.5 text-left text-sm font-medium transition-all",
-                    destMode === "service"
-                      ? "border-brand bg-brand-soft text-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-brand-sky/40",
-                  )}
-                >
-                  Services
-                  <span className="mt-0.5 block text-[11px] font-normal text-muted-foreground">
-                    Un service précis
-                  </span>
-                </button>
               </div>
 
               {departments === undefined ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : destMode === "direction" ? (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Directions / structures
-                  </p>
-                  {directions.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">
-                      Aucune direction disponible. Demandez au DG
-                      d&apos;initialiser l&apos;arbre MNDPT.
-                    </p>
-                  ) : (
-                    <div className="grid max-h-72 gap-2 overflow-y-auto sm:grid-cols-2">
-                      {directions.map((dir) => {
-                        const active = destIds.includes(dir._id);
-                        const svcCount = (departments ?? []).filter(
-                          (s) =>
-                            s.parentId === dir._id &&
-                            (s as { kind?: string | null }).kind === "service",
-                        ).length;
-                        return (
-                          <button
-                            key={dir._id}
-                            type="button"
-                            onClick={() => toggleDest(dir._id)}
-                            className={cn(
-                              "rounded-sm border p-3 text-left transition-all",
-                              active
-                                ? "border-brand bg-brand-soft ring-1 ring-brand/30"
-                                : "border-border bg-card hover:border-brand-sky/50",
-                            )}
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-semibold">
+              ) : directions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Aucune direction disponible. Demandez au DG d&apos;initialiser
+                  l&apos;arbre organisationnel.
+                </p>
+              ) : (
+                <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
+                  {directions.map((dir) => {
+                    const dirActive = destIds.includes(dir._id);
+                    const services = (departments ?? [])
+                      .filter(
+                        (s) =>
+                          s.parentId === dir._id &&
+                          (s as { kind?: string | null }).kind === "service" &&
+                          (s as { active?: boolean }).active !== false,
+                      )
+                      .slice()
+                      .sort((a, b) =>
+                        (a.code ?? a.name).localeCompare(
+                          b.code ?? b.name,
+                          "fr",
+                        ),
+                      );
+                    const selectedSvcCount = services.filter((s) =>
+                      destIds.includes(s._id),
+                    ).length;
+                    return (
+                      <div
+                        key={dir._id}
+                        className={cn(
+                          "rounded-lg border p-3 transition-colors",
+                          dirActive || selectedSvcCount > 0
+                            ? "border-brand/40 bg-brand-soft/40"
+                            : "border-border bg-card",
+                        )}
+                      >
+                        {/* Direction (chef / structure entière) */}
+                        <label className="flex cursor-pointer items-start gap-3">
+                          <input
+                            type="checkbox"
+                            className="mt-1 size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
+                            checked={dirActive}
+                            onChange={() => toggleDest(dir._id)}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="flex flex-wrap items-center gap-2">
+                              <span className="text-sm font-semibold text-foreground">
                                 {dir.code ? `${dir.code} — ` : ""}
                                 {dir.name}
                               </span>
-                              <span
-                                className={cn(
-                                  "flex size-5 shrink-0 items-center justify-center rounded border text-[10px]",
-                                  active
-                                    ? "border-brand bg-brand text-primary-foreground"
-                                    : "border-muted-foreground/30 text-transparent",
-                                )}
-                              >
-                                ✓
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                                Direction
                               </span>
-                            </div>
-                            {svcCount > 0 ? (
-                              <p className="mt-1 text-[11px] text-muted-foreground">
-                                {svcCount} service{svcCount > 1 ? "s" : ""}{" "}
-                                rattaché{svcCount > 1 ? "s" : ""}
-                              </p>
-                            ) : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      1 · Direction parente
-                    </p>
-                    <div className="grid max-h-40 gap-1.5 overflow-y-auto sm:grid-cols-2">
-                      {directions.map((dir) => {
-                        const active = selectedDirectionId === dir._id;
-                        const svcCount = (departments ?? []).filter(
-                          (s) =>
-                            s.parentId === dir._id &&
-                            (s as { kind?: string | null }).kind === "service",
-                        ).length;
-                        if (svcCount === 0) return null;
-                        return (
-                          <button
-                            key={dir._id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedDirectionId(dir._id);
-                              setDestIds([]);
-                            }}
-                            className={cn(
-                              "rounded-sm border px-3 py-2 text-left text-sm transition-all",
-                              active
-                                ? "border-brand bg-brand-soft font-medium"
-                                : "border-border bg-card hover:border-brand-sky/40",
-                            )}
-                          >
-                            {dir.code ?? dir.name}
-                            <span className="ml-1 text-[10px] text-muted-foreground">
-                              ({svcCount})
                             </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
+                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                              Cocher pour adresser au chef / à la direction
+                              entière
+                              {services.length > 0
+                                ? ` · ${services.length} service${services.length > 1 ? "s" : ""} rattaché${services.length > 1 ? "s" : ""}`
+                                : ""}
+                            </span>
+                          </span>
+                        </label>
 
-                  {selectedDirectionId ? (
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        2 · Services de{" "}
-                        {selectedDirection?.code ?? selectedDirection?.name}
-                      </p>
-                      {servicesOfSelected.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          Aucun service rattaché à cette direction.
-                        </p>
-                      ) : (
-                        <div className="grid gap-2 sm:grid-cols-2">
-                          {servicesOfSelected.map((svc) => {
-                            const active = destIds.includes(svc._id);
-                            return (
-                              <button
-                                key={svc._id}
-                                type="button"
-                                onClick={() => toggleDest(svc._id)}
-                                className={cn(
-                                  "rounded-sm border p-3 text-left transition-all",
-                                  active
-                                    ? "border-brand bg-brand-soft ring-1 ring-brand/30"
-                                    : "border-border bg-card hover:border-brand-sky/50",
-                                )}
-                              >
-                                <div className="flex items-center justify-between gap-2">
-                                  <span className="text-sm font-semibold">
-                                    {svc.code ? `${svc.code} — ` : ""}
-                                    {svc.name}
+                        {/* Services de cette direction */}
+                        {services.length > 0 ? (
+                          <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3 pl-7">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                              Services
+                            </p>
+                            {services.map((svc) => {
+                              const svcActive = destIds.includes(svc._id);
+                              return (
+                                <label
+                                  key={svc._id}
+                                  className={cn(
+                                    "flex cursor-pointer items-center gap-3 rounded-md border px-2.5 py-2 transition-colors",
+                                    svcActive
+                                      ? "border-brand bg-card shadow-sm"
+                                      : "border-transparent hover:bg-muted/40",
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
+                                    checked={svcActive}
+                                    onChange={() => toggleDest(svc._id)}
+                                  />
+                                  <span className="min-w-0 flex-1 text-sm">
+                                    <span className="font-medium text-foreground">
+                                      {svc.code ? `${svc.code} — ` : ""}
+                                      {svc.name}
+                                    </span>
                                   </span>
-                                  <span
-                                    className={cn(
-                                      "flex size-5 shrink-0 items-center justify-center rounded border text-[10px]",
-                                      active
-                                        ? "border-brand bg-brand text-primary-foreground"
-                                        : "border-muted-foreground/30 text-transparent",
-                                    )}
-                                  >
-                                    ✓
-                                  </span>
-                                </div>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Sélectionnez d&apos;abord la direction pour voir ses
-                      services.
-                    </p>
-                  )}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="mt-2 pl-7 text-[11px] text-muted-foreground">
+                            Aucun service rattaché à cette direction.
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
-              {/* Sélection actuelle — pastilles retirables */}
               {destIds.length > 0 ? (
-                <div className="space-y-2 rounded-sm border border-brand/25 bg-brand-soft/50 px-3 py-2">
+                <div className="rounded-sm border border-border bg-muted/30 px-3 py-2">
                   <p className="text-xs font-semibold text-foreground">
-                    Sélection ({destIds.length}) — cliquer × pour retirer
+                    Sélection ({destIds.length})
                   </p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {destIds.map((id) => {
                       const d = departments?.find((x) => x._id === id);
                       if (!d) return null;
+                      const isSvc =
+                        (d as { kind?: string | null }).kind === "service";
                       const label = d.code
                         ? `${d.code}`
                         : d.name.slice(0, 28);
@@ -911,7 +825,11 @@ export function SendDocument({
                           type="button"
                           onClick={() => toggleDest(id)}
                           className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-card px-2.5 py-1 text-[11px] font-medium text-foreground"
+                          title={d.name}
                         >
+                          <span className="text-[9px] uppercase text-muted-foreground">
+                            {isSvc ? "Svc" : "Dir"}
+                          </span>
                           {label}
                           <span className="text-muted-foreground">×</span>
                         </button>
@@ -926,10 +844,12 @@ export function SendDocument({
               )}
 
               {destIds.length > 0 ? (
-                <div className="space-y-2 pt-2">
+                <div className="space-y-2 pt-1">
                   <Label htmlFor="destFonction">
                     Fonction dans le service{" "}
-                    <span className="font-normal text-muted-foreground">(optionnel)</span>
+                    <span className="font-normal text-muted-foreground">
+                      (optionnel)
+                    </span>
                   </Label>
                   <Input
                     id="destFonction"
@@ -937,9 +857,8 @@ export function SendDocument({
                     onChange={(e) => setDestFonction(e.target.value)}
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Ex. Comptable, Secrétaire… Le document appartient au service ;
-                    tous les membres pourront le voir. La fonction précise le rôle
-                    concerné si besoin.
+                    Ex. Comptable… Le document reste au service ; tous les
+                    membres peuvent le voir.
                   </p>
                 </div>
               ) : null}
@@ -947,7 +866,7 @@ export function SendDocument({
           ) : null}
 
           
-          {false && step === 2 ? (
+{false && step === 2 ? (
             <div className="space-y-4" data-scandoc-tour="send-emitter">
               <div className="rounded-sm border border-border bg-muted/40 px-4 py-3">
                 <p className="text-sm font-semibold text-foreground">
