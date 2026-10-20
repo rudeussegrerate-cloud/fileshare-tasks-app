@@ -34,6 +34,29 @@ function isOnline(lastSeenAt?: number | null) {
   return Boolean(lastSeenAt && Date.now() - lastSeenAt < ONLINE_MS);
 }
 
+/** Nettoie un extrait OCR/brut pour un aperçu lisible (pas un vrai résumé IA). */
+function cleanExtractPreview(raw: string, maxLen = 280): string {
+  let s = raw
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  // Retire les lignes trop bruyantes (menus UI, symboles isolés)
+  const lines = s
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => {
+      if (l.length < 3) return false;
+      if (/^[\W\d_]{1,8}$/.test(l)) return false;
+      if (/^(voir le|voila|voile|classés|recherche|nouveau courrier)/i.test(l))
+        return false;
+      return true;
+    });
+  s = lines.join(" · ");
+  if (s.length > maxLen) s = s.slice(0, maxLen).replace(/\s+\S*$/, "") + "…";
+  return s;
+}
+
 
 const STEPS = ["Fichier", "Destinataires", "Détails"];
 
@@ -115,6 +138,7 @@ export function SendDocument({
   const [arriveeLe, setArriveeLe] = useState("");
   const [duField, setDuField] = useState("");
   const [dateCourrier, setDateCourrier] = useState("");
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const [refPickerOpen, setRefPickerOpen] = useState(false);
   const [publicRef, setPublicRef] = useState(initialPublicRef ?? "");
@@ -1169,19 +1193,43 @@ export function SendDocument({
 
 {step === 3 ? (
             <div className="space-y-6">
-              {(extractedText.trim() || objet.trim()) ? (
-                <div className="rounded-sm border border-border bg-muted/30 px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Résumé du document
-                  </p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">
-                    {extractedText.trim()
-                      ? extractedText.trim().slice(0, 600) +
-                        (extractedText.trim().length > 600 ? "…" : "")
-                      : objet.trim()}
-                  </p>
+              <div className="rounded-sm border border-border bg-muted/25 px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Aperçu du contenu
+                    </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {extracting
+                        ? "Analyse du fichier en cours…"
+                        : extractedText.trim()
+                          ? "Texte détecté dans le fichier (aperçu). Ce n’est pas un résumé officiel."
+                          : "Aucun texte détecté — le destinataire verra le fichier joint."}
+                    </p>
+                  </div>
+                  {extractedText.trim() ? (
+                    <button
+                      type="button"
+                      className="shrink-0 text-xs font-medium text-brand underline-offset-2 hover:underline"
+                      onClick={() => setSummaryOpen((v) => !v)}
+                    >
+                      {summaryOpen ? "Réduire" : "Voir plus"}
+                    </button>
+                  ) : null}
                 </div>
-              ) : null}
+                {extracting ? (
+                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="size-4 animate-spin" />
+                    Extraction…
+                  </div>
+                ) : extractedText.trim() ? (
+                  <p className="mt-2 text-sm leading-relaxed text-foreground">
+                    {summaryOpen
+                      ? cleanExtractPreview(extractedText, 900)
+                      : cleanExtractPreview(extractedText, 220)}
+                  </p>
+                ) : null}
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="publicRef">N° du courrier</Label>
@@ -1691,15 +1739,14 @@ export function SendDocument({
                   </div>
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">
-                      Résumé
+                      Aperçu contenu
                     </dt>
-                    <dd className="max-w-[65%] text-right text-xs leading-relaxed whitespace-pre-wrap">
+                    <dd className="max-w-[65%] text-right text-xs leading-relaxed">
                       {extracting
                         ? "en préparation…"
                         : extractedText.trim()
-                          ? extractedText.trim().slice(0, 400) +
-                            (extractedText.trim().length > 400 ? "…" : "")
-                          : "—"}
+                          ? cleanExtractPreview(extractedText, 160)
+                          : "aucun texte détecté"}
                     </dd>
                   </div>
                 </dl>
