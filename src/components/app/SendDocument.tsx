@@ -1095,11 +1095,6 @@ export function SendDocument({
                       return d!.code ? `${d!.code} — ${d!.name}` : d!.name;
                     })()}
                   </p>
-                  {emittingPathPreview ? (
-                    <p className="mt-1 font-mono text-[11px] text-foreground/80">
-                      N° : …/{emittingPathPreview}
-                    </p>
-                  ) : null}
                 </div>
               ) : null}
 
@@ -1192,27 +1187,15 @@ export function SendDocument({
 
               <div className="space-y-2">
                 <Label htmlFor="publicRef">N° du courrier</Label>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-mono text-sm text-muted-foreground">
-                    N°
-                  </span>
-                  <Input
-                    id="publicRef"
-                    value={publicRef}
-                    onChange={(e) => setPublicRef(e.target.value)}
-                    className="w-full font-mono text-base"
-                    inputMode="numeric"
-                    autoComplete="off"
-                  />
-                  <span className="font-mono text-sm text-muted-foreground">
-                    -{courrierYear}/
-                  </span>
-                </div>
-                <p className="rounded-sm border border-border bg-muted/30 px-3 py-2 font-mono text-xs break-all">
-                  {fullNumeroPreview}
-                </p>
+                <Input
+                  id="publicRef"
+                  value={publicRef}
+                  onChange={(e) => setPublicRef(e.target.value)}
+                  className="w-full font-mono text-base"
+                  autoComplete="off"
+                />
                 <p className="text-[11px] text-muted-foreground">
-                  Saisissez le numéro de courrier manuellement (ex. N°071-2026/MNDPT/DTD).
+                  Saisissez le numéro de courrier tel quel (sans suffixe automatique).
                 </p>
                 <div className="relative space-y-1.5 pt-2">
                   <Label htmlFor="referenceText">Réf.</Label>
@@ -1663,7 +1646,7 @@ export function SendDocument({
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">N° courrier</dt>
                     <dd className="text-right font-mono text-xs font-medium break-all">
-                      {fullNumeroPreview}
+                      {publicRef.trim() || "—"}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
