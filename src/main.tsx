@@ -176,11 +176,20 @@ if (localStorage.getItem("scandoc-anim") === "on") {
   document.documentElement.classList.add("scandoc-anim");
 }
 
-// Capturer le code OAuth Google avant que React / StrictMode ne le perde
+// Capturer le code OAuth Google avant React (évite course StrictMode)
 try {
-  const _oauthCode = new URLSearchParams(window.location.search).get("code");
+  const _params = new URLSearchParams(window.location.search);
+  const _oauthCode = _params.get("code");
   if (_oauthCode) {
     sessionStorage.setItem("scandoc_auth_code", _oauthCode);
+    // Forcer le passage par /auth pour finaliser la session (page d'attente ensuite)
+    const _base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
+    const _path = window.location.pathname.replace(/\/$/, "");
+    const _onAuth = _path.endsWith("/auth") || _path === _base + "/auth";
+    if (!_onAuth) {
+      const _authUrl = `${window.location.origin}${_base}/auth?code=${encodeURIComponent(_oauthCode)}`;
+      window.location.replace(_authUrl);
+    }
   }
 } catch {
   /* ignore */
@@ -192,7 +201,7 @@ createRoot(document.getElementById("root")!).render(
       <ToolbarErrorBoundary>
         <VlyToolbar />
       </ToolbarErrorBoundary>
-      <ConvexAuthProvider client={convex}>
+      <ConvexAuthProvider client={convex} shouldHandleCode={() => false}>
         <BrowserRouter basename={import.meta.env.BASE_URL}>
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
