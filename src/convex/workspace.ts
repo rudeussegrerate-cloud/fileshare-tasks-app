@@ -760,12 +760,12 @@ export const createSubDepartment = mutation({
       user.departmentId === args.parentId && user.departmentRole === "chef";
     if (!isAdminRole(user.role) && !isParentChef) {
       throw new Error(
-        "Seul le chef de ce département (ou le DG) peut créer un sous-département.",
+        "Seul le chef de cette direction (ou le DG) peut créer un service.",
       );
     }
 
     const name = args.name.trim();
-    if (!name) throw new Error("Le nom du sous-département est obligatoire.");
+    if (!name) throw new Error("Le nom du service est obligatoire.");
 
     const departmentId = await ctx.db.insert("departments", {
       name,
@@ -773,6 +773,7 @@ export const createSubDepartment = mutation({
       createdBy: user._id,
       createdAt: Date.now(),
       parentId: args.parentId,
+      kind: "service",
     });
 
     if (args.chiefId) {
@@ -1014,7 +1015,40 @@ export const repairDepartmentOrphans = mutation({
 export const deleteDepartment = mutation({
   args: { departmentId: v.id("departments") },
   handler: async (ctx, args) => {
-    await requireAdmin(ctx);
+    const user = await requireUser(ctx);
+    const dept = await ctx.db.get(args.departmentId);
+    if (!dept) throw new Error("Structure introuvable.");
+
+    const isAdmin = isAdminRole(user.role);
+    const isParentChef =
+      Boolean(dept.parentId) &&
+      user.departmentId === dept.parentId &&
+      user.departmentRole === "chef";
+    const isCreator =
+      Boolean(dept.parentId) && dept.createdBy === user._id;
+
+    // Direction (sans parent) : DG uniquement
+    // Service (avec parent) : DG, chef de la direction parente, ou créateur
+    if (!dept.parentId) {
+      if (!isAdmin) {
+        throw new Error("Seul le DG peut supprimer une direction.");
+      }
+    } else if (!isAdmin && !isParentChef && !isCreator) {
+      throw new Error(
+        "Seul le chef de la direction (ou le DG) peut supprimer ce service.",
+      );
+    }
+
+    // Interdire si des services enfants existent encore
+    const all = await ctx.db.query("departments").collect();
+    const hasChildren = all.some(
+      (d) => d.parentId && String(d.parentId) === String(args.departmentId),
+    );
+    if (hasChildren) {
+      throw new Error(
+        "Supprimez d'abord les services rattachés à cette structure.",
+      );
+    }
 
     const members = await ctx.db
       .query("users")

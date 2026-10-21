@@ -355,7 +355,7 @@ function CreateSubDepartmentDialog({
 
   const submit = async () => {
     if (!parent || !name.trim()) {
-      toast.error("Le nom du groupe est obligatoire.");
+      toast.error("Le nom du service est obligatoire.");
       return;
     }
     setSaving(true);
@@ -365,7 +365,7 @@ function CreateSubDepartmentDialog({
         name: name.trim(),
         description: description.trim() || undefined,
       });
-      toast.success("Groupe créé.");
+      toast.success("Service créé.");
       setName("");
       setDescription("");
       onOpenChange(false);
@@ -382,9 +382,9 @@ function CreateSubDepartmentDialog({
     <Dialog open={parent !== null} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Groupe</DialogTitle>
+          <DialogTitle>Service</DialogTitle>
           <DialogDescription>
-            Créer un groupe dans « {parent?.name} ».
+            Créer un service dans « {parent?.name} ».
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -561,7 +561,7 @@ export function DepartmentsView() {
   const [pendingDelete, setPendingDelete] = useState<Id<"departments"> | null>(
     null,
   );
-  /** Drill-down : département ouvert (style groupes) */
+  /** Drill-down : direction ouverte */
   const [openDeptId, setOpenDeptId] = useState<Id<"departments"> | null>(null);
 
   const handleRemove = async (userId: Id<"users">) => {
@@ -583,7 +583,7 @@ export function DepartmentsView() {
     <div className="space-y-5" data-scandoc-tour="departments-panel">
       <div className="space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">
-          Départements & groupes
+          Directions & services
         </h2>
         <p className="text-sm text-muted-foreground">
           Directions et services MNDPT. Affectez les membres, nommez les chefs,
@@ -904,13 +904,13 @@ export function DepartmentsView() {
                 </CardContent>
               </Card>
 
-              {/* Groupes / groupes rattachés (style Facebook groups) */}
+              {/* Services rattachés à la direction */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div>
-                    <h3 className="text-sm font-semibold">Groupes</h3>
+                    <h3 className="text-sm font-semibold">Services</h3>
                     <p className="text-xs text-muted-foreground">
-                      Sous-groupes rattachés à « {department.name} »
+                      Services rattachés à « {department.name} »
                     </p>
                   </div>
                   {canManage ? (
@@ -925,16 +925,16 @@ export function DepartmentsView() {
                       }
                     >
                       <Plus className="size-3.5" />
-                      Créer un groupe
+                      Créer un service
                     </Button>
                   ) : null}
                 </div>
 
                 {children.length === 0 ? (
                   <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-xs text-muted-foreground">
-                    Aucun groupe pour le moment.
+                    Aucun service pour le moment.
                     {canManage
-                      ? " Créez un groupe pour organiser des équipes à l'intérieur de ce département."
+                      ? " Créez un service pour organiser les équipes de cette direction."
                       : ""}
                   </p>
                 ) : (
@@ -1009,7 +1009,7 @@ export function DepartmentsView() {
                                   <UserPlus className="size-3" />
                                   Membre
                                 </Button>
-                                {me.isAdmin ? (
+                                {me.isAdmin || isParentChef ? (
                                   <Button
                                     size="sm"
                                     variant="outline"
@@ -1024,6 +1024,17 @@ export function DepartmentsView() {
                                   >
                                     <Crown className="size-3" />
                                     Chef
+                                  </Button>
+                                ) : null}
+                                {canManageSub ? (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-8 gap-1 text-xs text-destructive"
+                                    onClick={() => setPendingDelete(sub._id)}
+                                  >
+                                    <Trash2 className="size-3" />
+                                    Supprimer
                                   </Button>
                                 ) : null}
                               </div>
@@ -1106,7 +1117,7 @@ export function DepartmentsView() {
                             ? ` · Chef : ${department.chief.name}`
                             : " · Pas de chef"}
                           {childCount > 0
-                            ? ` · ${childCount} groupe${childCount > 1 ? "s" : ""}`
+                            ? ` · ${childCount} service${childCount > 1 ? "s" : ""}`
                             : ""}
                         </p>
                       </div>
@@ -1153,7 +1164,7 @@ export function DepartmentsView() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer ce département ?</AlertDialogTitle>
+            <AlertDialogTitle>Supprimer cette structure ?</AlertDialogTitle>
             <AlertDialogDescription>
               Les membres seront simplement retirés du département. Les
               documents déjà envoyés ne sont pas supprimés.
