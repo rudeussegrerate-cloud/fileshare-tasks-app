@@ -41,8 +41,41 @@ function isOnline(lastSeenAt?: number | null) {
 
 
 
-const ACCEPT =
-  ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
+const ACCEPT_DOCS =
+  ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/plain,text/csv";
+
+const ACCEPT_PHOTOS = "image/*,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif";
+
+const DOC_EXT = new Set([
+  "pdf", "doc", "docx", "odt", "rtf", "txt", "md", "csv", "xls", "xlsx", "json", "xml",
+]);
+const PHOTO_EXT = new Set(["png", "jpg", "jpeg", "webp", "heic", "heif", "gif", "bmp"]);
+
+type FilePickKind = "document" | "photo";
+
+function fileExtension(name: string) {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
+}
+
+function isDocumentFile(file: File) {
+  const ext = fileExtension(file.name);
+  if (DOC_EXT.has(ext)) return true;
+  const t = (file.type || "").toLowerCase();
+  if (!t) return DOC_EXT.has(ext);
+  if (t.startsWith("image/")) return false;
+  return (
+    t.startsWith("application/") ||
+    t.startsWith("text/") ||
+    t === "application/pdf"
+  );
+}
+
+function isPhotoFile(file: File) {
+  const ext = fileExtension(file.name);
+  if (PHOTO_EXT.has(ext)) return true;
+  return (file.type || "").toLowerCase().startsWith("image/");
+}
 
 export function SendDocument({
   onSent,
@@ -276,13 +309,29 @@ export function SendDocument({
     ...(customTask.trim() ? [customTask.trim()] : []),
   ];
 
-  const handleFiles = async (list: FileList | File[] | null) => {
-    if (!list || (Array.isArray(list) ? list.length === 0 : list.length === 0)) return;
+  const handleFiles = async (
+    list: FileList | File[] | null,
+    kind: FilePickKind = "document",
+  ) => {
+    if (!list || (Array.isArray(list) ? list.length === 0 : list.length === 0))
+      return;
     const incoming = Array.from(list as FileList | File[]);
     const accepted: File[] = [];
     for (const next of incoming) {
       if (next.size > MAX_FILE_BYTES) {
         toast.error(`« ${next.name} » trop volumineux (max 10 Mo)`);
+        continue;
+      }
+      if (kind === "document" && !isDocumentFile(next)) {
+        toast.error(
+          `« ${next.name} » n'est pas un document accepté (PDF, Word, Excel, texte…). Utilisez « Prendre une photo » pour une image.`,
+        );
+        continue;
+      }
+      if (kind === "photo" && !isPhotoFile(next)) {
+        toast.error(
+          `« ${next.name} » n'est pas une photo. Utilisez « Ajouter des fichiers » pour un document (PDF, Word…).`,
+        );
         continue;
       }
       accepted.push(next);
@@ -655,8 +704,8 @@ export function SendDocument({
                 </div>
               ) : null}
 
-              <div className="flex flex-wrap items-start gap-8">
-                <div className="flex min-w-[11rem] max-w-[16rem] flex-col gap-2">
+              <div className="flex flex-wrap items-start justify-center gap-10">
+                <div className="flex min-w-[12rem] max-w-[17rem] flex-col items-center gap-2 text-center">
                   <Button
                     type="button"
                     variant="outline"
@@ -666,11 +715,11 @@ export function SendDocument({
                     <FileText className="size-4" />
                     Ajouter des fichiers
                   </Button>
-                  <p className="px-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                    PDF, Word, Excel, images ou texte · 10&nbsp;Mo max · plusieurs fichiers
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Documents uniquement · PDF, Word, Excel, texte · 10&nbsp;Mo max
                   </p>
                 </div>
-                <div className="flex min-w-[11rem] max-w-[16rem] flex-col gap-2">
+                <div className="flex min-w-[12rem] max-w-[17rem] flex-col items-center gap-2 text-center">
                   <Button
                     type="button"
                     variant="outline"
@@ -680,8 +729,8 @@ export function SendDocument({
                     <Camera className="size-4" />
                     Prendre une photo
                   </Button>
-                  <p className="px-0.5 text-[11px] leading-relaxed text-muted-foreground">
-                    Photo du document · appareil photo ou galerie
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Photos uniquement · JPG, PNG, WebP…
                   </p>
                 </div>
               </div>
@@ -690,18 +739,22 @@ export function SendDocument({
                 ref={fileInputRef}
                 type="file"
                 data-scandoc-tour="send-file"
-                accept={ACCEPT}
+                accept={ACCEPT_DOCS}
                 className="hidden"
                 multiple
-                onChange={(event) => void handleFiles(event.target.files)}
+                onChange={(event) =>
+                  void handleFiles(event.target.files, "document")
+                }
               />
               <input
                 ref={cameraInputRef}
                 type="file"
-                accept="image/*"
+                accept={ACCEPT_PHOTOS}
                 capture="environment"
                 className="hidden"
-                onChange={(event) => void handleFiles(event.target.files)}
+                onChange={(event) =>
+                  void handleFiles(event.target.files, "photo")
+                }
               />
             </div>
           ) : null}
