@@ -34,7 +34,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { PresenceDot } from "./PresenceDot";
-import { EmptyState, StepDots, formatBytes, initialsOf , PREDEFINED_TASKS } from "./shared";
+import { EmptyState, formatBytes, initialsOf , PREDEFINED_TASKS } from "./shared";
 
 const ONLINE_MS = 2 * 60 * 1000;
 function isOnline(lastSeenAt?: number | null) {
@@ -64,8 +64,6 @@ function cleanExtractPreview(raw: string, maxLen = 280): string {
   return s;
 }
 
-
-const STEPS = ["Fichier", "Destinataires", "Détails"];
 
 const ACCEPT =
   ".pdf,.doc,.docx,.odt,.rtf,.txt,.md,.csv,.xls,.xlsx,.json,.xml,.png,.jpg,.jpeg,.webp,.heic,.heif,.gif,image/*";
@@ -102,7 +100,6 @@ export function SendDocument({
   // L'étape « Qui envoie » (index 2) est sautée : émetteur = profil connecté
   const goNext = () => setStep((s) => (s === 1 ? 3 : Math.min(3, s + 1)));
   const goBack = () => setStep((s) => (s === 3 ? 1 : Math.max(0, s - 1)));
-  const stepDot = step === 3 ? 2 : step === 2 ? 1 : step;
 
   const [files, setFiles] = useState<File[]>([]);
   const [extractedText, setExtractedText] = useState("");
@@ -681,7 +678,6 @@ export function SendDocument({
               référence préremplis.
             </p>
           ) : null}
-          <StepDots steps={STEPS} current={stepDot} />
 
           {step === 0 ? (
             <div className="space-y-4">
