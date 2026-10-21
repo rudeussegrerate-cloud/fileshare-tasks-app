@@ -1660,13 +1660,13 @@ export function SendDocument({
                       type="button"
                       onClick={() => cameraInputRef.current?.click()}
                       className="flex aspect-[2/3] w-[7.5rem] shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:border-brand/50 hover:bg-brand-soft/30 hover:text-brand"
-                      title="Ajouter une photo"
+                      title="Ajouter des photos"
                     >
                       <span className="flex size-10 items-center justify-center rounded-full border border-dashed border-current">
                         <Camera className="size-5" />
                       </span>
                       <span className="px-2 text-center text-[10px] font-medium">
-                        Photo
+                        Photos
                       </span>
                     </button>
                   </>
