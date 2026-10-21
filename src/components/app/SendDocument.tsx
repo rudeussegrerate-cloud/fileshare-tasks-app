@@ -655,37 +655,35 @@ export function SendDocument({
                 </div>
               ) : null}
 
-              <div className="grid gap-4 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="group flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center transition-colors hover:border-brand/50 hover:bg-brand-soft/30"
-                >
-                  <span className="flex size-12 items-center justify-center rounded-full bg-card shadow-sm ring-1 ring-border group-hover:ring-brand/40">
-                    <FileText className="size-5 text-brand" />
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
+              <div className="flex flex-wrap items-start gap-8">
+                <div className="flex min-w-[11rem] max-w-[16rem] flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 gap-2"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <FileText className="size-4" />
                     Ajouter des fichiers
-                  </span>
-                  <span className="max-w-[16rem] text-[11px] leading-relaxed text-muted-foreground">
+                  </Button>
+                  <p className="px-0.5 text-[11px] leading-relaxed text-muted-foreground">
                     PDF, Word, Excel, images ou texte · 10&nbsp;Mo max · plusieurs fichiers
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => cameraInputRef.current?.click()}
-                  className="group flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center transition-colors hover:border-brand/50 hover:bg-brand-soft/30"
-                >
-                  <span className="flex size-12 items-center justify-center rounded-full bg-card shadow-sm ring-1 ring-border group-hover:ring-brand/40">
-                    <Camera className="size-5 text-brand" />
-                  </span>
-                  <span className="text-sm font-semibold text-foreground">
+                  </p>
+                </div>
+                <div className="flex min-w-[11rem] max-w-[16rem] flex-col gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-10 gap-2"
+                    onClick={() => cameraInputRef.current?.click()}
+                  >
+                    <Camera className="size-4" />
                     Prendre une photo
-                  </span>
-                  <span className="max-w-[16rem] text-[11px] leading-relaxed text-muted-foreground">
+                  </Button>
+                  <p className="px-0.5 text-[11px] leading-relaxed text-muted-foreground">
                     Photo du document · appareil photo ou galerie
-                  </span>
-                </button>
+                  </p>
+                </div>
               </div>
 
               <input
