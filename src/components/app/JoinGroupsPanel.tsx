@@ -15,7 +15,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 /**
- * Demande d'adhésion style « groupes Facebook » :
+ * Demande d'adhésion à une direction :
  * l'utilisateur demande, le chef valide.
  */
 export function JoinGroupsPanel() {
@@ -44,17 +44,17 @@ export function JoinGroupsPanel() {
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Users className="size-4" />
-          Rejoindre un département
+          Rejoindre une direction
         </CardTitle>
         <CardDescription>
-          Comme un groupe : choisissez un département, envoyez une demande. Le
-          chef accepte ou refuse.
+          Choisissez une direction, envoyez une demande. Le chef accepte ou
+          refuse.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {departments.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Aucun département n&apos;a encore été créé. Contactez le DG.
+            Aucune direction n&apos;a encore été créée. Contactez le DG.
           </p>
         ) : (
           <ul className="space-y-2">
@@ -144,7 +144,7 @@ export function JoinGroupsPanel() {
                               departmentId: dept._id as Id<"departments">,
                             });
                             toast.success(
-                              "Demande envoyée au chef du département",
+                              "Demande envoyée au chef de la direction",
                             );
                           } catch (e) {
                             toast.error(

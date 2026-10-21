@@ -101,17 +101,33 @@ export const listDepartmentsPublic = query({
   args: {},
   handler: async (ctx) => {
     const deps = await ctx.db.query("departments").collect();
+    // Uniquement les directions (pas les services rattachés)
+    const directions = deps.filter(
+      (d) =>
+        !d.parentId &&
+        (d.kind == null || d.kind === "direction" || d.kind !== "service"),
+    );
     const out = [];
-    for (const d of deps) {
+    for (const d of directions) {
+      // Membres de la direction + de ses services
+      const childIds = new Set(
+        deps
+          .filter((c) => c.parentId && String(c.parentId) === String(d._id))
+          .map((c) => String(c._id)),
+      );
+      childIds.add(String(d._id));
       const members = await ctx.db
         .query("users")
-        .withIndex("by_department", (q) => q.eq("departmentId", d._id))
+        .withIndex("by_department")
         .collect();
+      const memberCount = members.filter(
+        (u) => u.departmentId && childIds.has(String(u.departmentId)),
+      ).length;
       out.push({
         _id: d._id,
         name: d.name,
         description: d.description ?? null,
-        memberCount: members.length,
+        memberCount,
       });
     }
     return out.sort((a, b) => a.name.localeCompare(b.name, "fr"));

@@ -2656,8 +2656,38 @@ export const enterpriseOverview = query({
       ensure(String(dep._id), dep.name);
     }
 
+    // Agréger les services dans leur direction parente ; n'afficher que les directions
+    for (const dep of departments) {
+      if (!dep.parentId) continue;
+      const child = perDept.get(String(dep._id));
+      const parent = perDept.get(String(dep.parentId));
+      if (!child || !parent) continue;
+      parent.members += child.members;
+      parent.chiefs += child.chiefs;
+      parent.sent += child.sent;
+      parent.received += child.received;
+      parent.open += child.open;
+      parent.traite += child.traite;
+      parent.overdue += child.overdue;
+    }
+
+    const directionIds = new Set(
+      departments
+        .filter(
+          (d) =>
+            !d.parentId &&
+            (d.kind == null || d.kind === "direction" || d.kind !== "service"),
+        )
+        .map((d) => String(d._id)),
+    );
+
     const departmentStats = [...perDept.values()]
-      .filter((r) => r.departmentId !== "__none__" || r.sent + r.received > 0)
+      .filter(
+        (r) =>
+          r.departmentId === "__none__"
+            ? r.sent + r.received > 0
+            : directionIds.has(r.departmentId),
+      )
       .sort((a, b) => b.open - a.open || a.name.localeCompare(b.name, "fr"));
 
     const recent = [...active]
@@ -2705,7 +2735,7 @@ export const enterpriseOverview = query({
         traite: byStatus.traite,
         overdue,
         byStatus,
-        departments: departments.length,
+        departments: directionIds.size,
         users: validatedUsers,
         pendingAccounts,
         pendingJoins,
