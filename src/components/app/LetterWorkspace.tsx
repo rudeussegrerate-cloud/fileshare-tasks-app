@@ -44,6 +44,7 @@ export function LetterWorkspace() {
   const [showModels, setShowModels] = useState(false);
   const [ready, setReady] = useState(false);
   const [importing, setImporting] = useState(false);
+  const pendingHtmlRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (editorRef.current && !ready) {
@@ -51,6 +52,15 @@ export function LetterWorkspace() {
       setReady(true);
     }
   }, [ready]);
+
+  // Réappliquer le HTML après import (l'éditeur peut avoir été remonté)
+  useEffect(() => {
+    if (!importing && pendingHtmlRef.current && editorRef.current) {
+      editorRef.current.innerHTML = pendingHtmlRef.current;
+      pendingHtmlRef.current = null;
+      editorRef.current.focus();
+    }
+  }, [importing]);
 
   const exec = useCallback((command: string, value?: string) => {
     editorRef.current?.focus();
@@ -60,9 +70,11 @@ export function LetterWorkspace() {
   const getBodyHtml = () => editorRef.current?.innerHTML ?? "";
 
   const setEditorHtml = (html: string) => {
+    pendingHtmlRef.current = html;
     if (editorRef.current) {
       editorRef.current.innerHTML = html;
       editorRef.current.focus();
+      pendingHtmlRef.current = null;
     }
   };
 
@@ -305,38 +317,37 @@ export function LetterWorkspace() {
           </aside>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-auto bg-[#dfe6ee] p-4 md:p-8">
+        <div className="relative min-h-0 flex-1 overflow-auto bg-[#dfe6ee] p-4 md:p-8">
           {importing ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#dfe6ee]/85 text-muted-foreground">
               <Loader2 className="size-8 animate-spin text-brand" />
-              <p className="text-sm">Conversion du modèle en document éditable…</p>
+              <p className="text-sm">Analyse et conversion en document éditable…</p>
             </div>
-          ) : (
+          ) : null}
+          <div
+            className="mx-auto origin-top transition-transform"
+            style={{
+              width: 680,
+              transform: `scale(${zoom})`,
+              marginBottom: `${Math.max(0, (zoom - 1) * 180)}px`,
+            }}
+          >
             <div
-              className="mx-auto origin-top transition-transform"
-              style={{
-                width: 680,
-                transform: `scale(${zoom})`,
-                marginBottom: `${Math.max(0, (zoom - 1) * 180)}px`,
-              }}
-            >
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                role="textbox"
-                aria-label="Éditeur de courrier"
-                className={cn(
-                  "min-h-[960px] bg-white px-12 py-10 shadow-xl shadow-slate-500/25",
-                  "font-serif text-[13px] leading-relaxed text-slate-900 outline-none",
-                  "[&_p]:mb-2.5 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6",
-                  "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6",
-                  "[&_img]:max-w-full",
-                )}
-                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-              />
-            </div>
-          )}
+              ref={editorRef}
+              contentEditable={!importing}
+              suppressContentEditableWarning
+              role="textbox"
+              aria-label="Éditeur de courrier"
+              className={cn(
+                "min-h-[960px] bg-white px-12 py-10 shadow-xl shadow-slate-500/25",
+                "font-serif text-[13px] leading-relaxed text-slate-900 outline-none",
+                "[&_p]:mb-2.5 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-6",
+                "[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-6",
+                "[&_img]:max-w-full",
+              )}
+              style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
+            />
+          </div>
         </div>
       </div>
     </div>

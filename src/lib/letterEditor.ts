@@ -69,57 +69,111 @@ function escAttr(s: string) {
   return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 }
 
-function textToParagraphs(text: string): string {
-  const parts = text
-    .replace(/\r\n/g, "\n")
-    .split(/\n{2,}/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  if (parts.length === 0) return `<p><br/></p>`;
-  return parts
-    .map((p) => {
-      const lines = p
+function escHtml(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/** Convertit un texte brut en paragraphes HTML éditables. */
+export function textToParagraphs(text: string): string {
+  const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
+  if (!normalized) return `<p><br/></p>`;
+
+  // Grouper les lignes : double saut = nouveau paragraphe, simple = <br/>
+  const blocks = normalized.split(/\n{2,}/);
+  return blocks
+    .map((block) => {
+      const lines = block
         .split("\n")
-        .map((l) =>
-          l
-            .replace(/&/g, "&amp;")
-            .replace(/</g, "&lt;")
-            .replace(/>/g, "&gt;"),
-        )
-        .join("<br/>");
-      return `<p>${lines || "<br/>"}</p>`;
+        .map((l) => escHtml(l.trimEnd()))
+        .filter((l, i, arr) => l.length > 0 || arr.length === 1);
+      if (lines.length === 0) return `<p><br/></p>`;
+      return `<p>${lines.join("<br/>")}</p>`;
     })
     .join("\n");
 }
 
+/** Nettoie le HTML mammoth pour l'éditeur. */
+function sanitizeImportedHtml(html: string): string {
+  let h = html.trim();
+  if (!h) return `<p><br/></p>`;
+  // Retirer scripts
+  h = h.replace(/<script[\s\S]*?<\/script>/gi, "");
+  // Images data trop risquées hors mammoth — ok
+  // Si le HTML n'a pas de balise block, envelopper
+  if (!/<(p|div|h[1-6]|ul|ol|table|br)\b/i.test(h)) {
+    return textToParagraphs(h.replace(/<[^>]+>/g, " "));
+  }
+  return h;
+}
+
 async function importDocxToHtml(file: File): Promise<string> {
-  const mammoth = await import("mammoth");
-  const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.convertToHtml({ arrayBuffer });
-  const html = (result.value || "").trim();
-  return html || textToParagraphs(await extractTextFromFile(file));
+  try {
+    const mammoth = await import("mammoth");
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.convertToHtml(
+      { arrayBuffer },
+      {
+        styleMap: [
+          "p[style-name='Heading 1'] => h1:fresh",
+          "p[style-name='Heading 2'] => h2:fresh",
+          "p[style-name='Title'] => h1:fresh",
+        ],
+      },
+    );
+    const html = sanitizeImportedHtml(result.value || "");
+    if (html.replace(/<[^>]+>/g, "").trim().length > 0) return html;
+  } catch (e) {
+    console.warn("[importDocxToHtml] convertToHtml failed", e);
+  }
+  // Fallback texte brut
+  const text = await extractTextFromFile(file);
+  if (!text.trim()) {
+    throw new Error(
+      "Impossible de lire ce fichier Word. Réessayez en .docx (pas .doc ancien).",
+    );
+  }
+  return textToParagraphs(text);
 }
 
 async function importPdfToHtml(file: File): Promise<string> {
-  const cover = await renderCoverThumbnail(file, 520);
-  const text = await extractTextFromFile(file);
+  let cover: string | null = null;
+  let text = "";
+  try {
+    cover = await renderCoverThumbnail(file, 560);
+  } catch (e) {
+    console.warn("[importPdf] cover", e);
+  }
+  try {
+    text = await extractTextFromFile(file);
+  } catch (e) {
+    console.warn("[importPdf] text", e);
+  }
+
   const parts: string[] = [];
   if (cover) {
     parts.push(
-      `<p style="text-align:center"><img src="${escAttr(cover)}" alt="Aperçu PDF" style="max-width:100%;max-height:320px;object-fit:contain;border:1px solid #ddd"/></p>`,
-    );
-    parts.push(
-      `<p style="font-size:11px;color:#666;text-align:center"><em>Page de couverture importée — texte extrait ci-dessous (éditable)</em></p>`,
+      `<p style="text-align:center"><img src="${escAttr(cover)}" alt="Aperçu" style="max-width:100%;max-height:280px;object-fit:contain;border:1px solid #e5e5e5"/></p>`,
     );
   }
-  if (text.trim()) {
+
+  const plain = text.replace(/\s+/g, " ").trim();
+  if (plain.length >= 20) {
     parts.push(textToParagraphs(text));
-  } else if (!cover) {
+  } else if (cover) {
+    // PDF scanné : garder l'image + zone de texte vide
     parts.push(
-      `<p><em>Aucun texte détecté dans ce PDF. Rédigez manuellement.</em></p>`,
+      `<p><em>Peu de texte détecté (PDF image / scanné). Corrigez ou saisissez le contenu ci-dessous.</em></p>`,
+    );
+    parts.push(`<p><br/></p>`);
+  } else {
+    throw new Error(
+      "Aucun contenu lisible dans ce PDF. Vérifiez le fichier ou importez une image / Word.",
     );
   }
-  return parts.join("\n") || `<p><br/></p>`;
+  return parts.join("\n");
 }
 
 async function importImageToHtml(file: File): Promise<string> {
@@ -129,21 +183,31 @@ async function importImageToHtml(file: File): Promise<string> {
     r.onerror = () => reject(new Error("Lecture image impossible"));
     r.readAsDataURL(file);
   });
-  const ocr = await extractTextFromFile(file);
-  const parts: string[] = [
-    `<p style="text-align:center"><img src="${escAttr(dataUrl)}" alt="Modèle importé" style="max-width:100%;max-height:360px;object-fit:contain"/></p>`,
+
+  let ocr = "";
+  try {
+    ocr = await extractTextFromFile(file);
+  } catch (e) {
+    console.warn("[importImage] OCR", e);
+  }
+
+  const parts = [
+    `<p style="text-align:center"><img src="${escAttr(dataUrl)}" alt="Modèle" style="max-width:100%;max-height:360px;object-fit:contain"/></p>`,
   ];
-  if (ocr.trim()) {
-    parts.push(
-      `<p style="font-size:11px;color:#666;text-align:center"><em>Texte détecté (OCR) — vous pouvez le corriger</em></p>`,
-    );
+  if (ocr.trim().length >= 8) {
     parts.push(textToParagraphs(ocr));
   } else {
     parts.push(
-      `<p><em>Image importée. Ajoutez ou corrigez le texte manuellement.</em></p>`,
+      `<p><em>Image importée. Saisissez ou corrigez le texte manuellement.</em></p>`,
     );
+    parts.push(`<p><br/></p>`);
   }
   return parts.join("\n");
+}
+
+function extensionOf(name: string) {
+  const i = name.lastIndexOf(".");
+  return i >= 0 ? name.slice(i + 1).toLowerCase() : "";
 }
 
 /**
@@ -153,46 +217,56 @@ export async function importFileToEditableHtml(file: File): Promise<{
   html: string;
   title: string;
 }> {
-  const name = file.name.replace(/\.[^.]+$/, "") || "Modèle importé";
-  const ext = file.name.toLowerCase().split(".").pop() || "";
+  const title = file.name.replace(/\.[^.]+$/, "") || "Modèle importé";
+  const ext = extensionOf(file.name);
   const type = (file.type || "").toLowerCase();
 
+  // Word
   if (
     ext === "docx" ||
     type.includes("wordprocessingml") ||
-    type === "application/msword"
+    type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   ) {
-    if (ext === "doc" && !ext.endsWith("docx") && type === "application/msword") {
-      // .doc binaire ancien : texte brut si possible
-      const text = await extractTextFromFile(file);
-      return {
-        html: text.trim()
-          ? textToParagraphs(text)
-          : `<p><em>Format .doc ancien peu supporté. Préférez .docx ou PDF.</em></p>`,
-        title: name,
-      };
+    return { html: await importDocxToHtml(file), title };
+  }
+  if (ext === "doc" || type === "application/msword") {
+    // .doc binaire : tenter mammoth (échoue souvent) puis texte
+    try {
+      return { html: await importDocxToHtml(file), title };
+    } catch {
+      throw new Error(
+        "Les fichiers .doc (ancien format) ne sont pas bien supportés. Enregistrez en .docx ou PDF.",
+      );
     }
-    return { html: await importDocxToHtml(file), title: name };
   }
 
+  // PDF
   if (ext === "pdf" || type === "application/pdf") {
-    return { html: await importPdfToHtml(file), title: name };
+    return { html: await importPdfToHtml(file), title };
   }
 
-  if (type.startsWith("image/") || ["png", "jpg", "jpeg", "webp", "gif", "heic"].includes(ext)) {
-    return { html: await importImageToHtml(file), title: name };
+  // Images
+  if (
+    type.startsWith("image/") ||
+    ["png", "jpg", "jpeg", "webp", "gif", "bmp", "heic", "heif"].includes(ext)
+  ) {
+    return { html: await importImageToHtml(file), title };
   }
 
-  if (type.startsWith("text/") || ["txt", "md", "rtf", "html", "htm"].includes(ext)) {
+  // Texte / HTML
+  if (
+    type.startsWith("text/") ||
+    ["txt", "md", "rtf", "html", "htm", "csv"].includes(ext)
+  ) {
     const raw = await file.text();
     if (ext === "html" || ext === "htm") {
-      return { html: raw, title: name };
+      return { html: sanitizeImportedHtml(raw), title };
     }
-    return { html: textToParagraphs(raw), title: name };
+    return { html: textToParagraphs(raw), title };
   }
 
   throw new Error(
-    "Format non supporté. Importez un PDF, Word (.docx), image ou fichier texte.",
+    "Format non supporté. Utilisez PDF, Word (.docx), image (JPG/PNG) ou texte.",
   );
 }
 
@@ -209,9 +283,9 @@ export function wrapLetterHtml(title: string, bodyHtml: string): string {
 </style></head><body><div class="page">${bodyHtml}</div></body></html>`;
 }
 
-/** Export Word : HTML Word-compatible (.doc) */
 export function exportAsWord(title: string, bodyHtml: string): void {
-  const safe = title.replace(/[^\w\s\-àâäéèêëïîôùûüç]/gi, "").trim() || "courrier";
+  const safe =
+    title.replace(/[^\w\s\-àâäéèêëïîôùûüç]/gi, "").trim() || "courrier";
   const html = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office"
  xmlns:w="urn:schemas-microsoft-com:office:word"
@@ -236,7 +310,6 @@ export function exportAsWord(title: string, bodyHtml: string): void {
   URL.revokeObjectURL(url);
 }
 
-/** Export PDF via dialogue d'impression du navigateur */
 export function exportAsPdf(title: string, bodyHtml: string): void {
   const w = window.open("", "_blank");
   if (!w) throw new Error("Autorisez les pop-ups pour exporter en PDF");

@@ -38,6 +38,51 @@ function extensionOf(fileName: string) {
   return parts.length > 1 ? parts[parts.length - 1]! : "";
 }
 
+/** Reconstitue les lignes d'une page PDF via les positions Y. */
+function itemsToLines(
+  items: Array<{ str?: string; transform?: number[]; width?: number }>,
+): string {
+  type Tok = { str: string; x: number; y: number };
+  const tokens: Tok[] = [];
+  for (const item of items) {
+    if (!item || typeof item.str !== "string" || !item.str) continue;
+    const tr = item.transform;
+    if (!tr || tr.length < 6) {
+      tokens.push({ str: item.str, x: 0, y: 0 });
+      continue;
+    }
+    tokens.push({ str: item.str, x: tr[4] ?? 0, y: tr[5] ?? 0 });
+  }
+  if (tokens.length === 0) return "";
+  tokens.sort((a, b) => b.y - a.y || a.x - b.x);
+  const lines: string[] = [];
+  let currentY = tokens[0]!.y;
+  let lineToks: Tok[] = [];
+  const flush = () => {
+    if (!lineToks.length) return;
+    lineToks.sort((a, b) => a.x - b.x);
+    let line = "";
+    let prevRight: number | null = null;
+    for (const tok of lineToks) {
+      if (prevRight !== null && tok.x - prevRight > 2) line += " ";
+      line += tok.str;
+      prevRight = tok.x + Math.max(tok.str.length * 3.2, 4);
+    }
+    const cleaned = line.replace(/\s+/g, " ").trim();
+    if (cleaned) lines.push(cleaned);
+    lineToks = [];
+  };
+  for (const tok of tokens) {
+    if (Math.abs(tok.y - currentY) > 3.5) {
+      flush();
+      currentY = tok.y;
+    }
+    lineToks.push(tok);
+  }
+  flush();
+  return lines.join("\n");
+}
+
 async function extractPdf(file: File) {
   const pdfjs = await import("pdfjs-dist");
   const workerUrl = (
@@ -48,17 +93,22 @@ async function extractPdf(file: File) {
   const data = new Uint8Array(await file.arrayBuffer());
   const pdf = await pdfjs.getDocument({ data }).promise;
 
-  const pages = Math.min(pdf.numPages, 15);
-  let text = "";
+  const pages = Math.min(pdf.numPages, 20);
+  const chunks: string[] = [];
   for (let pageNumber = 1; pageNumber <= pages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    text += `${content.items
-      .map((item) => ("str" in item ? item.str : " "))
-      .join(" ")}\n`;
-    if (text.length > MAX_CHARS) break;
+    const pageText = itemsToLines(
+      content.items as Array<{
+        str?: string;
+        transform?: number[];
+        width?: number;
+      }>,
+    );
+    if (pageText) chunks.push(pageText);
+    if (chunks.join("\n").length > MAX_CHARS) break;
   }
-  return text;
+  return chunks.join("\n\n").slice(0, MAX_CHARS);
 }
 
 async function extractDocx(file: File) {
