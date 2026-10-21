@@ -1,42 +1,39 @@
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  LETTER_VARIABLE_META,
-  MNDPT_FIXED,
-  type BlankLetterModel,
-  type CanvasExtraElement,
-  type LetterVariableKey,
-  createBlankMndptLetter,
-  formatOutgoingRef,
-  renderMndptLetterHtml,
-} from "@/lib/mndptLetterTemplate";
+  ALL_TEMPLATES,
+  createDocFromTemplate,
+  createEmptyDoc,
+  renderDocHtml,
+  type FreeLetterDoc,
+  type LetterBlock,
+  type LetterTemplate,
+} from "@/lib/letterEditor";
 import { cn } from "@/lib/utils";
 import {
-  Building2,
-  Calendar,
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  ChevronDown,
+  ChevronUp,
   Download,
   FilePlus2,
-  FileText,
+  Heading,
   ImagePlus,
   LayoutTemplate,
-  Mail,
-  PenLine,
+  Minus,
   Plus,
   Printer,
-  Signature,
+  Space,
   Trash2,
   Type,
-  User,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-
-type Selectable = LetterVariableKey | "logo" | "seal" | "extra_image" | string | null;
 
 function downloadBlob(filename: string, content: string, mime: string) {
   const blob = new Blob([content], { type: mime });
@@ -52,277 +49,118 @@ function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
     r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(new Error("Lecture fichier impossible"));
+    r.onerror = () => reject(new Error("Lecture impossible"));
     r.readAsDataURL(file);
   });
 }
 
-/** Zone à compléter (style « rouge » du modèle papier) */
-function FillSlot({
-  selected,
-  empty,
-  label,
-  onSelect,
-  className,
-  children,
-}: {
-  selected: boolean;
-  empty?: boolean;
-  label: string;
-  onSelect: () => void;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-      className={cn(
-        "group relative w-full rounded-sm text-left transition-all",
-        empty
-          ? "border border-dashed border-red-400/90 bg-red-50/50 hover:border-red-500 hover:bg-red-50"
-          : "border border-transparent hover:border-red-200 hover:bg-red-50/30",
-        selected && "ring-2 ring-red-500 ring-offset-1",
-        className,
-      )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none absolute -top-2 left-1 z-[1] rounded bg-red-600 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white opacity-0 shadow-sm transition-opacity group-hover:opacity-100",
-          selected && "opacity-100",
-        )}
-      >
-        {label}
-      </span>
-      {children}
-    </button>
-  );
+function uid() {
+  return `b-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function FixedBlock({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "relative rounded-sm border border-transparent bg-slate-50/60",
-        className,
-      )}
-      title="Élément fixe du modèle — généré automatiquement"
-    >
-      <span className="pointer-events-none absolute right-1 top-0.5 rounded bg-slate-200 px-1 text-[8px] font-medium uppercase text-slate-600">
-        Auto
-      </span>
-      {children}
-    </div>
-  );
-}
-
-
-const EDITOR_SECTIONS: Array<{
-  id: string;
-  label: string;
-  hint: string;
-  icon: typeof User;
-  select: Selectable;
-}> = [
-  {
-    id: "date",
-    label: "Lieu & date",
-    hint: "Antananarivo, le …",
-    icon: Calendar,
-    select: "location_date",
-  },
-  {
-    id: "sender",
-    label: "Émetteur",
-    hint: "Le Directeur de …",
-    icon: Building2,
-    select: "sender_title",
-  },
-  {
-    id: "recipient",
-    label: "Destinataire",
-    hint: "Nom, organisme, adresse",
-    icon: User,
-    select: "recipient_block",
-  },
-  {
-    id: "refs",
-    label: "Références",
-    hint: "N°, chemin, réf.",
-    icon: FileText,
-    select: "outgoing_number",
-  },
-  {
-    id: "subject",
-    label: "Objet",
-    hint: "Objet du courrier",
-    icon: Mail,
-    select: "subject",
-  },
-  {
-    id: "body",
-    label: "Corps du message",
-    hint: "Texte principal",
-    icon: PenLine,
-    select: "body",
-  },
-  {
-    id: "sign",
-    label: "Signature",
-    hint: "Nom et qualité",
-    icon: Signature,
-    select: "signatory_name",
-  },
-  {
-    id: "media",
-    label: "Médias",
-    hint: "Logo, emblème, images",
-    icon: ImagePlus,
-    select: "logo",
-  },
-];
-
+/**
+ * Éditeur libre type CV.fr :
+ * - choisir / insérer un modèle
+ * - modifier librement chaque bloc
+ * - ajouter, supprimer, réordonner
+ * Aucune structure imposée après insertion.
+ */
 export function LetterWorkspace() {
   const fileRef = useRef<HTMLInputElement>(null);
-  const [uploadTarget, setUploadTarget] = useState<
-    "logo" | "seal" | "extra_image" | "extra_el" | null
-  >(null);
-  const [extraElId, setExtraElId] = useState<string | null>(null);
+  const [doc, setDoc] = useState<FreeLetterDoc>(() => createEmptyDoc());
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(0.92);
+  const [showTemplates, setShowTemplates] = useState(true);
 
-  const [model, setModel] = useState<BlankLetterModel>(() =>
-    createBlankMndptLetter(),
-  );
-  const [selected, setSelected] = useState<Selectable>(null);
-  const [zoom, setZoom] = useState(0.88);
-  const [panel, setPanel] = useState<"edit" | "media" | "export">("edit");
+  const selected = doc.blocks.find((b) => b.id === selectedId) ?? null;
 
-  const v = model.variables;
-
-  const setVar = useCallback((key: LetterVariableKey, value: string) => {
-    setModel((m) => ({
-      ...m,
-      variables: { ...m.variables, [key]: value },
+  const updateBlock = useCallback((id: string, patch: Partial<LetterBlock>) => {
+    setDoc((d) => ({
+      ...d,
+      updatedAt: Date.now(),
+      blocks: d.blocks.map((b) => (b.id === id ? { ...b, ...patch } : b)),
     }));
   }, []);
 
-  const missing = useMemo(() => {
-    const m: string[] = [];
-    if (!v.location_date.trim()) m.push("Date");
-    if (!v.sender_title.trim()) m.push("Émetteur");
-    if (!v.recipient_block.trim()) m.push("Destinataire");
-    if (!v.subject.trim()) m.push("Objet");
-    if (!v.body.trim() || v.body.includes("[À COMPLÉTER")) m.push("Corps");
-    return m;
-  }, [v]);
-
-  const newBlank = () => {
-    setModel(createBlankMndptLetter());
-    setSelected(null);
-    toast.success("Modèle vierge officiel MNDPT");
+  const insertTemplate = (tpl: LetterTemplate) => {
+    const next = createDocFromTemplate(tpl);
+    setDoc(next);
+    setSelectedId(next.blocks[0]?.id ?? null);
+    setShowTemplates(false);
+    toast.success(`Modèle « ${tpl.name} » inséré — modifiable librement`);
   };
 
-  const pickImage = (target: typeof uploadTarget, elId?: string) => {
-    setUploadTarget(target);
-    setExtraElId(elId ?? null);
-    fileRef.current?.click();
+  const addBlock = (type: LetterBlock["type"]) => {
+    const block: LetterBlock = {
+      id: uid(),
+      type,
+      content:
+        type === "heading"
+          ? "Nouveau titre"
+          : type === "paragraph"
+            ? "Nouveau paragraphe"
+            : type === "image"
+              ? ""
+              : "",
+      align: "left",
+      level: type === "heading" ? 2 : undefined,
+    };
+    setDoc((d) => {
+      const idx = selectedId
+        ? d.blocks.findIndex((b) => b.id === selectedId)
+        : d.blocks.length - 1;
+      const at = idx >= 0 ? idx + 1 : d.blocks.length;
+      const blocks = [...d.blocks];
+      blocks.splice(at, 0, block);
+      return { ...d, blocks, updatedAt: Date.now() };
+    });
+    setSelectedId(block.id);
+    if (type === "image") {
+      window.setTimeout(() => fileRef.current?.click(), 50);
+    }
   };
 
-  const onFile = async (file: File | null) => {
-    if (!file || !uploadTarget) return;
+  const removeBlock = (id: string) => {
+    setDoc((d) => ({
+      ...d,
+      blocks: d.blocks.filter((b) => b.id !== id),
+      updatedAt: Date.now(),
+    }));
+    if (selectedId === id) setSelectedId(null);
+  };
+
+  const moveBlock = (id: string, dir: -1 | 1) => {
+    setDoc((d) => {
+      const i = d.blocks.findIndex((b) => b.id === id);
+      if (i < 0) return d;
+      const j = i + dir;
+      if (j < 0 || j >= d.blocks.length) return d;
+      const blocks = [...d.blocks];
+      [blocks[i], blocks[j]] = [blocks[j]!, blocks[i]!];
+      return { ...d, blocks, updatedAt: Date.now() };
+    });
+  };
+
+  const onImageFile = async (file: File | null) => {
+    if (!file || !selectedId) return;
     if (!file.type.startsWith("image/")) {
-      toast.error("Choisissez une image (PNG, JPG…).");
+      toast.error("Choisissez une image");
       return;
     }
     if (file.size > 4 * 1024 * 1024) {
-      toast.error("Image trop lourde (max 4 Mo).");
+      toast.error("Max 4 Mo");
       return;
     }
     try {
       const dataUrl = await readFileAsDataUrl(file);
-      if (uploadTarget === "logo") {
-        setModel((m) => ({
-          ...m,
-          assets: { ...m.assets, logoUrl: dataUrl },
-        }));
-        toast.success("Logo MNDPT mis à jour");
-      } else if (uploadTarget === "seal") {
-        setModel((m) => ({
-          ...m,
-          assets: { ...m.assets, sealUrl: dataUrl },
-        }));
-        toast.success("Emblème mis à jour");
-      } else if (uploadTarget === "extra_image") {
-        setModel((m) => ({
-          ...m,
-          assets: { ...m.assets, extraImageUrl: dataUrl },
-        }));
-        toast.success("Image ajoutée");
-      } else if (uploadTarget === "extra_el" && extraElId) {
-        setModel((m) => ({
-          ...m,
-          extras: m.extras.map((el) =>
-            el.id === extraElId
-              ? { ...el, type: "image", content: dataUrl }
-              : el,
-          ),
-        }));
-        toast.success("Élément image mis à jour");
-      }
+      updateBlock(selectedId, { type: "image", content: dataUrl });
+      toast.success("Image ajoutée");
     } catch {
       toast.error("Impossible de charger l'image");
     } finally {
-      setUploadTarget(null);
-      setExtraElId(null);
       if (fileRef.current) fileRef.current.value = "";
     }
   };
-
-  const addTextElement = () => {
-    const id = `el-${Date.now()}`;
-    const el: CanvasExtraElement = {
-      id,
-      type: "text",
-      label: "Texte",
-      content: "Nouveau texte",
-    };
-    setModel((m) => ({ ...m, extras: [...m.extras, el] }));
-    setSelected(id);
-    setPanel("edit");
-  };
-
-  const addImageElement = () => {
-    const id = `el-${Date.now()}`;
-    const el: CanvasExtraElement = {
-      id,
-      type: "image",
-      label: "Image",
-      content: "",
-    };
-    setModel((m) => ({ ...m, extras: [...m.extras, el] }));
-    setSelected(id);
-    pickImage("extra_el", id);
-  };
-
-  const removeExtra = (id: string) => {
-    setModel((m) => ({
-      ...m,
-      extras: m.extras.filter((e) => e.id !== id),
-    }));
-    if (selected === id) setSelected(null);
-  };
-
-;
-
-;
 
   const openPrint = () => {
     const w = window.open("", "_blank");
@@ -330,163 +168,27 @@ export function LetterWorkspace() {
       toast.error("Autorisez les pop-ups");
       return;
     }
-    w.document.write(renderMndptLetterHtml(model));
+    w.document.write(renderDocHtml(doc));
     w.document.close();
   };
 
   const exportHtml = () => {
-    if (missing.length) {
-      if (
-        !window.confirm(
-          `Zones incomplètes : ${missing.join(", ")}. Exporter quand même ?`,
-        )
-      )
-        return;
-    }
     downloadBlob(
-      `courrier-mndpt-${Date.now()}.html`,
-      renderMndptLetterHtml(model),
+      `courrier-${Date.now()}.html`,
+      renderDocHtml(doc),
       "text/html;charset=utf-8",
     );
-    toast.success("HTML téléchargé");
-  };
-
-  const selectedExtra = model.extras.find((e) => e.id === selected);
-
-  const editorPanel = () => {
-    if (selected === "logo" || selected === "seal" || selected === "extra_image") {
-      const title =
-        selected === "logo"
-          ? "Logo MNDPT"
-          : selected === "seal"
-            ? "Emblème République"
-            : "Image libre";
-      return (
-        <div className="space-y-3 text-xs">
-          <p className="font-medium text-foreground">{title}</p>
-          <p className="text-muted-foreground">
-            Remplacez l&apos;image par un fichier officiel (PNG/JPG).
-          </p>
-          <Button
-            type="button"
-            size="sm"
-            className="w-full"
-            onClick={() => pickImage(selected)}
-          >
-            <ImagePlus className="mr-2 size-3.5" />
-            Choisir une image
-          </Button>
-        </div>
-      );
-    }
-    if (selectedExtra) {
-      return (
-        <div className="space-y-3">
-          <Label className="text-sm">{selectedExtra.label}</Label>
-          {selectedExtra.type === "text" ? (
-            <Textarea
-              rows={5}
-              value={selectedExtra.content}
-              onChange={(e) =>
-                setModel((m) => ({
-                  ...m,
-                  extras: m.extras.map((el) =>
-                    el.id === selectedExtra.id
-                      ? { ...el, content: e.target.value }
-                      : el,
-                  ),
-                }))
-              }
-            />
-          ) : (
-            <div className="space-y-2">
-              {selectedExtra.content ? (
-                <img
-                  src={selectedExtra.content}
-                  alt=""
-                  className="max-h-32 rounded border object-contain"
-                />
-              ) : null}
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => pickImage("extra_el", selectedExtra.id)}
-              >
-                <ImagePlus className="mr-2 size-3.5" />
-                Changer l&apos;image
-              </Button>
-            </div>
-          )}
-          <Button
-            type="button"
-            size="sm"
-            variant="destructive"
-            className="w-full"
-            onClick={() => removeExtra(selectedExtra.id)}
-          >
-            <Trash2 className="mr-2 size-3.5" />
-            Supprimer l&apos;élément
-          </Button>
-        </div>
-      );
-    }
-    if (!selected || !(selected in LETTER_VARIABLE_META)) {
-      return (
-        <p className="text-xs text-muted-foreground">
-          Cliquez une zone <span className="text-red-600">pointillée rouge</span>{" "}
-          pour la compléter. Les blocs « Auto » restent fixes.
-        </p>
-      );
-    }
-    const key = selected as LetterVariableKey;
-    const meta = LETTER_VARIABLE_META[key];
-    const multiline =
-      key === "body" ||
-      key === "recipient_block" ||
-      key === "attachments" ||
-      key === "extra_refs" ||
-      key === "subject";
-    return (
-      <div className="space-y-2">
-        <Label className="text-sm">
-          {meta.label}
-          {meta.required ? <span className="text-destructive"> *</span> : null}
-        </Label>
-        <p className="text-[11px] text-muted-foreground">{meta.hint}</p>
-        {multiline ? (
-          <Textarea
-            rows={key === "body" ? 12 : 4}
-            className={cn(key === "body" && "font-serif text-sm leading-relaxed")}
-            value={v[key]}
-            onChange={(e) => setVar(key, e.target.value)}
-            autoFocus
-          />
-        ) : (
-          <Input
-            value={v[key]}
-            onChange={(e) => setVar(key, e.target.value)}
-            autoFocus
-          />
-        )}
-        {key === "outgoing_number" || key === "outgoing_path" ? (
-          <p className="text-[11px] text-muted-foreground">
-            Aperçu N° : <strong>{formatOutgoingRef(v)}</strong>
-          </p>
-        ) : null}
-      </div>
-    );
+    toast.success("Document exporté");
   };
 
   return (
-    <div className="flex h-[calc(100vh-5.5rem)] min-h-[560px] flex-col overflow-hidden rounded-xl border border-border bg-muted/30 shadow-sm">
+    <div className="flex h-[calc(100vh-5.5rem)] min-h-[560px] flex-col overflow-hidden rounded-xl border border-border bg-muted/20 shadow-sm">
       <input
         ref={fileRef}
         type="file"
         accept="image/*"
         className="hidden"
-        onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
+        onChange={(e) => void onImageFile(e.target.files?.[0] ?? null)}
       />
 
       {/* Toolbar */}
@@ -494,34 +196,49 @@ export function LetterWorkspace() {
         <div className="mr-1 flex min-w-0 items-center gap-2">
           <LayoutTemplate className="size-5 shrink-0 text-brand" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">Assistant de rédaction</p>
-            <p className="truncate text-[10px] text-muted-foreground">
-              Courrier officiel MNDPT — style éditeur
+            <Input
+              value={doc.title}
+              onChange={(e) =>
+                setDoc((d) => ({ ...d, title: e.target.value, updatedAt: Date.now() }))
+              }
+              className="h-8 border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+            />
+            <p className="px-1 text-[10px] text-muted-foreground">
+              Éditeur libre — insérez un modèle puis modifiez tout
             </p>
           </div>
         </div>
-        <Button type="button" size="sm" variant="outline" onClick={newBlank}>
-          <FilePlus2 className="mr-1.5 size-3.5" />
-          Vierge
-        </Button>
+
         <Button
           type="button"
           size="sm"
-          variant="outline"
-          onClick={addTextElement}
+          variant={showTemplates ? "default" : "outline"}
+          onClick={() => setShowTemplates((v) => !v)}
         >
+          <FilePlus2 className="mr-1.5 size-3.5" />
+          Modèles
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => addBlock("paragraph")}>
           <Type className="mr-1.5 size-3.5" />
           Texte
         </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          onClick={addImageElement}
-        >
+        <Button type="button" size="sm" variant="outline" onClick={() => addBlock("heading")}>
+          <Heading className="mr-1.5 size-3.5" />
+          Titre
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => addBlock("image")}>
           <ImagePlus className="mr-1.5 size-3.5" />
           Image
         </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => addBlock("divider")}>
+          <Minus className="mr-1.5 size-3.5" />
+          Ligne
+        </Button>
+        <Button type="button" size="sm" variant="outline" onClick={() => addBlock("spacer")}>
+          <Space className="mr-1.5 size-3.5" />
+          Espace
+        </Button>
+
         <div className="ml-auto flex items-center gap-1">
           <Button
             type="button"
@@ -540,7 +257,7 @@ export function LetterWorkspace() {
             size="icon"
             variant="ghost"
             className="size-8"
-            onClick={() => setZoom((z) => Math.min(1.2, z + 0.08))}
+            onClick={() => setZoom((z) => Math.min(1.25, z + 0.08))}
           >
             <ZoomIn className="size-4" />
           </Button>
@@ -556,487 +273,363 @@ export function LetterWorkspace() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Sections — style CV.fr */}
-        <nav className="flex w-full shrink-0 flex-row gap-1 overflow-x-auto border-b border-border bg-card p-2 lg:w-[220px] lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r">
-          <p className="mb-1 hidden px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground lg:block">
-            Rubriques
-          </p>
-          {EDITOR_SECTIONS.map((sec) => {
-            const Icon = sec.icon;
-            const active =
-              selected === sec.select ||
-              (sec.id === "refs" &&
-                (selected === "outgoing_number" ||
-                  selected === "outgoing_path" ||
-                  selected === "incoming_ref")) ||
-              (sec.id === "sign" &&
-                (selected === "signatory_name" ||
-                  selected === "signatory_title")) ||
-              (sec.id === "media" &&
-                (selected === "logo" ||
-                  selected === "seal" ||
-                  selected === "extra_image"));
-            return (
-              <button
-                key={sec.id}
-                type="button"
-                onClick={() => {
-                  setSelected(sec.select);
-                  setPanel(sec.id === "media" ? "media" : "edit");
-                }}
-                className={cn(
-                  "flex min-w-[9rem] items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors lg:min-w-0",
-                  active
-                    ? "bg-brand text-primary-foreground shadow-sm"
-                    : "text-foreground hover:bg-muted",
-                )}
-              >
-                <Icon className="size-4 shrink-0 opacity-90" />
-                <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold">
-                    {sec.label}
-                  </span>
-                  <span
-                    className={cn(
-                      "hidden truncate text-[10px] lg:block",
-                      active ? "text-primary-foreground/80" : "text-muted-foreground",
-                    )}
+        {/* Galerie modèles OU liste des blocs */}
+        <aside className="flex w-full shrink-0 flex-col border-b border-border bg-card lg:w-[240px] lg:border-b-0 lg:border-r">
+          {showTemplates ? (
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Insérer un modèle
+              </p>
+              <p className="mb-3 text-[11px] leading-relaxed text-muted-foreground">
+                Choisissez une trame de départ. Ensuite, chaque élément est librement
+                modifiable, déplaçable ou supprimable.
+              </p>
+              <div className="space-y-2">
+                {ALL_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => insertTemplate(tpl)}
+                    className="w-full rounded-lg border border-border bg-background p-3 text-left transition-colors hover:border-brand/50 hover:bg-brand-soft/30"
                   >
-                    {sec.hint}
-                  </span>
-                </span>
-              </button>
-            );
-          })}
-        </nav>
+                    <p className="text-sm font-semibold text-foreground">{tpl.name}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      {tpl.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-3 w-full"
+                onClick={() => setShowTemplates(false)}
+              >
+                Fermer les modèles
+              </Button>
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 overflow-y-auto p-2">
+              <div className="mb-2 flex items-center justify-between px-1">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Blocs ({doc.blocks.length})
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-[11px]"
+                  onClick={() => setShowTemplates(true)}
+                >
+                  + Modèle
+                </Button>
+              </div>
+              <ul className="space-y-1">
+                {doc.blocks.map((b, i) => (
+                  <li key={b.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(b.id)}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors",
+                        selectedId === b.id
+                          ? "bg-brand text-primary-foreground"
+                          : "hover:bg-muted",
+                      )}
+                    >
+                      <span className="w-4 shrink-0 tabular-nums opacity-60">{i + 1}</span>
+                      <span className="min-w-0 flex-1 truncate font-medium">
+                        {b.type === "heading"
+                          ? "Titre"
+                          : b.type === "paragraph"
+                            ? "Texte"
+                            : b.type === "image"
+                              ? "Image"
+                              : b.type === "divider"
+                                ? "Ligne"
+                                : "Espace"}
+                        {b.content && b.type !== "divider" && b.type !== "spacer"
+                          ? ` — ${b.content.slice(0, 28)}`
+                          : ""}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="mt-3 w-full gap-1"
+                onClick={() => addBlock("paragraph")}
+              >
+                <Plus className="size-3.5" />
+                Ajouter un bloc
+              </Button>
+            </div>
+          )}
+        </aside>
 
-        {/* Canvas A4 */}
+        {/* Aperçu A4 */}
         <div
           className="min-h-0 flex-1 overflow-auto bg-[#e8edf3] p-4 md:p-8"
-          onClick={() => setSelected(null)}
+          onClick={() => setSelectedId(null)}
         >
           <div
             className="mx-auto origin-top transition-transform"
             style={{
               width: 680,
               transform: `scale(${zoom})`,
-              marginBottom: `${Math.max(0, (zoom - 1) * 220)}px`,
+              marginBottom: `${Math.max(0, (zoom - 1) * 200)}px`,
             }}
           >
             <div
-              className="relative bg-white px-9 py-7 shadow-xl shadow-slate-500/20"
-              style={{ minHeight: 960 }}
+              className="relative min-h-[960px] bg-white px-10 py-9 shadow-xl shadow-slate-500/20"
               onClick={(e) => e.stopPropagation()}
             >
-              {missing.length > 0 ? (
-                <div className="mb-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-[10px] text-red-900">
-                  À compléter : {missing.join(" · ")}
-                </div>
-              ) : null}
-
-              {/* Emblème centré */}
-              <button
-                type="button"
-                className={cn(
-                  "mx-auto mb-2 flex flex-col items-center rounded-sm p-1",
-                  selected === "seal" && "ring-2 ring-brand",
-                )}
-                onClick={() => setSelected("seal")}
-              >
-                {model.assets.sealUrl ? (
-                  <img
-                    src={model.assets.sealUrl}
-                    alt=""
-                    className="h-14 w-14 object-contain"
-                  />
-                ) : (
-                  <div className="flex h-14 w-14 items-center justify-center rounded-full border border-slate-300 text-[8px] text-slate-400">
-                    Emblème
-                  </div>
-                )}
-                <FixedBlock className="mt-1 px-2 py-0.5 text-center">
-                  <div className="text-[9px] font-bold tracking-wide">
-                    {MNDPT_FIXED.republicMalagasy}
-                  </div>
-                  <div className="text-[7px] text-slate-500">
-                    {MNDPT_FIXED.republicMotto}
-                  </div>
-                </FixedBlock>
-              </button>
-
-              {/* Deux colonnes : gauche institution / droite date + destinataire */}
-              <div className="mb-4 grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <button
-                    type="button"
-                    className={cn(
-                      "block",
-                      selected === "logo" && "ring-2 ring-brand rounded",
-                    )}
-                    onClick={() => setSelected("logo")}
-                  >
-                    {model.assets.logoUrl ? (
-                      <img
-                        src={model.assets.logoUrl}
-                        alt="MNDPT"
-                        className="h-12 max-w-[160px] object-contain object-left"
+              {doc.blocks.length === 0 ? (
+                <p className="py-20 text-center text-sm text-muted-foreground">
+                  Document vide — insérez un modèle ou ajoutez un bloc.
+                </p>
+              ) : (
+                doc.blocks.map((b) => {
+                  const active = selectedId === b.id;
+                  if (b.type === "divider") {
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setSelectedId(b.id)}
+                        className={cn(
+                          "my-3 w-full border-0 border-t-2 border-slate-300 py-2",
+                          active && "ring-2 ring-brand ring-offset-2",
+                        )}
                       />
-                    ) : (
-                      <div className="text-xl font-black tracking-wide">
-                        {MNDPT_FIXED.logoText}
-                      </div>
-                    )}
-                  </button>
-                  <FixedBlock className="px-1 py-1">
-                    <p className="text-[7px] leading-tight text-slate-500">
-                      {MNDPT_FIXED.logoSub}
-                    </p>
-                    <p className="mt-2 text-[9px] font-semibold uppercase tracking-wide">
-                      {MNDPT_FIXED.secretariat}
-                    </p>
-                    <p className="text-[9px] font-semibold uppercase tracking-wide">
-                      {MNDPT_FIXED.directionGenerale}
-                    </p>
-                  </FixedBlock>
-                  <FillSlot
-                    selected={selected === "direction_line"}
-                    empty={!v.direction_line.trim()}
-                    label="Direction"
-                    onSelect={() => setSelected("direction_line")}
-                    className="px-1 py-1"
-                  >
-                    <p className="text-[9px] font-bold uppercase tracking-wide">
-                      {v.direction_line || "DIRECTION …"}
-                    </p>
-                  </FillSlot>
-                </div>
-
-                <div className="space-y-2 text-right text-[12px]">
-                  <FillSlot
-                    selected={selected === "location_date"}
-                    empty={!v.location_date.trim()}
-                    label="Date"
-                    onSelect={() => setSelected("location_date")}
-                    className="px-2 py-1"
-                  >
-                    <p>{v.location_date || "Antananarivo, le …"}</p>
-                  </FillSlot>
-                  <FillSlot
-                    selected={selected === "sender_title"}
-                    empty={!v.sender_title.trim()}
-                    label="Émetteur"
-                    onSelect={() => setSelected("sender_title")}
-                    className="px-2 py-1"
-                  >
-                    <p>{v.sender_title || "Le Directeur de …"}</p>
-                  </FillSlot>
-                  <p className="pr-2 text-slate-500">à</p>
-                  <FillSlot
-                    selected={selected === "recipient_block"}
-                    empty={!v.recipient_block.trim()}
-                    label="Destinataire"
-                    onSelect={() => setSelected("recipient_block")}
-                    className="min-h-[70px] px-2 py-1"
-                  >
-                    <p className="whitespace-pre-line">
-                      {v.recipient_block ||
-                        "Monsieur le Directeur…\nOrganisme\nAdresse"}
-                    </p>
-                  </FillSlot>
-                </div>
-              </div>
-
-              {/* N° objet réf */}
-              <div className="mb-3 space-y-1.5 text-[12px]">
-                <div className="flex flex-wrap gap-2">
-                  <FillSlot
-                    selected={selected === "outgoing_number"}
-                    empty={!v.outgoing_number.trim()}
-                    label="N°"
-                    onSelect={() => setSelected("outgoing_number")}
-                    className="flex-1 px-2 py-1"
-                  >
-                    <p className="font-semibold">{formatOutgoingRef(v)}</p>
-                  </FillSlot>
-                  <FillSlot
-                    selected={selected === "outgoing_path"}
-                    empty={!v.outgoing_path.trim()}
-                    label="Chemin"
-                    onSelect={() => setSelected("outgoing_path")}
-                    className="px-2 py-1"
-                  >
-                    <p className="text-[10px] text-slate-600">
-                      {v.outgoing_path || "MNDPT/SG/…"}
-                    </p>
-                  </FillSlot>
-                </div>
-                <FillSlot
-                  selected={selected === "subject"}
-                  empty={!v.subject.trim()}
-                  label="Objet"
-                  onSelect={() => setSelected("subject")}
-                  className="px-2 py-1"
-                >
-                  <p>
-                    <span className="font-semibold">Objet :</span>{" "}
-                    {v.subject || "…"}
-                  </p>
-                </FillSlot>
-                <FillSlot
-                  selected={selected === "incoming_reference"}
-                  empty={!v.incoming_reference.trim()}
-                  label="Réf."
-                  onSelect={() => setSelected("incoming_reference")}
-                  className="px-2 py-1"
-                >
-                  <p>
-                    <span className="font-semibold">Réf. :</span>{" "}
-                    {v.incoming_reference || "…"}
-                  </p>
-                </FillSlot>
-                <FillSlot
-                  selected={selected === "extra_refs"}
-                  empty={!v.extra_refs.trim()}
-                  label="Mandats"
-                  onSelect={() => setSelected("extra_refs")}
-                  className="px-2 py-1"
-                >
-                  <p className="whitespace-pre-line">
-                    {v.extra_refs || "N° Mandat / autres références…"}
-                  </p>
-                </FillSlot>
-                <FillSlot
-                  selected={selected === "attachments"}
-                  empty={!v.attachments.trim()}
-                  label="P.J."
-                  onSelect={() => setSelected("attachments")}
-                  className="px-2 py-1"
-                >
-                  <p>
-                    <span className="font-semibold">Pièces jointes :</span>{" "}
-                    {v.attachments || "…"}
-                  </p>
-                </FillSlot>
-              </div>
-
-              <FillSlot
-                selected={selected === "body"}
-                empty={!v.body.trim() || v.body.includes("[À COMPLÉTER")}
-                label="Corps"
-                onSelect={() => setSelected("body")}
-                className="mb-4 min-h-[240px] px-2 py-2"
-              >
-                <div className="whitespace-pre-line font-serif text-[13px] leading-relaxed">
-                  {v.body}
-                </div>
-              </FillSlot>
-
-              {/* Extras utilisateur */}
-              {model.extras.map((el) => (
-                <button
-                  key={el.id}
-                  type="button"
-                  onClick={() => setSelected(el.id)}
-                  className={cn(
-                    "mb-2 w-full rounded border border-dashed border-violet-300 bg-violet-50/40 p-2 text-left",
-                    selected === el.id && "ring-2 ring-violet-500",
-                  )}
-                >
-                  {el.type === "image" && el.content ? (
-                    <img
-                      src={el.content}
-                      alt=""
-                      className="max-h-36 object-contain"
-                    />
-                  ) : (
-                    <p className="whitespace-pre-line text-[12px]">{el.content}</p>
-                  )}
-                </button>
-              ))}
-
-              {model.assets.extraImageUrl ? (
-                <button
-                  type="button"
-                  className={cn(
-                    "mb-3 block",
-                    selected === "extra_image" && "ring-2 ring-brand",
-                  )}
-                  onClick={() => setSelected("extra_image")}
-                >
-                  <img
-                    src={model.assets.extraImageUrl}
-                    alt=""
-                    className="max-h-40 object-contain"
-                  />
-                </button>
-              ) : null}
-
-              <div className="ml-auto max-w-[240px] space-y-2 text-right">
-                <FillSlot
-                  selected={selected === "signatory_title"}
-                  empty={!v.signatory_title.trim()}
-                  label="Signature"
-                  onSelect={() => setSelected("signatory_title")}
-                  className="px-2 py-1"
-                >
-                  <p className="text-[12px] font-medium">
-                    {v.signatory_title || v.sender_title || "Fonction…"}
-                  </p>
-                </FillSlot>
-                <FillSlot
-                  selected={selected === "signatory_name"}
-                  empty={!v.signatory_name.trim()}
-                  label="Nom"
-                  onSelect={() => setSelected("signatory_name")}
-                  className="mt-10 px-2 py-1"
-                >
-                  <p className="text-[12px]">{v.signatory_name || " "}</p>
-                </FillSlot>
-              </div>
+                    );
+                  }
+                  if (b.type === "spacer") {
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setSelectedId(b.id)}
+                        className={cn(
+                          "my-1 flex h-8 w-full items-center justify-center border border-dashed border-transparent text-[10px] text-muted-foreground hover:border-border",
+                          active && "border-brand ring-2 ring-brand ring-offset-1",
+                        )}
+                      >
+                        {active ? "Espace" : ""}
+                      </button>
+                    );
+                  }
+                  if (b.type === "image") {
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => setSelectedId(b.id)}
+                        className={cn(
+                          "my-2 flex w-full justify-center rounded-sm p-1",
+                          active && "ring-2 ring-brand ring-offset-1",
+                        )}
+                        style={{ textAlign: b.align || "center" }}
+                      >
+                        {b.content ? (
+                          <img
+                            src={b.content}
+                            alt=""
+                            className="max-h-40 max-w-full object-contain"
+                          />
+                        ) : (
+                          <span className="flex h-24 w-full items-center justify-center border border-dashed border-slate-300 text-xs text-slate-400">
+                            Cliquez pour choisir une image
+                          </span>
+                        )}
+                      </button>
+                    );
+                  }
+                  const isH = b.type === "heading";
+                  return (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setSelectedId(b.id)}
+                      className={cn(
+                        "my-1 w-full rounded-sm px-1 py-0.5 text-left transition-shadow",
+                        active && "bg-brand-soft/40 ring-2 ring-brand ring-offset-1",
+                        !active && "hover:bg-slate-50",
+                      )}
+                      style={{ textAlign: b.align || "left" }}
+                    >
+                      <span
+                        className={cn(
+                          "block whitespace-pre-wrap font-serif text-slate-900",
+                          isH && "font-bold",
+                          isH && b.level === 1 && "text-lg",
+                          isH && b.level === 2 && "text-[15px]",
+                          isH && (b.level === 3 || !b.level) && "text-[13px]",
+                          !isH && "text-[12.5px] leading-relaxed",
+                        )}
+                      >
+                        {b.content || (
+                          <span className="italic text-slate-400">Zone vide</span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
 
-        {/* Side panel */}
-        <aside className="flex w-full shrink-0 flex-col border-t border-border bg-card shadow-sm lg:w-[320px] lg:border-l lg:border-t-0">
+        {/* Panneau édition du bloc sélectionné */}
+        <aside className="flex w-full shrink-0 flex-col border-t border-border bg-card lg:w-[300px] lg:border-l lg:border-t-0">
           <div className="border-b border-border px-3 py-2.5">
-            <p className="text-xs font-semibold text-foreground">Édition</p>
+            <p className="text-xs font-semibold">Édition du bloc</p>
             <p className="text-[10px] text-muted-foreground">
-              Cliquez une rubrique ou une zone du document
+              {selected
+                ? "Modifiez le contenu librement"
+                : "Sélectionnez un élément sur le document"}
             </p>
           </div>
-          <div className="flex border-b border-border">
-            {(
-              [
-                ["edit", "Édition"],
-                ["media", "Médias"],
-                ["export", "Export"],
-              ] as const
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setPanel(id)}
-                className={cn(
-                  "flex-1 px-1 py-2.5 text-[11px] font-medium",
-                  panel === id
-                    ? "border-b-2 border-brand text-brand"
-                    : "text-muted-foreground",
-                )}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-3">
-            {panel === "edit" ? editorPanel() : null}
-
-            {panel === "media" ? (
-              <div className="space-y-2 text-xs">
-                <p className="text-muted-foreground">
-                  Logos, emblème, images et textes additionnels.
-                </p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setSelected("logo");
-                    pickImage("logo");
-                  }}
-                >
-                  Logo MNDPT
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    setSelected("seal");
-                    pickImage("seal");
-                  }}
-                >
-                  Emblème République
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={addImageElement}
-                >
-                  <Plus className="mr-1 size-3.5" />
-                  Ajouter une image
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={addTextElement}
-                >
-                  <Plus className="mr-1 size-3.5" />
-                  Ajouter un texte
-                </Button>
-                {model.extras.length > 0 ? (
-                  <ul className="mt-2 space-y-1">
-                    {model.extras.map((el) => (
-                      <li
-                        key={el.id}
-                        className="flex items-center justify-between rounded border border-border px-2 py-1"
-                      >
-                        <button
-                          type="button"
-                          className="text-left"
-                          onClick={() => {
-                            setSelected(el.id);
-                            setPanel("edit");
-                          }}
-                        >
-                          {el.label} ({el.type})
-                        </button>
-                        <button type="button" onClick={() => removeExtra(el.id)}>
-                          <Trash2 className="size-3.5 text-destructive" />
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ) : null}
-
-            {panel === "export" ? (
-              <div className="space-y-3 text-xs">
-                {missing.length ? (
-                  <div className="rounded border border-red-200 bg-red-50 px-2 py-1.5 text-red-900">
-                    {missing.join(", ")}
-                  </div>
-                ) : (
-                  <Badge
+            {!selected ? (
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Cliquez un bloc sur l&apos;aperçu ou dans la liste. Utilisez{" "}
+                <strong>Modèles</strong> pour partir d&apos;une trame, puis adaptez
+                chaque zone.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    size="icon"
                     variant="outline"
-                    className="border-emerald-200 bg-emerald-50 text-emerald-800"
+                    className="size-8"
+                    onClick={() => moveBlock(selected.id, -1)}
+                    title="Monter"
                   >
-                    Prêt
-                  </Badge>
+                    <ChevronUp className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-8"
+                    onClick={() => moveBlock(selected.id, 1)}
+                    title="Descendre"
+                  >
+                    <ChevronDown className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-8"
+                    onClick={() => updateBlock(selected.id, { align: "left" })}
+                    title="Gauche"
+                  >
+                    <AlignLeft className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-8"
+                    onClick={() => updateBlock(selected.id, { align: "center" })}
+                    title="Centre"
+                  >
+                    <AlignCenter className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-8"
+                    onClick={() => updateBlock(selected.id, { align: "right" })}
+                    title="Droite"
+                  >
+                    <AlignRight className="size-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-8 text-destructive"
+                    onClick={() => removeBlock(selected.id)}
+                    title="Supprimer"
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+
+                {selected.type === "heading" || selected.type === "paragraph" ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Contenu</Label>
+                    <Textarea
+                      rows={selected.type === "paragraph" ? 10 : 4}
+                      value={selected.content}
+                      onChange={(e) =>
+                        updateBlock(selected.id, { content: e.target.value })
+                      }
+                      className="text-sm"
+                    />
+                  </div>
+                ) : null}
+
+                {selected.type === "heading" ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Niveau de titre</Label>
+                    <div className="flex gap-1">
+                      {([1, 2, 3] as const).map((lv) => (
+                        <Button
+                          key={lv}
+                          type="button"
+                          size="sm"
+                          variant={selected.level === lv ? "default" : "outline"}
+                          onClick={() => updateBlock(selected.id, { level: lv })}
+                        >
+                          H{lv}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {selected.type === "image" ? (
+                  <div className="space-y-2">
+                    <Label className="text-xs">Image</Label>
+                    {selected.content ? (
+                      <img
+                        src={selected.content}
+                        alt=""
+                        className="max-h-28 rounded border object-contain"
+                      />
+                    ) : null}
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => fileRef.current?.click()}
+                    >
+                      <ImagePlus className="mr-1.5 size-3.5" />
+                      Choisir une image
+                    </Button>
+                  </div>
+                ) : null}
+
+                {(selected.type === "divider" || selected.type === "spacer") && (
+                  <p className="text-xs text-muted-foreground">
+                    {selected.type === "divider"
+                      ? "Ligne de séparation — utilisez les flèches pour la déplacer."
+                      : "Espace vertical — utilisez les flèches pour le déplacer."}
+                  </p>
                 )}
-                <Button type="button" size="sm" className="w-full" onClick={openPrint}>
-                  <Printer className="mr-2 size-3.5" />
-                  Imprimer / PDF
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={exportHtml}
-                >
-                  <Download className="mr-2 size-3.5" />
-                  HTML
-                </Button>
               </div>
-            ) : null}
+            )}
           </div>
         </aside>
       </div>
