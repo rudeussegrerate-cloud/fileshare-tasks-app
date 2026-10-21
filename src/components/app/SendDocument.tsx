@@ -467,7 +467,8 @@ export function SendDocument({
       : step === 1
         ? destIds.length > 0
         : (() => {
-              // Étape détails (index 3)
+              // Étape détails (index 3) — fichier obligatoire (envoi et transmission)
+              if (files.length === 0) return false;
               if (!isTransmission && !publicRef.trim()) return false;
               if (isTransmission && !referenceText.trim()) return false;
               if (!arriveeLe.trim()) return false;
@@ -479,7 +480,14 @@ export function SendDocument({
             })();
 
   const handleSend = async () => {
-    if (files.length === 0 || destIds.length === 0) return;
+    if (files.length === 0) {
+      toast.error("Joignez au moins un document pour envoyer ou transmettre.");
+      return;
+    }
+    if (destIds.length === 0) {
+      toast.error("Choisissez au moins un destinataire.");
+      return;
+    }
     if (!isTransmission && !publicRef.trim()) {
       toast.error("Indiquez le N° du courrier.");
       return;
