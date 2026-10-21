@@ -1484,6 +1484,7 @@ export const get = query({
       canReply: !isSender && document.status !== "traite",
       /** Émetteur peut modifier tant que personne n'a lu (statut encore « envoyé ») */
       canEdit: isSender && document.status === "envoye" && !document.archivedAt,
+      canCancel: isSender && document.status === "envoye" && !document.archivedAt,
       isLastInCircuit:
         myStepIndex >= 0 && myStepIndex === steps.length - 1,
       myStepDone: myStep?.status === "done",
@@ -1498,6 +1499,74 @@ export const get = query({
   },
 });
 
+
+
+/**
+ * Annuler un envoi non lu : retire le courrier pour tous les destinataires.
+ * Réservé à l'émetteur tant que le statut est encore « envoye ».
+ */
+export const cancelUnreadSend = mutation({
+  args: { documentId: v.id("documents") },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const document = await ctx.db.get(args.documentId);
+    if (!document) throw new Error("Document introuvable.");
+    if (document.senderId !== userId) {
+      throw new Error("Seul l'émetteur peut annuler cet envoi.");
+    }
+    if (document.status !== "envoye") {
+      throw new Error(
+        "Ce courrier a déjà été lu ou traité : annulation impossible.",
+      );
+    }
+    if (document.archivedAt) {
+      throw new Error("Courrier archivé : annulation impossible.");
+    }
+
+    // Transmissions / étapes liées
+    try {
+      const txs = await ctx.db
+        .query("documentTransmissions")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      for (const tr of txs) await ctx.db.delete(tr._id);
+    } catch {
+      /* table absente éventuelle */
+    }
+    try {
+      const steps = await ctx.db
+        .query("documentSteps")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      for (const s of steps) await ctx.db.delete(s._id);
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      await ctx.storage.delete(document.storageId);
+    } catch {
+      /* ignore */
+    }
+
+    const user = await ctx.db.get(userId);
+    await writeAudit(ctx, {
+      action: "document.cancelled",
+      actorId: userId,
+      actorName: displayName(user ?? {}),
+      documentId: args.documentId,
+      details: `Annulation de l'envoi non lu : ${document.fileName}`,
+      metadata: {
+        fileName: document.fileName,
+        objet: document.objet,
+        publicRef: document.publicRef ?? null,
+      },
+    });
+
+    await ctx.db.delete(args.documentId);
+    return { ok: true as const };
+  },
+});
 
 /**
  * Modifier un courrier déjà envoyé tant qu'il n'a pas été lu

@@ -80,6 +80,7 @@ export function DocumentDetailDialog({
   const removeDoc = useMutation(api.documents.remove);
   const retrySummary = useMutation(api.documents.retrySummary);
   const updateUnread = useMutation(api.documents.updateUnreadSend);
+  const cancelUnread = useMutation(api.documents.cancelUnreadSend);
 
   const [editing, setEditing] = useState(false);
   const [editObjet, setEditObjet] = useState("");
@@ -88,6 +89,7 @@ export function DocumentDetailDialog({
   const [editRef, setEditRef] = useState("");
   const [editPublicRef, setEditPublicRef] = useState("");
   const [editSaving, setEditSaving] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
 
   const printCourrier = () => {
     if (!documentOrNull) return;
@@ -334,17 +336,59 @@ export function DocumentDetailDialog({
                   <>
                     <p className="text-xs text-amber-950">
                       Personne n&apos;a encore lu ce courrier. Vous pouvez encore
-                      modifier l&apos;objet, les tâches ou les observations.
+                      le modifier ou l&apos;annuler complètement.
                     </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full gap-2 border-amber-300"
-                      onClick={() => setEditing(true)}
-                    >
-                      <Pencil className="size-4" />
-                      Modifier l&apos;envoi
-                    </Button>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full gap-2 border-amber-300 sm:flex-1"
+                        onClick={() => setEditing(true)}
+                      >
+                        <Pencil className="size-4" />
+                        Modifier l&apos;envoi
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 sm:flex-1"
+                        disabled={cancelBusy}
+                        onClick={() => {
+                          if (
+                            !window.confirm(
+                              "Annuler cet envoi ? Le courrier sera retiré pour tous les destinataires. Cette action est définitive.",
+                            )
+                          ) {
+                            return;
+                          }
+                          void (async () => {
+                            setCancelBusy(true);
+                            try {
+                              await cancelUnread({
+                                documentId: documentOrNull._id,
+                              });
+                              toast.success("Envoi annulé.");
+                              onOpenChange(false);
+                            } catch (e) {
+                              toast.error(
+                                e instanceof Error
+                                  ? e.message
+                                  : "Annulation impossible.",
+                              );
+                            } finally {
+                              setCancelBusy(false);
+                            }
+                          })();
+                        }}
+                      >
+                        {cancelBusy ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="size-4" />
+                        )}
+                        Annuler l&apos;envoi
+                      </Button>
+                    </div>
                   </>
                 ) : (
                   <div className="space-y-3">
