@@ -38,7 +38,7 @@ import {
   UserCheck,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
 import loginBackdrop from "@/assets/login-backdrop.jpg";
@@ -212,18 +212,6 @@ export function AppShell({
   const navigate = useNavigate();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // Évite le double menu (sidebar + tiroir mobile) quand on passe en grand écran
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const closeIfDesktop = () => {
-      if (mq.matches) setMobileNavOpen(false);
-    };
-    closeIfDesktop();
-    mq.addEventListener("change", closeIfDesktop);
-    return () => mq.removeEventListener("change", closeIfDesktop);
-  }, []);
-  const [peopleOpen, setPeopleOpen] = useState(true);
-
   const handleSignOut = async () => {
     await signOut();
     navigate("/");
@@ -287,36 +275,6 @@ export function AppShell({
     </DropdownMenu>
   );
 
-  const sidebarInner = (
-    <>
-      <BrandMark />
-      <div className="mt-6 flex-1 overflow-y-auto">
-        <NavList
-          view={view}
-          onSelect={onViewChange}
-          isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
-          pendingAccounts={me?.pendingAccounts ?? 0}
-          pendingTasks={pendingTasks}
-        />
-      </div>
-      <div className="mt-3 border-t border-border pt-3">
-        <button
-          type="button"
-          className="mb-1 flex w-full items-center justify-between px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/90 hover:text-foreground"
-          onClick={() => setPeopleOpen((v) => !v)}
-        >
-          Collègues
-          <span className="text-[10px] normal-case">
-            {peopleOpen ? "Masquer" : "Afficher"}
-          </span>
-        </button>
-        {peopleOpen ? (
-          <OnlinePeople />
-        ) : null}
-      </div>
-    </>
-  );
-
   return (
     <div className="sc-app-shell relative min-h-screen overflow-hidden bg-[#1b1440]">
       <img
@@ -330,33 +288,23 @@ export function AppShell({
         aria-hidden
       />
       <div className="relative z-10 mx-auto flex w-full max-w-[1280px]">
-        {/* Sidebar desktop */}
-        <aside className="sc-shell-sidebar sticky top-0 hidden h-screen w-[15.5rem] shrink-0 flex-col border-r px-3 py-5 lg:flex">
-          {sidebarInner}
-        </aside>
-
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="sc-app-header sticky top-0 z-20 flex items-center justify-between gap-3 px-4 py-3.5 lg:px-8">
             <div className="flex items-center gap-3">
-              <Sheet
-                open={mobileNavOpen}
-                onOpenChange={(open) => {
-                  // Ne jamais laisser le tiroir ouvert en mode bureau
-                  if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
-                    setMobileNavOpen(false);
-                    return;
-                  }
-                  setMobileNavOpen(open);
-                }}
-              >
+              <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
                 <SheetTrigger asChild>
-                  <Button variant="outline" size="icon" className="lg:hidden" aria-label="Ouvrir le menu">
-                    <Menu className="size-4" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    aria-label="Ouvrir le menu"
+                    className="size-10 shrink-0 rounded-xl border-2 border-[#6b3d3d]/70 bg-[#f5d5c8]/90 text-[#6b3d3d] shadow-sm hover:bg-[#f5d5c8]"
+                  >
+                    <Menu className="size-5" strokeWidth={2.5} />
                   </Button>
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="sc-shell-sidebar flex w-[min(18rem,85vw)] flex-col border-sidebar-border p-4 lg:hidden"
+                  className="sc-shell-sidebar flex w-[min(18rem,90vw)] flex-col border-sidebar-border p-4"
                 >
                   <SheetHeader className="p-0">
                     <SheetTitle className="sr-only">Menu ScanDoc</SheetTitle>
@@ -381,15 +329,13 @@ export function AppShell({
                   </div>
                 </SheetContent>
               </Sheet>
-              <div className="lg:hidden">
-                <BrandMark compact />
-              </div>
-              <div className="hidden lg:block">
-                <h1 className="text-base font-semibold tracking-tight text-foreground">
+              <BrandMark compact />
+              <div className="min-w-0">
+                <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
                   {current}
                 </h1>
                 {me?.department?.name ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="truncate text-xs text-muted-foreground">
                     {me.department.name}
                   </p>
                 ) : null}
