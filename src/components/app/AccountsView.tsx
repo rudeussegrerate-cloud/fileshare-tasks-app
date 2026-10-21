@@ -231,15 +231,6 @@ export function AccountsView() {
       </div>
 
       {me.isRoot ? (
-        <div className="flex items-start gap-2 rounded-lg border border-brand-sky/25 bg-brand-soft/60 px-4 py-3 text-xs text-muted-foreground">
-          <ShieldCheck className="mt-0.5 size-4 shrink-0 text-brand-sky" />
-          <p>
-            En tant que <span className="font-medium text-foreground">super
-            utilisateur</span>, vous désignez qui est DG : nommez un compte
-            validé comme DG, ou révoquez le DG en place. Le DG gère ensuite les
-            départements et les chefs.
-          </p>
-        </div>
       ) : null}
 
       <div className="flex flex-wrap gap-2">

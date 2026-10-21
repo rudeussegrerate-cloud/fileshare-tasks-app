@@ -24,10 +24,8 @@ import {
   Camera,
   CheckCircle2,
   FileText,
-  Info,
   Loader2,
   Send,
-  Sparkles,
   UserRound,
   X,
 } from "lucide-react";
@@ -779,26 +777,11 @@ export function SendDocument({
                 }
               />
 
-              <div className="flex items-start gap-2 rounded-sm border border-brand-sky/25 bg-brand-soft/60 px-4 py-3 text-xs text-muted-foreground">
-                <Sparkles className="mt-0.5 size-4 shrink-0 text-brand-sky" />
-                <p>
-                  Le contenu est analysé pour proposer un résumé au destinataire.
-                </p>
-              </div>
             </div>
           ) : null}
 
           {step === 1 ? (
             <div className="space-y-4" data-scandoc-tour="send-destination">
-              <div className="flex items-start gap-2 rounded-sm border-l-4 border-brand-sky bg-brand-soft/70 px-4 py-3 text-xs leading-relaxed">
-                <Info className="mt-0.5 size-4 shrink-0 text-brand-sky" />
-                <p className="font-medium text-foreground">
-                  <strong>Destinataires</strong> — cochez la{" "}
-                  <strong>direction</strong> (chef / structure) et/ou un ou
-                  plusieurs <strong>services</strong> rattachés. Vous pouvez
-                  combiner des choix issus de <strong>plusieurs directions</strong>.
-                </p>
-              </div>
 
               {departments === undefined ? (
                 <div className="flex justify-center py-8">

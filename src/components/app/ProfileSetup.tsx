@@ -62,14 +62,6 @@ export function ProfileSetup() {
           <CardContent className="space-y-5">
             <ProfileForm submitLabel="Valider et continuer" />
 
-            <div className="flex items-start gap-2 rounded-lg border-l-4 border-brand-sky bg-brand-soft/60 px-3 py-2 text-xs text-muted-foreground">
-              <ShieldCheck className="mt-0.5 size-3.5 shrink-0 text-brand-sky" />
-              <p>
-                Tant que vos informations ne sont pas complétées, vous ne pouvez
-                être ajouté à aucun département.
-              </p>
-            </div>
-
             <Button
               type="button"
               variant="ghost"

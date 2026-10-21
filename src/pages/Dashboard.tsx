@@ -11,7 +11,6 @@ import { SendDocument } from "@/components/app/SendDocument";
 import { FileManagerView } from "@/components/app/FileManagerView";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
-import { SmartTips } from "@/components/app/SmartTips";
 import { SettingsView } from "@/components/app/SettingsView";
 import { LetterWorkspace } from "@/components/app/LetterWorkspace";
 import { api } from "@/convex/_generated/api";
@@ -263,7 +262,6 @@ export default function Dashboard() {
       <Suspense fallback={null}>
         <FloatingAssistant />
       </Suspense>
-      <SmartTips />
 
       <ViewErrorBoundary label="la fiche document">
         <DocumentDetailDialog
