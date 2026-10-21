@@ -580,39 +580,31 @@ export function SendDocument({
   }
 
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="text-lg font-semibold tracking-tight">
+    <div className="space-y-8">
+      <div className="space-y-1">
+        <h2 className="text-xl font-semibold tracking-tight">
           {isTransmission
             ? "Transmission de courrier"
             : "Nouveau courrier"}
         </h2>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {isTransmission
-            ? "Enregistrez un courrier papier reçu : numérisez le fichier, indiquez la Réf. d'origine, puis transmettez-le au chef ou au service compétent. Aucun N° de sortie n'est créé."
-            : "Courrier sortant officiel : un N° MNDPT est attribué. Destinez-le à une ou plusieurs structures, avec objet et tâches."}
+            ? "Numérisez le courrier reçu et transmettez-le au service compétent."
+            : "Joignez le fichier, choisissez les destinataires, puis validez."}
         </p>
       </div>
 
-      <Card className="border-border/80 ">
-        <CardContent className="space-y-6 pt-6">
-          {isTransmission ? (
-            <p className="rounded-sm border border-amber-300/80 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-              <strong>Transmission</strong> — courrier papier entrant. Renseignez
-              obligatoirement la <strong>Réf.</strong> figurant sur le document.
-              Pas de numéro officiel de sortie.
-            </p>
-          ) : null}
+      <Card className="border-border/80 shadow-sm">
+        <CardContent className="space-y-8 px-5 py-8 sm:px-8">
           {replyTo ? (
-            <p className="rounded-sm border border-brand/30 bg-brand-soft/50 px-3 py-2 text-xs">
+            <p className="rounded-lg border border-brand/30 bg-brand-soft/50 px-4 py-3 text-sm">
               <strong>Réponse</strong> au courrier
-              {replyTo.publicRef ? ` ${replyTo.publicRef}` : ""} — destinataire et
-              référence préremplis.
+              {replyTo.publicRef ? ` ${replyTo.publicRef}` : ""}
             </p>
           ) : null}
 
           {step === 0 ? (
-            <div className="space-y-4">
+            <div className="space-y-8">
                             {files.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-xs text-muted-foreground">
@@ -661,44 +653,49 @@ export function SendDocument({
                     Tout retirer
                   </Button>
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  PDF, Word, Excel, images ou texte · 10 Mo max par fichier · plusieurs fichiers possibles
-                </p>
-              )}
+              ) : null}
 
-              <div className="flex flex-wrap gap-2">
-                <Button
+              <div className="grid gap-4 sm:grid-cols-2">
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
                   onClick={() => fileInputRef.current?.click()}
+                  className="group flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center transition-colors hover:border-brand/50 hover:bg-brand-soft/30"
                 >
-                  <FileText className="size-4" />
-                  Ajouter des fichiers
-                </Button>
-                <Button
+                  <span className="flex size-12 items-center justify-center rounded-full bg-card shadow-sm ring-1 ring-border group-hover:ring-brand/40">
+                    <FileText className="size-5 text-brand" />
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">
+                    Ajouter des fichiers
+                  </span>
+                  <span className="max-w-[16rem] text-[11px] leading-relaxed text-muted-foreground">
+                    PDF, Word, Excel, images ou texte · 10&nbsp;Mo max · plusieurs fichiers
+                  </span>
+                </button>
+                <button
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
                   onClick={() => cameraInputRef.current?.click()}
+                  className="group flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-muted/20 px-5 py-8 text-center transition-colors hover:border-brand/50 hover:bg-brand-soft/30"
                 >
-                  <Camera className="size-4" />
-                  Prendre une photo
-                </Button>
+                  <span className="flex size-12 items-center justify-center rounded-full bg-card shadow-sm ring-1 ring-border group-hover:ring-brand/40">
+                    <Camera className="size-5 text-brand" />
+                  </span>
+                  <span className="text-sm font-semibold text-foreground">
+                    Prendre une photo
+                  </span>
+                  <span className="max-w-[16rem] text-[11px] leading-relaxed text-muted-foreground">
+                    Photo du document · appareil photo ou galerie
+                  </span>
+                </button>
               </div>
 
               <input
                 ref={fileInputRef}
-                type="file" data-scandoc-tour="send-file"
+                type="file"
+                data-scandoc-tour="send-file"
                 accept={ACCEPT}
                 className="hidden"
                 multiple
-                onChange={(event) =>
-                  void handleFiles(event.target.files)
-                }
+                onChange={(event) => void handleFiles(event.target.files)}
               />
               <input
                 ref={cameraInputRef}
@@ -706,16 +703,13 @@ export function SendDocument({
                 accept="image/*"
                 capture="environment"
                 className="hidden"
-                onChange={(event) =>
-                  void handleFiles(event.target.files)
-                }
+                onChange={(event) => void handleFiles(event.target.files)}
               />
-
             </div>
           ) : null}
 
           {step === 1 ? (
-            <div className="space-y-4" data-scandoc-tour="send-destination">
+            <div className="space-y-6" data-scandoc-tour="send-destination">
 
               {departments === undefined ? (
                 <div className="flex justify-center py-8">
@@ -1123,7 +1117,7 @@ export function SendDocument({
           ) : null}
 
 {step === 3 ? (
-            <div className="space-y-6">
+            <div className="space-y-8">
 
               <div className="space-y-2">
                 {!isTransmission ? (
@@ -1675,7 +1669,7 @@ export function SendDocument({
             </div>
           ) : null}
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-6">
             <Button
               type="button"
               variant="ghost"
