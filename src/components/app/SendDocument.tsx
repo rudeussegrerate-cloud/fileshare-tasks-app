@@ -263,7 +263,7 @@ export function SendDocument({
       }
       if (kind === "document" && !isDocumentFile(next)) {
         toast.error(
-          `« ${next.name} » n'est pas un document accepté (PDF, Word, Excel, texte…). Utilisez « Prendre une photo » pour une image.`,
+          `« ${next.name} » n'est pas un document accepté (PDF, Word, Excel, texte…). Utilisez « Prendre / choisir des photos » pour une image.`,
         );
         continue;
       }
@@ -276,6 +276,7 @@ export function SendDocument({
       accepted.push(next);
     }
     if (accepted.length === 0) return;
+    let addedCount = 0;
     setFiles((prev) => {
       const names = new Set(prev.map((f) => f.name + f.size));
       const merged = [...prev];
@@ -284,10 +285,18 @@ export function SendDocument({
         if (!names.has(key)) {
           merged.push(f);
           names.add(key);
+          addedCount += 1;
         }
       }
       return merged.slice(0, 20);
     });
+    if (kind === "photo" && accepted.length > 0) {
+      toast.success(
+        accepted.length === 1
+          ? "1 photo ajoutée"
+          : `${accepted.length} photos ajoutées`,
+      );
+    }
     setExtracting(true);
     try {
       const text = await extractTextFromFile(accepted[0]!);
@@ -709,7 +718,7 @@ export function SendDocument({
             ref={cameraInputRef}
             type="file"
             accept={ACCEPT_PHOTOS}
-            capture="environment"
+            multiple
             className="hidden"
             onChange={(event) => {
               void handleFiles(event.target.files, "photo");
@@ -798,10 +807,10 @@ export function SendDocument({
                     onClick={() => cameraInputRef.current?.click()}
                   >
                     <Camera className="size-4" />
-                    Prendre une photo
+                    Prendre / choisir des photos
                   </Button>
                   <p className="text-[11px] leading-relaxed text-muted-foreground">
-                    Photos uniquement · JPG, PNG, WebP…
+                    Plusieurs photos · JPG, PNG, WebP… (max 20 fichiers)
                   </p>
                 </div>
               </div>
