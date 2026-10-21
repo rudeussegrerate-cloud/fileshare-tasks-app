@@ -551,7 +551,7 @@ export function SendDocument({
         uploaded.push({
           storageId,
           fileName: file.name || `document-${Date.now()}.bin`,
-          contentType: file.type || undefined,
+          contentType: file.type?.trim() || undefined,
           size: file.size,
         });
       }
@@ -648,8 +648,16 @@ export function SendDocument({
       reset();
       onSent(lastId);
     } catch (error: unknown) {
-      const message =
-        error instanceof Error ? error.message : "Envoi impossible.";
+      let message = "Envoi impossible.";
+      if (error instanceof Error && error.message) {
+        message = error.message;
+        // Convex enveloppe parfois : "[CONVEX ...] Server Error\nMessage"
+        const lines = message.split("\n").map((l) => l.trim()).filter(Boolean);
+        const last = lines[lines.length - 1];
+        if (last && !last.startsWith("[CONVEX") && !last.startsWith("Called by")) {
+          message = last;
+        }
+      }
       toast.error(message);
     } finally {
       setSending(false);

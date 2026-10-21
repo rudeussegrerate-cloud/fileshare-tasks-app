@@ -585,14 +585,20 @@ export const send = mutation({
       }
     }
 
-    // ——— CONTINUER un circuit existant via identifiant ———
+    // ——— CONTINUER un circuit existant via identifiant (uniquement si c'est mon tour) ———
     if (manualRef) {
       const existing = await ctx.db
         .query("documents")
         .withIndex("by_publicRef", (q) => q.eq("publicRef", manualRef))
         .first();
+
+      if (existing && existing.status === "traite") {
+        throw new Error(
+          `Le dossier « ${manualRef} » est déjà clôturé. Utilisez un nouvel identifiant pour un nouvel envoi.`,
+        );
+      }
+
       if (existing && existing.status !== "traite") {
-        // Si le doc existe et n'est pas clôturé : tenter continuation circuit
         const steps = (
           await ctx.db
             .query("documentSteps")
@@ -600,31 +606,17 @@ export const send = mutation({
             .collect()
         ).sort((a, b) => a.stepIndex - b.stepIndex);
 
-        if (steps.length > 0) {
-          const active =
-            steps.find((s) => s.status === "active") ??
-            steps.find((s) => s.assigneeId === userId && s.status !== "done");
-          if (!active) {
-            throw new Error(
-              "Ce dossier n'a plus d'étape active. Contactez l'émetteur ou le DG.",
-            );
-          }
-          if (active.assigneeId !== userId) {
-            throw new Error(
-              `Ce n'est pas encore votre tour dans le circuit. L'étape active est chez ${active.assigneeName}${active.assigneeDepartmentName ? ` (${active.assigneeDepartmentName})` : ""}.`,
-            );
-          }
-
-          const recipient = args.recipientId
-            ? await ctx.db.get(args.recipientId)
+        const active =
+          steps.length > 0
+            ? (steps.find((s) => s.status === "active") ??
+              steps.find(
+                (s) => s.assigneeId === userId && s.status !== "done",
+              ))
             : null;
-          if (!recipient) throw new Error("Destinataire introuvable.");
-          if (recipient._id === userId) {
-            throw new Error("Choisissez le prochain intervenant, pas vous-même.");
-          }
 
+        // Continuation circuit seulement si je suis l'intervenant actif
+        if (active && active.assigneeId === userId) {
           const now = Date.now();
-          // Archive version précédente + applique le nouveau fichier
           await ctx.db.insert("documentRevisions", {
             documentId: existing._id,
             storageId: existing.storageId,
@@ -658,7 +650,6 @@ export const send = mutation({
 
           const next = steps.find((s) => s.stepIndex === active.stepIndex + 1);
           if (!next) {
-            // Dernière étape : clôturer
             await ctx.db.patch(existing._id, {
               storageId: args.storageId,
               fileName: args.fileName,
@@ -683,27 +674,27 @@ export const send = mutation({
             return existing._id;
           }
 
-          // Avancer vers le suivant (destinataire choisi, de préférence l'étape suivante)
+          // Prochain intervenant : choix optionnel, sinon l'étape suivante du circuit
           let nextAssigneeId = next.assigneeId;
           let nextAssigneeName = next.assigneeName;
           let nextDepName = next.assigneeDepartmentName;
-          if (
-            args.recipientId &&
-            recipient &&
-            args.recipientId !== next.assigneeId
-          ) {
-            nextAssigneeId = args.recipientId;
-            nextAssigneeName = displayName(recipient);
-            if (recipient.departmentId) {
-              const dep = await ctx.db.get(recipient.departmentId);
-              nextDepName = dep?.name;
+          if (args.recipientId && args.recipientId !== userId) {
+            const chosen = await ctx.db.get(args.recipientId);
+            if (chosen) {
+              nextAssigneeId = args.recipientId;
+              nextAssigneeName = displayName(chosen);
+              if (chosen.departmentId) {
+                const dep = await ctx.db.get(chosen.departmentId);
+                nextDepName = dep?.name;
+              }
+              await ctx.db.patch(next._id, {
+                assigneeId: nextAssigneeId,
+                assigneeName: nextAssigneeName,
+                assigneeDepartmentName: nextDepName,
+              });
             }
-            await ctx.db.patch(next._id, {
-              assigneeId: nextAssigneeId,
-              assigneeName: nextAssigneeName,
-              assigneeDepartmentName: nextDepName,
-            });
           }
+
           const stepHours =
             existing.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
           await ctx.db.patch(next._id, {
@@ -747,18 +738,10 @@ export const send = mutation({
           } catch {}
           return existing._id;
         }
+
+        // N° déjà pris et ce n'est pas mon tour de circuit → nouvel envoi impossible
         throw new Error(
-          `L'identifiant « ${manualRef} » est déjà utilisé. Choisissez un autre identifiant pour un nouvel envoi.`,
-        );
-      }
-      if (existing && existing.status === "traite") {
-        throw new Error(
-          `Le dossier « ${manualRef} » est déjà clôturé. Utilisez un nouvel identifiant pour un nouvel envoi.`,
-        );
-      }
-      if (existing) {
-        throw new Error(
-          `L'identifiant « ${manualRef} » est déjà utilisé. Choisissez un autre identifiant pour un nouvel envoi.`,
+          `Le N° « ${manualRef} » est déjà utilisé. Choisissez un autre numéro pour un nouvel envoi.`,
         );
       }
     }
