@@ -100,7 +100,6 @@ export function SendDocument({
 }) {
   const me = useQuery(api.workspace.me);
   const departments = useQuery(api.workspace.listDepartments);
-  const receivedRefs = useQuery(api.documents.listReceivedRefs);
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const sendDocument = useMutation(api.documents.send);
 
@@ -140,13 +139,6 @@ export function SendDocument({
     replyTo?.objet ? `Réponse à : ${replyTo.objet}` : "",
   );
   const [observations, setObservations] = useState("");
-  const [customFields, setCustomFields] = useState<
-    Array<{
-      label: string;
-      value: string;
-      source?: "manual" | "courrier" | "structure";
-    }>
-  >([]);
   const [referenceText, setReferenceText] = useState(
     replyTo?.publicRef ? replyTo.publicRef : "",
   );
@@ -156,22 +148,7 @@ export function SendDocument({
   const [dateCourrier, setDateCourrier] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
-  const [refPickerOpen, setRefPickerOpen] = useState(false);
   const [publicRef, setPublicRef] = useState(initialPublicRef ?? "");
-  const filteredReceivedRefs = useMemo(() => {
-    const list = receivedRefs ?? [];
-    const q = referenceText.trim().toLowerCase();
-    // Afficher les N° bruts même si la valeur stockée est "Votre correspondance N°..."
-    const qNorm = q.replace(/^votre correspondance\s+/i, "");
-    if (!qNorm) return list.slice(0, 40);
-    return list
-      .filter(
-        (r) =>
-          r.publicRef.toLowerCase().includes(qNorm) ||
-          r.objet.toLowerCase().includes(qNorm),
-      )
-      .slice(0, 40);
-  }, [receivedRefs, referenceText]);
   /** SLA par étape (heures) pour un nouveau circuit */
   const [stepDeadlineHours, setStepDeadlineHours] = useState(48);
   const refLookup = useQuery(
@@ -535,16 +512,7 @@ export function SendDocument({
           value: string;
           source?: "manual" | "courrier" | "structure";
         }>;
-        const mergedFields = [
-          ...customFields
-            .filter((f) => f.label.trim() && f.value.trim())
-            .map((f) => ({
-              label: f.label.trim(),
-              value: f.value.trim(),
-              source: f.source,
-            })),
-          ...metaFields,
-        ].slice(0, 8);
+        const mergedFields = [...metaFields].slice(0, 8);
 
         if (isTransmission && !referenceText.trim()) {
           toast.error("Indiquez la Réf. du courrier papier.");
@@ -1187,12 +1155,12 @@ export function SendDocument({
                     </p>
                   </>
                 ) : null}
-                <div className={isTransmission ? "relative space-y-1.5" : "relative space-y-1.5 pt-2"}>
+                <div className={isTransmission ? "space-y-1.5" : "space-y-1.5 pt-2"}>
                   <Label htmlFor="referenceText">
                     Réf.
                     {isTransmission ? (
-                      <span className="ml-1 font-normal text-destructive">
-                        (obligatoire — courrier papier)
+                      <span className="ml-1 text-destructive" aria-hidden>
+                        *
                       </span>
                     ) : null}
                   </Label>
@@ -1200,57 +1168,9 @@ export function SendDocument({
                     id="referenceText"
                     className="w-full resize-y font-mono text-sm"
                     value={referenceText}
-                    onChange={(e) => {
-                      setReferenceText(e.target.value);
-                      setRefPickerOpen(true);
-                    }}
-                    onFocus={() => setRefPickerOpen(true)}
-                    onBlur={() => {
-                      window.setTimeout(() => setRefPickerOpen(false), 180);
-                    }}
+                    onChange={(e) => setReferenceText(e.target.value)}
                     rows={2}
                   />
-                  {refPickerOpen ? (
-                    <div className="absolute z-30 mt-1 max-h-56 w-full overflow-y-auto rounded-sm border border-border bg-card shadow-md">
-                      {receivedRefs === undefined ? (
-                        <p className="px-3 py-2 text-xs text-muted-foreground">
-                          Chargement des courriers reçus…
-                        </p>
-                      ) : filteredReceivedRefs.length === 0 ? (
-                        <p className="px-3 py-2 text-xs text-muted-foreground">
-                          {(receivedRefs?.length ?? 0) === 0
-                            ? "Aucun courrier reçu — impossible de référencer."
-                            : "Aucun N° ne correspond à la recherche."}
-                        </p>
-                      ) : (
-                        <ul className="py-1">
-                          {filteredReceivedRefs.map((r) => (
-                            <li key={r.documentId}>
-                              <button
-                                type="button"
-                                className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left text-sm hover:bg-muted/60"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => {
-                                  setReferenceText(r.publicRef);
-                                  setRefPickerOpen(false);
-                                }}
-                              >
-                                <span className="font-mono text-xs font-medium">
-                                  {r.publicRef}
-                                </span>
-                                <span className="line-clamp-1 text-[11px] text-muted-foreground">
-                                  {r.objet}
-                                </span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  ) : null}
-                  <p className="text-[11px] text-muted-foreground">
-                    Uniquement les N° des courriers que vous avez reçus.
-                  </p>
                 </div>
                 {refLookup?.found && !refLookup.isClosed ? (
                   <div
@@ -1287,7 +1207,12 @@ export function SendDocument({
                 ) : null}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="objet">Objet de l&apos;envoi</Label>
+                <Label htmlFor="objet">
+                  Objet de l&apos;envoi
+                  <span className="ml-1 text-destructive" aria-hidden>
+                    *
+                  </span>
+                </Label>
                 <Textarea
                   id="objet"
                   data-scandoc-tour="send-objet"
@@ -1296,9 +1221,6 @@ export function SendDocument({
                   onChange={(e) => setObjet(e.target.value)}
                   rows={2}
                 />
-                <p className="text-xs text-muted-foreground">
-                  Indiquez l&apos;objet du courrier.
-                </p>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-3">
@@ -1346,175 +1268,15 @@ export function SendDocument({
                 </p>
               </div>
 
-              <div className="space-y-3 rounded-lg border border-dashed border-border bg-muted/25 p-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div>
-                    <p className="text-sm font-medium">Champs complémentaires</p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Optionnel — les champs de base restent obligatoires.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className="h-8 text-xs"
-                    disabled={customFields.length >= 8}
-                    onClick={() =>
-                      setCustomFields((prev) => [
-                        ...prev,
-                        { label: "", value: "", source: "manual" },
-                      ])
-                    }
-                  >
-                    + Ajouter un champ
-                  </Button>
-                </div>
-                {customFields.length === 0 ? (
-                  <p className="text-[11px] text-muted-foreground">
-                    Ex. Priorité, mention spéciale, référence interne…
-                  </p>
-                ) : (
-                  <div className="space-y-3">
-                    {customFields.map((field, i) => (
-                      <div
-                        key={i}
-                        className="space-y-2 rounded-md border border-border bg-card p-2.5"
-                      >
-                        <div className="flex gap-2">
-                          <Input
-                            value={field.label}
-                            onChange={(e) => {
-                              const v = e.target.value;
-                              setCustomFields((prev) =>
-                                prev.map((f, j) =>
-                                  j === i ? { ...f, label: v } : f,
-                                ),
-                              );
-                            }}
-                            className="h-8 flex-1 text-sm"
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 text-destructive"
-                            onClick={() =>
-                              setCustomFields((prev) =>
-                                prev.filter((_, j) => j !== i),
-                              )
-                            }
-                          >
-                            Retirer
-                          </Button>
-                        </div>
-                        <Input
-                          value={field.value}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            setCustomFields((prev) =>
-                              prev.map((f, j) =>
-                                j === i
-                                  ? { ...f, value: v, source: "manual" as const }
-                                  : f,
-                              ),
-                            );
-                          }}
-                          className="h-8 text-sm"
-                        />
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[10px] text-muted-foreground">
-                            Depuis le site :
-                          </span>
-                          <select
-                            className="h-7 max-w-[12rem] rounded-md border border-border bg-background px-1.5 text-[11px]"
-                            defaultValue=""
-                            onChange={(e) => {
-                              const ref = e.target.value;
-                              if (!ref) return;
-                              setCustomFields((prev) =>
-                                prev.map((f, j) =>
-                                  j === i
-                                    ? {
-                                        ...f,
-                                        value: ref,
-                                        source: "courrier" as const,
-                                        label: f.label.trim() || "Réf. liée",
-                                      }
-                                    : f,
-                                ),
-                              );
-                              e.target.value = "";
-                            }}
-                          >
-                            <option value="">Courrier reçu…</option>
-                            {(receivedRefs ?? []).map(
-                              (r: { documentId: string; publicRef?: string | null }) =>
-                                r.publicRef ? (
-                                  <option key={r.documentId} value={r.publicRef}>
-                                    {r.publicRef}
-                                  </option>
-                                ) : null,
-                            )}
-                          </select>
-                          <select
-                            className="h-7 max-w-[12rem] rounded-md border border-border bg-background px-1.5 text-[11px]"
-                            defaultValue=""
-                            onChange={(e) => {
-                              const name = e.target.value;
-                              if (!name) return;
-                              setCustomFields((prev) =>
-                                prev.map((f, j) =>
-                                  j === i
-                                    ? {
-                                        ...f,
-                                        value: name,
-                                        source: "structure" as const,
-                                        label:
-                                          f.label.trim() || "Structure liée",
-                                      }
-                                    : f,
-                                ),
-                              );
-                              e.target.value = "";
-                            }}
-                          >
-                            <option value="">Structure…</option>
-                            {(departments ?? [])
-                              .filter(
-                                (d: { active?: boolean }) => d.active !== false,
-                              )
-                              .map(
-                                (d: {
-                                  _id: string;
-                                  code?: string | null;
-                                  name: string;
-                                }) => (
-                                  <option
-                                    key={d._id}
-                                    value={
-                                      d.code
-                                        ? `${d.code} — ${d.name}`
-                                        : d.name
-                                    }
-                                  >
-                                    {d.code
-                                      ? `${d.code} — ${d.name}`
-                                      : d.name}
-                                  </option>
-                                ),
-                              )}
-                          </select>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
+              
               <div className="space-y-3">
                 <Label>
-                  <span data-scandoc-tour="send-tasks">Tâches à réaliser </span>
+                  <span data-scandoc-tour="send-tasks">
+                    Tâches à réaliser
+                    <span className="ml-1 text-destructive" aria-hidden>
+                      *
+                    </span>{" "}
+                  </span>
                   <span className="font-normal text-muted-foreground">
                     (plusieurs choix possibles)
                   </span>
@@ -1655,19 +1417,6 @@ export function SendDocument({
                       {observations.trim() || "—"}
                     </dd>
                   </div>
-                  {customFields.some((f) => f.label.trim() && f.value.trim()) ? (
-                    <div className="flex justify-between gap-4">
-                      <dt className="shrink-0 text-muted-foreground">
-                        Compléments
-                      </dt>
-                      <dd className="max-w-[65%] text-right text-xs leading-relaxed">
-                        {customFields
-                          .filter((f) => f.label.trim() && f.value.trim())
-                          .map((f) => `${f.label} : ${f.value}`)
-                          .join(" · ")}
-                      </dd>
-                    </div>
-                  ) : null}
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">Tâches</dt>
                     <dd className="max-w-[65%] text-right font-medium">
