@@ -15,13 +15,21 @@ import {
 } from "@/lib/mndptLetterTemplate";
 import { cn } from "@/lib/utils";
 import {
+  Building2,
+  Calendar,
   Download,
   FilePlus2,
+  FileText,
   ImagePlus,
+  LayoutTemplate,
+  Mail,
+  PenLine,
   Plus,
   Printer,
+  Signature,
   Trash2,
   Type,
+  User,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -116,6 +124,72 @@ function FixedBlock({
     </div>
   );
 }
+
+
+const EDITOR_SECTIONS: Array<{
+  id: string;
+  label: string;
+  hint: string;
+  icon: typeof User;
+  select: Selectable;
+}> = [
+  {
+    id: "date",
+    label: "Lieu & date",
+    hint: "Antananarivo, le …",
+    icon: Calendar,
+    select: "location_date",
+  },
+  {
+    id: "sender",
+    label: "Émetteur",
+    hint: "Le Directeur de …",
+    icon: Building2,
+    select: "sender_title",
+  },
+  {
+    id: "recipient",
+    label: "Destinataire",
+    hint: "Nom, organisme, adresse",
+    icon: User,
+    select: "recipient_block",
+  },
+  {
+    id: "refs",
+    label: "Références",
+    hint: "N°, chemin, réf.",
+    icon: FileText,
+    select: "outgoing_number",
+  },
+  {
+    id: "subject",
+    label: "Objet",
+    hint: "Objet du courrier",
+    icon: Mail,
+    select: "subject",
+  },
+  {
+    id: "body",
+    label: "Corps du message",
+    hint: "Texte principal",
+    icon: PenLine,
+    select: "body",
+  },
+  {
+    id: "sign",
+    label: "Signature",
+    hint: "Nom et qualité",
+    icon: Signature,
+    select: "signatory_name",
+  },
+  {
+    id: "media",
+    label: "Médias",
+    hint: "Logo, emblème, images",
+    icon: ImagePlus,
+    select: "logo",
+  },
+];
 
 export function LetterWorkspace() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -417,11 +491,14 @@ export function LetterWorkspace() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-3 py-2">
-        <div className="mr-1 min-w-0">
-          <p className="truncate text-sm font-semibold">Canevas — modèle MNDPT</p>
-          <p className="truncate text-[10px] text-muted-foreground">
-            Rouge = à compléter · Auto = fixe
-          </p>
+        <div className="mr-1 flex min-w-0 items-center gap-2">
+          <LayoutTemplate className="size-5 shrink-0 text-brand" />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold">Assistant de rédaction</p>
+            <p className="truncate text-[10px] text-muted-foreground">
+              Courrier officiel MNDPT — style éditeur
+            </p>
+          </div>
         </div>
         <Button type="button" size="sm" variant="outline" onClick={newBlank}>
           <FilePlus2 className="mr-1.5 size-3.5" />
@@ -479,9 +556,63 @@ export function LetterWorkspace() {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
-        {/* Canvas */}
+        {/* Sections — style CV.fr */}
+        <nav className="flex w-full shrink-0 flex-row gap-1 overflow-x-auto border-b border-border bg-card p-2 lg:w-[220px] lg:flex-col lg:overflow-y-auto lg:border-b-0 lg:border-r">
+          <p className="mb-1 hidden px-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground lg:block">
+            Rubriques
+          </p>
+          {EDITOR_SECTIONS.map((sec) => {
+            const Icon = sec.icon;
+            const active =
+              selected === sec.select ||
+              (sec.id === "refs" &&
+                (selected === "outgoing_number" ||
+                  selected === "outgoing_path" ||
+                  selected === "incoming_ref")) ||
+              (sec.id === "sign" &&
+                (selected === "signatory_name" ||
+                  selected === "signatory_title")) ||
+              (sec.id === "media" &&
+                (selected === "logo" ||
+                  selected === "seal" ||
+                  selected === "extra_image"));
+            return (
+              <button
+                key={sec.id}
+                type="button"
+                onClick={() => {
+                  setSelected(sec.select);
+                  setPanel(sec.id === "media" ? "media" : "edit");
+                }}
+                className={cn(
+                  "flex min-w-[9rem] items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors lg:min-w-0",
+                  active
+                    ? "bg-brand text-primary-foreground shadow-sm"
+                    : "text-foreground hover:bg-muted",
+                )}
+              >
+                <Icon className="size-4 shrink-0 opacity-90" />
+                <span className="min-w-0">
+                  <span className="block truncate text-xs font-semibold">
+                    {sec.label}
+                  </span>
+                  <span
+                    className={cn(
+                      "hidden truncate text-[10px] lg:block",
+                      active ? "text-primary-foreground/80" : "text-muted-foreground",
+                    )}
+                  >
+                    {sec.hint}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Canvas A4 */}
         <div
-          className="min-h-0 flex-1 overflow-auto bg-[#dfe6ee] p-4 md:p-6"
+          className="min-h-0 flex-1 overflow-auto bg-[#e8edf3] p-4 md:p-8"
           onClick={() => setSelected(null)}
         >
           <div
@@ -767,7 +898,13 @@ export function LetterWorkspace() {
         </div>
 
         {/* Side panel */}
-        <aside className="flex w-full shrink-0 flex-col border-t border-border bg-card lg:w-[300px] lg:border-l lg:border-t-0">
+        <aside className="flex w-full shrink-0 flex-col border-t border-border bg-card shadow-sm lg:w-[320px] lg:border-l lg:border-t-0">
+          <div className="border-b border-border px-3 py-2.5">
+            <p className="text-xs font-semibold text-foreground">Édition</p>
+            <p className="text-[10px] text-muted-foreground">
+              Cliquez une rubrique ou une zone du document
+            </p>
+          </div>
           <div className="flex border-b border-border">
             {(
               [
