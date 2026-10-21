@@ -146,7 +146,7 @@ export function SendDocument({
   const [arriveeLe, setArriveeLe] = useState("");
   const [duField, setDuField] = useState("");
   const [dateCourrier, setDateCourrier] = useState("");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   const [publicRef, setPublicRef] = useState(initialPublicRef ?? "");
   /** SLA par étape (heures) pour un nouveau circuit */
@@ -181,23 +181,6 @@ export function SendDocument({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (files.length === 0) {
-      setPreviewUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-      return;
-    }
-    const f = files[0]!;
-    const url = URL.createObjectURL(f);
-    setPreviewUrl((prev) => {
-      if (prev) URL.revokeObjectURL(prev);
-      return url;
-    });
-    return () => URL.revokeObjectURL(url);
-  }, [files]);
 
   const selectedDepartment = departments?.find((d) => d._id === departmentId);
   const selectableMembers =
@@ -336,7 +319,30 @@ export function SendDocument({
   };
 
   const removeFileAt = (index: number) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFiles((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      setPreviewIndex((pi) =>
+        next.length === 0 ? 0 : Math.min(pi, next.length - 1),
+      );
+      return next;
+    });
+  };
+
+  /** Ouvre le fichier dans le visualiseur / éditeur du navigateur ou de l'appareil. */
+  const openFilePreview = (index: number) => {
+    const file = files[index];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const win = window.open(url, "_blank", "noopener,noreferrer");
+    if (!win) {
+      // Popup bloquée : lien temporaire
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      a.click();
+    }
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const toggleDest = (id: Id<"departments">) => {
@@ -1431,41 +1437,37 @@ export function SendDocument({
           ) : null}
 
           {step === 3 && files.length > 0 ? (
-            <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
-              <div className="flex items-center justify-between border-b border-border px-3 py-2">
-                <p className="text-xs font-semibold text-foreground">
-                  Prévisualisation
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
+            <div className="flex flex-col items-center gap-3 py-2">
+              {files.length > 1 ? (
+                <select
+                  className="h-9 max-w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={Math.min(previewIndex, files.length - 1)}
+                  onChange={(e) => setPreviewIndex(Number(e.target.value))}
+                  aria-label="Fichier à visualiser"
+                >
+                  {files.map((f, i) => (
+                    <option key={`${f.name}-${i}`} value={i}>
+                      {f.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <p className="max-w-xs truncate text-center text-xs text-muted-foreground">
                   {files[0]?.name}
-                  {files.length > 1 ? ` (+${files.length - 1})` : ""}
                 </p>
-              </div>
-              <div className="flex max-h-56 items-center justify-center bg-background/80 p-2">
-                {previewUrl && files[0]?.type?.startsWith("image/") ? (
-                  <img
-                    src={previewUrl}
-                    alt="Aperçu du document"
-                    className="max-h-52 max-w-full rounded object-contain"
-                  />
-                ) : previewUrl && files[0]?.type === "application/pdf" ? (
-                  <iframe
-                    title="Aperçu PDF"
-                    src={previewUrl}
-                    className="h-52 w-full rounded border-0 bg-white"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center gap-2 py-8 text-center text-muted-foreground">
-                    <FileText className="size-10 opacity-50" />
-                    <p className="text-xs">
-                      Aperçu non disponible pour ce type de fichier
-                    </p>
-                    <p className="text-[11px] font-medium text-foreground">
-                      {files[0]?.name}
-                    </p>
-                  </div>
-                )}
-              </div>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={() =>
+                  openFilePreview(Math.min(previewIndex, files.length - 1))
+                }
+              >
+                <FileText className="size-4" />
+                Visualiser le document
+              </Button>
             </div>
           ) : null}
 
