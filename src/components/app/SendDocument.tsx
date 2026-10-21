@@ -144,7 +144,6 @@ export function SendDocument({
   const [duField, setDuField] = useState("");
   const [dateCourrier, setDateCourrier] = useState("");
   const [summaryOpen, setSummaryOpen] = useState(false);
-  const [precisionOpen, setPrecisionOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const [refPickerOpen, setRefPickerOpen] = useState(false);
@@ -231,48 +230,6 @@ export function SendDocument({
         .find((member) => member._id === recipientId) ?? null
     );
   })();
-
-  /** Personnes des structures cochées, regroupables par fonction */
-  const precisionCandidates = useMemo(() => {
-    const list: Array<{
-      userId: Id<"users">;
-      name: string;
-      fonction: string;
-      deptLabel: string;
-      deptId: Id<"departments">;
-      online: boolean;
-    }> = [];
-    for (const id of destIds) {
-      const d = departments?.find((x) => x._id === id);
-      if (!d) continue;
-      const deptLabel = d.name;
-      for (const m of d.members ?? []) {
-        if (m._id === me?.user._id) continue;
-        list.push({
-          userId: m._id as Id<"users">,
-          name: m.name,
-          fonction: (m.fonction ?? "").trim() || "Sans fonction",
-          deptLabel,
-          deptId: d._id as Id<"departments">,
-          online: isOnline(m.lastSeenAt),
-        });
-      }
-    }
-    return list.sort((a, b) =>
-      a.fonction.localeCompare(b.fonction, "fr") ||
-      a.name.localeCompare(b.name, "fr"),
-    );
-  }, [destIds, departments, me?.user._id]);
-
-  const precisionByFonction = useMemo(() => {
-    const map = new Map<string, typeof precisionCandidates>();
-    for (const c of precisionCandidates) {
-      const arr = map.get(c.fonction) ?? [];
-      arr.push(c);
-      map.set(c.fonction, arr);
-    }
-    return [...map.entries()];
-  }, [precisionCandidates]);
 
   /** Tous les membres validés de tous les départements (pour le circuit inter-services) */
   const allCircuitCandidates = (departments ?? []).flatMap((d) =>
@@ -917,49 +874,6 @@ export function SendDocument({
                   Aucune destination sélectionnée.
                 </p>
               )}
-
-              {destIds.length > 0 ? (
-                <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-dashed border-brand/30 bg-brand-soft/30 px-3 py-2.5">
-                  <div className="min-w-0 text-xs text-muted-foreground">
-                    {recipientId && selectedRecipient ? (
-                      <span className="text-foreground">
-                        Destinataire précis :{" "}
-                        <strong>{selectedRecipient.name}</strong>
-                        {selectedRecipient.fonction
-                          ? ` · ${selectedRecipient.fonction}`
-                          : ""}
-                      </span>
-                    ) : (
-                      <span>
-                        Optionnel — préciser une personne par sa{" "}
-                        <strong className="text-foreground">fonction</strong>
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    {recipientId ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 text-xs"
-                        onClick={() => setRecipientId(null)}
-                      >
-                        Effacer
-                      </Button>
-                    ) : null}
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="h-8 gap-1.5 text-xs"
-                      onClick={() => setPrecisionOpen(true)}
-                    >
-                      <UserRound className="size-3.5" />
-                      Choisir par fonction
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
 
 
             </div>
@@ -1908,77 +1822,6 @@ export function SendDocument({
           </div>
         </CardContent>
       </Card>
-
-      {/* Sélecteur flottant : personne par fonction */}
-      <Dialog open={precisionOpen} onOpenChange={setPrecisionOpen}>
-        <DialogContent className="max-h-[85vh] max-w-md overflow-hidden p-0 sm:max-w-lg">
-          <DialogHeader className="border-b border-border px-5 py-4">
-            <DialogTitle>Préciser le destinataire</DialogTitle>
-            <DialogDescription>
-              Choisissez une personne selon sa fonction dans les structures
-              sélectionnées. Le courrier reste visible pour tout le service.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto px-2 py-3">
-            {precisionCandidates.length === 0 ? (
-              <p className="px-3 py-6 text-center text-sm text-muted-foreground">
-                Aucun membre trouvé dans les destinations cochées.
-              </p>
-            ) : (
-              precisionByFonction.map(([fn, people]) => (
-                <div key={fn} className="mb-3">
-                  <p className="sticky top-0 z-10 bg-background/95 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground backdrop-blur">
-                    {fn}
-                  </p>
-                  <ul className="space-y-1 px-1">
-                    {people.map((p) => {
-                      const active = recipientId === p.userId;
-                      return (
-                        <li key={p.userId}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setRecipientId(p.userId);
-                              setPrecisionOpen(false);
-                            }}
-                            className={cn(
-                              "flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
-                              active
-                                ? "border-brand bg-brand-soft shadow-sm"
-                                : "border-transparent hover:border-border hover:bg-muted/50",
-                            )}
-                          >
-                            <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-semibold text-foreground">
-                              {initialsOf(p.name)}
-                              <span
-                                className={cn(
-                                  "absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-background",
-                                  p.online ? "bg-emerald-500" : "bg-muted-foreground/40",
-                                )}
-                              />
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-sm font-semibold text-foreground">
-                                {p.name}
-                              </span>
-                              <span className="block truncate text-[11px] text-muted-foreground">
-                                {p.deptLabel}
-                              </span>
-                            </span>
-                            {active ? (
-                              <CheckCircle2 className="size-4 shrink-0 text-brand" />
-                            ) : null}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
