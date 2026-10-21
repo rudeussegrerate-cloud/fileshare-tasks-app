@@ -25,7 +25,9 @@ import {
   CheckCircle2,
   FileText,
   Loader2,
+  Plus,
   Send,
+  Trash2,
   UserRound,
   X,
 } from "lucide-react";
@@ -1504,44 +1506,74 @@ export function SendDocument({
                   const isImg = f.type.startsWith("image/");
                   const ext = (f.name.split(".").pop() || "").toUpperCase();
                   return (
-                    <button
+                    <div
                       key={`${f.name}-${f.size}-${i}`}
-                      type="button"
-                      onClick={() =>
-                        setPreviewIndex((cur) => (cur === i ? null : i))
-                      }
                       className={cn(
-                        "group flex w-[7.5rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card text-left shadow-sm transition-all",
+                        "relative flex w-[7.5rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card text-left shadow-sm transition-all",
                         selected
                           ? "border-brand ring-2 ring-brand/40"
-                          : "border-border hover:border-brand/40",
+                          : "border-border",
                       )}
                     >
-                      <div className="relative aspect-[2/3] w-full overflow-hidden bg-muted">
-                        {thumbUrls[i] ? (
-                          <img
-                            src={thumbUrls[i]}
-                            alt=""
-                            className="size-full object-cover object-top"
-                          />
-                        ) : (
-                          <div className="flex size-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-muted to-muted/60 p-2">
-                            <FileText className="size-8 text-muted-foreground/70" />
-                            <span className="rounded bg-foreground/80 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-background">
-                              {ext || "FICHIER"}
-                            </span>
-                          </div>
-                        )}
-                        <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
-                          {isImg ? "Photo" : ext || "Doc"}
-                        </span>
-                      </div>
-                      <p className="line-clamp-2 px-2 py-1.5 text-[10px] font-medium leading-snug text-foreground">
-                        {f.name}
-                      </p>
-                    </button>
+                      <button
+                        type="button"
+                        className="absolute left-1.5 top-1.5 z-10 flex size-7 items-center justify-center rounded-full bg-black/65 text-white shadow hover:bg-destructive"
+                        title="Retirer ce document"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFileAt(i);
+                        }}
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPreviewIndex((cur) => (cur === i ? null : i))
+                        }
+                        className="flex w-full flex-col text-left"
+                      >
+                        <div className="relative aspect-[2/3] w-full overflow-hidden bg-muted">
+                          {thumbUrls[i] ? (
+                            <img
+                              src={thumbUrls[i]}
+                              alt=""
+                              className="size-full object-cover object-top"
+                            />
+                          ) : (
+                            <div className="flex size-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-muted to-muted/60 p-2">
+                              <FileText className="size-8 text-muted-foreground/70" />
+                              <span className="rounded bg-foreground/80 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-background">
+                                {ext || "FICHIER"}
+                              </span>
+                            </div>
+                          )}
+                          <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                            {isImg ? "Photo" : ext || "Doc"}
+                          </span>
+                        </div>
+                        <p className="line-clamp-2 px-2 py-1.5 text-[10px] font-medium leading-snug text-foreground">
+                          {f.name}
+                        </p>
+                      </button>
+                    </div>
                   );
                 })}
+                {files.length < 20 ? (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex w-[7.5rem] shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 aspect-[2/3] text-muted-foreground transition-colors hover:border-brand/50 hover:bg-brand-soft/30 hover:text-brand"
+                    title="Ajouter un document"
+                  >
+                    <span className="flex size-10 items-center justify-center rounded-full border border-dashed border-current">
+                      <Plus className="size-5" />
+                    </span>
+                    <span className="px-2 text-center text-[10px] font-medium">
+                      Ajouter
+                    </span>
+                  </button>
+                ) : null}
               </div>
               {previewIndex !== null && files[previewIndex] ? (
                 <div className="flex justify-center">
