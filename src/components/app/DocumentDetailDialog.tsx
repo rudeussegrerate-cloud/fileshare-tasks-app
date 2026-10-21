@@ -20,7 +20,9 @@ import {
   FileText,
   History,
   Loader2,
+  Pencil,
   RefreshCw,
+  Reply,
   Sparkles,
   CheckCircle2,
   Trash2,
@@ -40,6 +42,10 @@ import {
   PREDEFINED_TASKS,
 } from "./shared";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
 
 export function DocumentDetailDialog({
   documentId,
@@ -73,6 +79,15 @@ export function DocumentDetailDialog({
   const unarchiveDoc = useMutation(api.documents.unarchive);
   const removeDoc = useMutation(api.documents.remove);
   const retrySummary = useMutation(api.documents.retrySummary);
+  const updateUnread = useMutation(api.documents.updateUnreadSend);
+
+  const [editing, setEditing] = useState(false);
+  const [editObjet, setEditObjet] = useState("");
+  const [editObservations, setEditObservations] = useState("");
+  const [editTasks, setEditTasks] = useState<string[]>([]);
+  const [editRef, setEditRef] = useState("");
+  const [editPublicRef, setEditPublicRef] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
 
   const printCourrier = () => {
     if (!documentOrNull) return;
@@ -215,6 +230,18 @@ export function DocumentDetailDialog({
   };
 
   const documentOrNull = courrier;
+
+  useEffect(() => {
+    if (!documentOrNull) return;
+    setEditObjet(documentOrNull.objet ?? "");
+    setEditObservations(documentOrNull.observations ?? "");
+    setEditTasks(
+      Array.isArray(documentOrNull.tasks) ? [...documentOrNull.tasks] : [],
+    );
+    setEditRef(documentOrNull.referenceText ?? "");
+    setEditPublicRef(documentOrNull.publicRef ?? "");
+    setEditing(false);
+  }, [documentOrNull?._id]);
   // Ne pas utiliser React.ComponentType sans import React (crash runtime).
   const showThumb = Boolean(documentOrNull);
 
@@ -297,8 +324,142 @@ export function DocumentDetailDialog({
                   onOpenChange(false);
                 }}
               >
+                <Reply className="size-4" />
                 Répondre à ce courrier
               </Button>
+            ) : null}
+            {documentOrNull.canEdit ? (
+              <div className="space-y-3 rounded-sm border border-amber-200 bg-amber-50/80 p-3">
+                {!editing ? (
+                  <>
+                    <p className="text-xs text-amber-950">
+                      Personne n&apos;a encore lu ce courrier. Vous pouvez encore
+                      modifier l&apos;objet, les tâches ou les observations.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full gap-2 border-amber-300"
+                      onClick={() => setEditing(true)}
+                    >
+                      <Pencil className="size-4" />
+                      Modifier l&apos;envoi
+                    </Button>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-amber-950">
+                      Modifier l&apos;envoi (non lu)
+                    </p>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-objet">Objet</Label>
+                      <Textarea
+                        id="edit-objet"
+                        value={editObjet}
+                        onChange={(e) => setEditObjet(e.target.value)}
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-obs">Observations</Label>
+                      <Textarea
+                        id="edit-obs"
+                        value={editObservations}
+                        onChange={(e) => setEditObservations(e.target.value)}
+                        rows={2}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-pref">N° courrier</Label>
+                      <Input
+                        id="edit-pref"
+                        value={editPublicRef}
+                        onChange={(e) => setEditPublicRef(e.target.value)}
+                        className="font-mono text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="edit-ref">Réf.</Label>
+                      <Input
+                        id="edit-ref"
+                        value={editRef}
+                        onChange={(e) => setEditRef(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Tâches</Label>
+                      <div className="grid max-h-40 gap-1 overflow-y-auto sm:grid-cols-2">
+                        {PREDEFINED_TASKS.map((task) => {
+                          const checked = editTasks.includes(task);
+                          return (
+                            <label
+                              key={task}
+                              className="flex items-center gap-2 text-xs"
+                            >
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={() => {
+                                  setEditTasks((prev) =>
+                                    checked
+                                      ? prev.filter((x) => x !== task)
+                                      : [...prev, task],
+                                  );
+                                }}
+                              />
+                              {task}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        disabled={editSaving}
+                        onClick={() => {
+                          void (async () => {
+                            setEditSaving(true);
+                            try {
+                              await updateUnread({
+                                documentId: documentOrNull._id,
+                                objet: editObjet,
+                                observations: editObservations,
+                                tasks: editTasks,
+                                referenceText: editRef,
+                                publicRef: editPublicRef,
+                              });
+                              toast.success("Courrier mis à jour.");
+                              setEditing(false);
+                            } catch (e) {
+                              toast.error(
+                                e instanceof Error
+                                  ? e.message
+                                  : "Modification impossible.",
+                              );
+                            } finally {
+                              setEditSaving(false);
+                            }
+                          })();
+                        }}
+                      >
+                        {editSaving ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          "Enregistrer"
+                        )}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={editSaving}
+                        onClick={() => setEditing(false)}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : null}
             {documentOrNull.referenceText ? (
               <p className="text-xs text-muted-foreground">
@@ -549,6 +710,7 @@ export function DocumentDetailDialog({
                     onOpenChange(false);
                   }}
                 >
+                  <Reply className="size-4" />
                   Répondre à ce courrier
                 </Button>
               </div>

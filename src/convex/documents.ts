@@ -1314,17 +1314,8 @@ export const get = query({
     }
     const isStepAssignee = steps.some((s) => s.assigneeId === userId);
     const isAdmin = isAdminRole(user?.role);
-    if (
-      document.senderId !== userId &&
-      document.recipientId !== userId &&
-      !isStepAssignee &&
-      !isAdmin
-    ) {
-      return null;
-    }
-
-    const activeStep = steps.find((s) => s.status === "active") ?? null;
     const isSender = document.senderId === userId;
+
     // Membre d'une structure destinataire (même sans recipientId nommé)
     let isStructureViewer = false;
     try {
@@ -1361,6 +1352,18 @@ export const get = query({
     } catch {
       /* ignore */
     }
+
+    if (
+      !isSender &&
+      document.recipientId !== userId &&
+      !isStepAssignee &&
+      !isAdmin &&
+      !isStructureViewer
+    ) {
+      return null;
+    }
+
+    const activeStep = steps.find((s) => s.status === "active") ?? null;
     const myStepIndex = steps.findIndex((s) => s.assigneeId === userId);
     const myStep = myStepIndex >= 0 ? steps[myStepIndex]! : null;
     const prevStep = myStepIndex > 0 ? steps[myStepIndex - 1]! : null;
@@ -1479,6 +1482,8 @@ export const get = query({
        * (sauf l'émetteur) — envoi structurel n'a souvent pas de recipientId.
        */
       canReply: !isSender && document.status !== "traite",
+      /** Émetteur peut modifier tant que personne n'a lu (statut encore « envoyé ») */
+      canEdit: isSender && document.status === "envoye" && !document.archivedAt,
       isLastInCircuit:
         myStepIndex >= 0 && myStepIndex === steps.length - 1,
       myStepDone: myStep?.status === "done",
@@ -1493,6 +1498,84 @@ export const get = query({
   },
 });
 
+
+/**
+ * Modifier un courrier déjà envoyé tant qu'il n'a pas été lu
+ * (statut encore « envoye »). Réservé à l'émetteur.
+ */
+export const updateUnreadSend = mutation({
+  args: {
+    documentId: v.id("documents"),
+    objet: v.optional(v.string()),
+    observations: v.optional(v.string()),
+    tasks: v.optional(v.array(v.string())),
+    referenceText: v.optional(v.string()),
+    publicRef: v.optional(v.string()),
+    customFields: v.optional(
+      v.array(
+        v.object({
+          label: v.string(),
+          value: v.string(),
+          source: v.optional(
+            v.union(
+              v.literal("manual"),
+              v.literal("courrier"),
+              v.literal("structure"),
+            ),
+          ),
+        }),
+      ),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const userId = await requireUserId(ctx);
+    const document = await ctx.db.get(args.documentId);
+    if (!document) throw new Error("Document introuvable.");
+    if (document.senderId !== userId) {
+      throw new Error("Seul l'émetteur peut modifier ce courrier.");
+    }
+    if (document.status !== "envoye") {
+      throw new Error(
+        "Ce courrier a déjà été lu ou traité : modification impossible.",
+      );
+    }
+    if (document.archivedAt) {
+      throw new Error("Courrier archivé : modification impossible.");
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (args.objet !== undefined) {
+      const o = args.objet.trim();
+      if (!o) throw new Error("L'objet est obligatoire.");
+      patch.objet = o;
+    }
+    if (args.observations !== undefined) {
+      patch.observations = args.observations.trim() || undefined;
+    }
+    if (args.tasks !== undefined) {
+      if (args.tasks.length === 0) {
+        throw new Error("Sélectionnez au moins une tâche.");
+      }
+      patch.tasks = args.tasks;
+      patch.task = args.tasks.join(" · ");
+    }
+    if (args.referenceText !== undefined) {
+      patch.referenceText = args.referenceText.trim() || undefined;
+    }
+    if (args.publicRef !== undefined) {
+      const r = args.publicRef.trim();
+      if (r) patch.publicRef = r;
+    }
+    if (args.customFields !== undefined) {
+      patch.customFields = args.customFields.slice(0, 8);
+    }
+
+    if (Object.keys(patch).length === 0) return { ok: true as const };
+    await ctx.db.patch(args.documentId, patch);
+    return { ok: true as const };
+  },
+});
+
 /** The receiver opens a document: mark it as consulted. */
 export const markViewed = mutation({
   args: { documentId: v.id("documents") },
@@ -1500,8 +1583,8 @@ export const markViewed = mutation({
     const userId = await requireUserId(ctx);
     const document = await ctx.db.get(args.documentId);
     if (!document) throw new Error("Document introuvable.");
-    if (document.recipientId !== userId) {
-      // Intervenant circuit : autorisé aussi
+    if (document.recipientId !== userId && document.senderId !== userId) {
+      let allowed = false;
       try {
         const steps = await ctx.db
           .query("documentSteps")
@@ -1509,11 +1592,45 @@ export const markViewed = mutation({
             q.eq("documentId", args.documentId),
           )
           .collect();
-        if (!steps.some((s) => s.assigneeId === userId)) return null;
+        if (steps.some((s) => s.assigneeId === userId)) allowed = true;
       } catch {
-        return null;
+        /* ignore */
       }
+      if (!allowed) {
+        const meUser = await ctx.db.get(userId);
+        if (meUser?.departmentId) {
+          const myDept = String(meUser.departmentId);
+          const matchIds = new Set<string>([myDept]);
+          const allDepts = await ctx.db.query("departments").collect();
+          const mine = allDepts.find((d) => String(d._id) === myDept);
+          if (mine?.parentId) matchIds.add(String(mine.parentId));
+          for (const d of allDepts) {
+            if (d.parentId && String(d.parentId) === myDept) {
+              matchIds.add(String(d._id));
+            }
+          }
+          if (
+            document.recipientDepartmentId &&
+            matchIds.has(String(document.recipientDepartmentId))
+          ) {
+            allowed = true;
+          }
+          if (!allowed) {
+            const txs = await ctx.db
+              .query("documentTransmissions")
+              .withIndex("by_document", (q) =>
+                q.eq("documentId", args.documentId),
+              )
+              .collect();
+            allowed = txs.some((tr) =>
+              matchIds.has(String(tr.departmentId)),
+            );
+          }
+        }
+      }
+      if (!allowed) return null;
     }
+    if (document.senderId === userId) return null; // l'émetteur n'ouvre pas = pas « lu »
     if (document.status !== "envoye") return null;
 
     const user = await ctx.db.get(userId);
