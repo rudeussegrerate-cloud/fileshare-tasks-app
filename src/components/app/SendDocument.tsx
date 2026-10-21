@@ -245,7 +245,7 @@ export function SendDocument({
     for (const id of destIds) {
       const d = departments?.find((x) => x._id === id);
       if (!d) continue;
-      const deptLabel = d.code ? `${d.code} — ${d.name}` : d.name;
+      const deptLabel = d.name;
       for (const m of d.members ?? []) {
         if (m._id === me?.user._id) continue;
         list.push({
@@ -834,19 +834,11 @@ export function SendDocument({
                           <span className="min-w-0 flex-1">
                             <span className="flex flex-wrap items-center gap-2">
                               <span className="text-sm font-semibold text-foreground">
-                                {dir.code ? `${dir.code} — ` : ""}
                                 {dir.name}
                               </span>
                               <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                                 Direction
                               </span>
-                            </span>
-                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                              Cocher pour adresser au chef / à la direction
-                              entière
-                              {services.length > 0
-                                ? ` · ${services.length} service${services.length > 1 ? "s" : ""} rattaché${services.length > 1 ? "s" : ""}`
-                                : ""}
                             </span>
                           </span>
                         </label>
@@ -877,7 +869,6 @@ export function SendDocument({
                                   />
                                   <span className="min-w-0 flex-1 text-sm">
                                     <span className="font-medium text-foreground">
-                                      {svc.code ? `${svc.code} — ` : ""}
                                       {svc.name}
                                     </span>
                                   </span>
@@ -885,11 +876,7 @@ export function SendDocument({
                               );
                             })}
                           </div>
-                        ) : (
-                          <p className="mt-2 pl-7 text-[11px] text-muted-foreground">
-                            Aucun service rattaché à cette direction.
-                          </p>
-                        )}
+                        ) : null}
                       </div>
                     );
                   })}
@@ -907,21 +894,18 @@ export function SendDocument({
                       if (!d) return null;
                       const isSvc =
                         (d as { kind?: string | null }).kind === "service";
-                      const label = d.code
-                        ? `${d.code}`
-                        : d.name.slice(0, 28);
                       return (
                         <button
                           key={id}
                           type="button"
                           onClick={() => toggleDest(id)}
-                          className="inline-flex items-center gap-1 rounded-full border border-brand/40 bg-card px-2.5 py-1 text-[11px] font-medium text-foreground"
+                          className="inline-flex max-w-full items-center gap-1 rounded-full border border-brand/40 bg-card px-2.5 py-1 text-[11px] font-medium text-foreground"
                           title={d.name}
                         >
-                          <span className="text-[9px] uppercase text-muted-foreground">
+                          <span className="shrink-0 text-[9px] uppercase text-muted-foreground">
                             {isSvc ? "Svc" : "Dir"}
                           </span>
-                          {label}
+                          <span className="truncate">{d.name}</span>
                           <span className="text-muted-foreground">×</span>
                         </button>
                       );
@@ -1082,7 +1066,6 @@ export function SendDocument({
                             </span>
                             <span className="min-w-0 flex-1">
                               <span className="block text-sm font-semibold">
-                                {dir.code ? `${dir.code} — ` : ""}
                                 {dir.name}
                               </span>
                             </span>
@@ -1131,7 +1114,6 @@ export function SendDocument({
                                   : "border-muted-foreground/40",
                               )}
                             />
-                            {dir.code ? `${dir.code} — ` : ""}
                             {dir.name}
                           </button>
                         );
@@ -1146,7 +1128,7 @@ export function SendDocument({
                       <div className="max-h-48 space-y-1 overflow-y-auto rounded-sm border border-border bg-card p-2">
                         {emitServicesOfParent.length === 0 ? (
                           <p className="text-xs text-muted-foreground">
-                            Aucun service rattaché.
+                            {/* vide */}
                           </p>
                         ) : (
                           emitServicesOfParent.map((svc) => {
@@ -1180,7 +1162,6 @@ export function SendDocument({
                                   ) : null}
                                 </span>
                                 <span className="text-sm font-medium">
-                                  {svc.code ? `${svc.code} — ` : ""}
                                   {svc.name}
                                 </span>
                               </button>
@@ -1745,10 +1726,7 @@ export function SendDocument({
                             (d as { kind?: string | null }).kind === "service"
                               ? "Service"
                               : "Direction";
-                          const label = d.code
-                            ? `${d.code} — ${d.name}`
-                            : d.name;
-                          return `${kind} : ${label}`;
+                          return `${kind} : ${d.name}`;
                         })
                         .filter(Boolean)
                         .join(" · ") || "—"}
