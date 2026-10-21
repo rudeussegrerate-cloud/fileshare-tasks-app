@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { MAX_FILE_BYTES, extractTextFromFile } from "@/lib/extract-text";
+import { MAX_FILE_BYTES, extractTextFromFile, renderCoverThumbnail } from "@/lib/extract-text";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import {
@@ -350,23 +350,44 @@ export function SendDocument({
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
-  // Miniatures pour les images sélectionnées
+  // Miniatures : images + 1re page des PDF
   useEffect(() => {
-    const urls: Record<number, string> = {};
-    files.forEach((f, i) => {
-      if (f.type.startsWith("image/")) {
-        urls[i] = URL.createObjectURL(f);
-      }
-    });
-    setThumbUrls((prev) => {
-      Object.values(prev).forEach((u) => URL.revokeObjectURL(u));
-      return urls;
-    });
+    let cancelled = false;
+    const objectUrls: string[] = [];
+
     setPreviewIndex((pi) =>
       pi !== null && pi < files.length ? pi : null,
     );
+
+    (async () => {
+      const next: Record<number, string> = {};
+      await Promise.all(
+        files.map(async (f, i) => {
+          try {
+            const url = await renderCoverThumbnail(f);
+            if (!url || cancelled) return;
+            if (url.startsWith("blob:")) objectUrls.push(url);
+            next[i] = url;
+          } catch {
+            /* ignore */
+          }
+        }),
+      );
+      if (cancelled) {
+        objectUrls.forEach((u) => URL.revokeObjectURL(u));
+        return;
+      }
+      setThumbUrls((prev) => {
+        Object.values(prev).forEach((u) => {
+          if (u.startsWith("blob:")) URL.revokeObjectURL(u);
+        });
+        return next;
+      });
+    })();
+
     return () => {
-      Object.values(urls).forEach((u) => URL.revokeObjectURL(u));
+      cancelled = true;
+      objectUrls.forEach((u) => URL.revokeObjectURL(u));
     };
   }, [files]);
 
@@ -1497,11 +1518,11 @@ export function SendDocument({
                       )}
                     >
                       <div className="relative aspect-[2/3] w-full overflow-hidden bg-muted">
-                        {isImg && thumbUrls[i] ? (
+                        {thumbUrls[i] ? (
                           <img
                             src={thumbUrls[i]}
                             alt=""
-                            className="size-full object-cover"
+                            className="size-full object-cover object-top"
                           />
                         ) : (
                           <div className="flex size-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-muted to-muted/60 p-2">

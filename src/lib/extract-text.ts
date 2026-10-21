@@ -110,3 +110,45 @@ export async function extractTextFromFile(file: File): Promise<string> {
 }
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
+
+/** Miniature de couverture (1re page PDF ou image). Retourne une data URL ou object URL. */
+export async function renderCoverThumbnail(
+  file: File,
+  maxWidth = 240,
+): Promise<string | null> {
+  const name = file.name.toLowerCase();
+  const type = (file.type || "").toLowerCase();
+
+  if (type.startsWith("image/") || IMAGE_EXTENSIONS.has(extensionOf(file.name))) {
+    return URL.createObjectURL(file);
+  }
+
+  const isPdf =
+    type === "application/pdf" || name.endsWith(".pdf");
+  if (!isPdf) return null;
+
+  try {
+    const pdfjs = await import("pdfjs-dist");
+    const workerUrl = (
+      await import("pdfjs-dist/build/pdf.worker.min.mjs?url")
+    ).default;
+    pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+
+    const data = new Uint8Array(await file.arrayBuffer());
+    const pdf = await pdfjs.getDocument({ data }).promise;
+    const page = await pdf.getPage(1);
+    const unscaled = page.getViewport({ scale: 1 });
+    const scale = Math.min(2, maxWidth / unscaled.width);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.ceil(viewport.width);
+    canvas.height = Math.ceil(viewport.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+    return canvas.toDataURL("image/jpeg", 0.82);
+  } catch (e) {
+    console.warn("[renderCoverThumbnail] PDF:", e);
+    return null;
+  }
+}
