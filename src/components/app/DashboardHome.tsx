@@ -240,39 +240,6 @@ export function DashboardHome({
         </div>
       </Section>
 
-      <Section title="Accès rapide">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <QuickLink
-            icon={Inbox}
-            title="Courriers reçus"
-            desc="Consulter et répondre"
-            onClick={() => onNavigate("inbox")}
-          />
-          <QuickLink
-            icon={Send}
-            title="Courriers envoyés"
-            desc="Courriers émis"
-            onClick={() => onNavigate("sent")}
-          />
-          {isManager ? (
-            <QuickLink
-              icon={Building2}
-              title="Structures"
-              desc="Directions et services"
-              onClick={() => onNavigate("departments")}
-            />
-          ) : null}
-          {isDg ? (
-            <QuickLink
-              icon={UserCheck}
-              title="Comptes"
-              desc="Validation des inscriptions"
-              onClick={() => onNavigate("accounts")}
-            />
-          ) : null}
-        </div>
-      </Section>
-
       <Section title="Derniers reçus" subtitle="Ouvrir un courrier">
         {recent.length === 0 ? (
           <p className="px-1 py-6 text-center text-sm text-muted-foreground">
@@ -1219,30 +1186,3 @@ function StatTile({
   );
 }
 
-function QuickLink({
-  icon: Icon,
-  title,
-  desc,
-  onClick,
-}: {
-  icon: typeof Inbox;
-  title: string;
-  desc: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-start gap-3 rounded-xl border border-[#ddd6f3] bg-[#faf9fd] p-3.5 text-left shadow-sm transition hover:border-[#5b4cdb]/40 hover:bg-[#efeaff]"
-    >
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand">
-        <Icon className="size-4" />
-      </span>
-      <span>
-        <span className="block text-sm font-medium">{title}</span>
-        <span className="block text-[11px] text-muted-foreground">{desc}</span>
-      </span>
-    </button>
-  );
-}
