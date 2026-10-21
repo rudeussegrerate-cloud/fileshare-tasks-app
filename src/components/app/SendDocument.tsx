@@ -873,9 +873,37 @@ export function SendDocument({
                           </span>
                         </div>
 
+                        {/* Chef de direction (en haut) */}
+                        <div className="mt-3 space-y-1.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Direction
+                          </p>
+                          <label
+                            className={cn(
+                              "flex cursor-pointer items-center gap-3 rounded-md border px-2.5 py-2 transition-colors",
+                              chefActive
+                                ? "border-brand bg-card shadow-sm"
+                                : "border-transparent hover:bg-muted/40",
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              className="size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
+                              checked={chefActive}
+                              onChange={() => toggleDest(dir._id)}
+                            />
+                            <span className="text-sm font-medium text-foreground">
+                              Chef de direction
+                              {dir.chief?.name
+                                ? ` · ${dir.chief.name}`
+                                : ""}
+                            </span>
+                          </label>
+                        </div>
+
                         {/* Services */}
                         {services.length > 0 ? (
-                          <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
+                          <div className="mt-3 space-y-1.5">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                               Services
                             </p>
@@ -906,36 +934,8 @@ export function SendDocument({
                           </div>
                         ) : null}
 
-                        {/* Chef de direction */}
-                        <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Direction
-                          </p>
-                          <label
-                            className={cn(
-                              "flex cursor-pointer items-center gap-3 rounded-md border px-2.5 py-2 transition-colors",
-                              chefActive
-                                ? "border-brand bg-card shadow-sm"
-                                : "border-transparent hover:bg-muted/40",
-                            )}
-                          >
-                            <input
-                              type="checkbox"
-                              className="size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
-                              checked={chefActive}
-                              onChange={() => toggleDest(dir._id)}
-                            />
-                            <span className="text-sm font-medium text-foreground">
-                              Chef de direction
-                              {dir.chief?.name
-                                ? ` · ${dir.chief.name}`
-                                : ""}
-                            </span>
-                          </label>
-                        </div>
-
                         {/* Autre : destinataires par fonction (membres de la direction) */}
-                        <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
+                        <div className="mt-3 space-y-1.5">
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                             Autre — par fonction
                           </p>
