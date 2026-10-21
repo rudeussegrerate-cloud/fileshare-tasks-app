@@ -93,7 +93,7 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
   {
     title: "Espace de travail",
     items: [
-      { key: "workspace", label: "Assistant de rédaction", icon: PenLine },
+      { key: "workspace", label: "Éditeur de courrier", icon: PenLine },
     ],
   },
   {
