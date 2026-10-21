@@ -470,6 +470,9 @@ export function SendDocument({
               // Étape détails (index 3)
               if (!isTransmission && !publicRef.trim()) return false;
               if (isTransmission && !referenceText.trim()) return false;
+              if (!arriveeLe.trim()) return false;
+              if (!duField.trim()) return false;
+              if (!dateCourrier.trim()) return false;
               if (!objet.trim()) return false;
               if (selectedTasks.length === 0 && !customTask.trim()) return false;
               return true;
@@ -479,6 +482,18 @@ export function SendDocument({
     if (files.length === 0 || destIds.length === 0) return;
     if (!isTransmission && !publicRef.trim()) {
       toast.error("Indiquez le N° du courrier.");
+      return;
+    }
+    if (!arriveeLe.trim()) {
+      toast.error("Indiquez la date d'arrivée (Arrivée le).");
+      return;
+    }
+    if (!duField.trim()) {
+      toast.error('Indiquez le champ « Du ».');
+      return;
+    }
+    if (!dateCourrier.trim()) {
+      toast.error("Indiquez la date du courrier.");
       return;
     }
     if (!objet.trim()) {
@@ -1293,7 +1308,12 @@ export function SendDocument({
 
               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
-                  <Label htmlFor="arriveeLe">Arrivée le</Label>
+                  <Label htmlFor="arriveeLe">
+                    Arrivée le
+                    <span className="ml-1 text-destructive" aria-hidden>
+                      *
+                    </span>
+                  </Label>
                   <Input
                     id="arriveeLe"
                     type="date"
@@ -1302,7 +1322,12 @@ export function SendDocument({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="duField">Du</Label>
+                  <Label htmlFor="duField">
+                    Du
+                    <span className="ml-1 text-destructive" aria-hidden>
+                      *
+                    </span>
+                  </Label>
                   <Input
                     id="duField"
                     value={duField}
@@ -1310,7 +1335,12 @@ export function SendDocument({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="dateCourrier">Date</Label>
+                  <Label htmlFor="dateCourrier">
+                    Date
+                    <span className="ml-1 text-destructive" aria-hidden>
+                      *
+                    </span>
+                  </Label>
                   <Input
                     id="dateCourrier"
                     type="date"
