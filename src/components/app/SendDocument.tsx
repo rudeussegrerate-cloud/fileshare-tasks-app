@@ -1189,7 +1189,7 @@ export function SendDocument({
                         (x) => x._id === onBehalfDepartmentId,
                       );
                       if (!d) return "—";
-                      return d!.code ? `${d!.code} — ${d!.name}` : d!.name;
+                      return d!.name;
                     })()}
                   </p>
                 </div>
