@@ -530,6 +530,58 @@ export function DocumentDetailDialog({
               </section>
             ) : null}
 
+            {Array.isArray(
+              (documentOrNull as { relatedPieces?: unknown }).relatedPieces,
+            ) &&
+            (
+              (documentOrNull as {
+                relatedPieces: Array<{
+                  _id: Id<"documents">;
+                  fileName: string;
+                  objet: string;
+                  isCurrent: boolean;
+                  isPrimary: boolean;
+                }>;
+              }).relatedPieces?.length ?? 0
+            ) > 1 ? (
+              <section className="rounded-lg border border-border bg-card p-3">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  Pièces du même envoi
+                </p>
+                <ul className="mt-2 space-y-1.5">
+                  {(
+                    documentOrNull as {
+                      relatedPieces: Array<{
+                        _id: Id<"documents">;
+                        fileName: string;
+                        isCurrent: boolean;
+                        isPrimary: boolean;
+                      }>;
+                    }
+                  ).relatedPieces.map((piece) => (
+                    <li
+                      key={piece._id}
+                      className={
+                        piece.isCurrent
+                          ? "rounded-md border border-brand bg-brand-soft/50 px-2.5 py-1.5 text-sm"
+                          : "rounded-md border border-transparent px-2.5 py-1.5 text-sm text-muted-foreground"
+                      }
+                    >
+                      <span className="font-medium text-foreground">
+                        {piece.isPrimary ? "Principal · " : "Annexe · "}
+                        {piece.fileName}
+                      </span>
+                      {piece.isCurrent ? (
+                        <span className="ml-2 text-[10px] font-semibold uppercase text-brand">
+                          ouvert
+                        </span>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
             {!documentOrNull.isSender &&
             documentOrNull.relativeTracking ? (
               <section className="rounded-lg border border-brand/20 bg-brand-soft/40 p-3 text-sm">

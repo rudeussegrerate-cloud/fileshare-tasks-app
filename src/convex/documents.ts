@@ -1434,9 +1434,42 @@ export const get = query({
           }
         : null;
 
+    // Pièces du même groupe d'envoi (principal + annexes)
+    let relatedPieces: Array<{
+      _id: typeof document._id;
+      fileName: string;
+      objet: string;
+      isCurrent: boolean;
+      isPrimary: boolean;
+    }> = [];
+    try {
+      const rootId = document.parentCourrierId ?? document._id;
+      const children = await ctx.db
+        .query("documents")
+        .withIndex("by_parent", (q) => q.eq("parentCourrierId", rootId))
+        .collect();
+      const root = document.parentCourrierId
+        ? await ctx.db.get(document.parentCourrierId)
+        : document;
+      const pack = [
+        ...(root ? [root] : []),
+        ...children.filter((c) => c._id !== root?._id),
+      ];
+      relatedPieces = pack.map((d) => ({
+        _id: d._id,
+        fileName: d.fileName,
+        objet: d.objet,
+        isCurrent: d._id === document._id,
+        isPrimary: !d.parentCourrierId,
+      }));
+    } catch {
+      relatedPieces = [];
+    }
+
     return {
       ...(await decorate(ctx, [document]))[0]!,
       downloadUrl: await ctx.storage.getUrl(document.storageId),
+      relatedPieces,
       isRecipient: Boolean(
         (document.recipientId && document.recipientId === userId) ||
           isStructureViewer,
