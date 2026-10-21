@@ -146,7 +146,8 @@ export function SendDocument({
   const [arriveeLe, setArriveeLe] = useState("");
   const [duField, setDuField] = useState("");
   const [dateCourrier, setDateCourrier] = useState("");
-  const [previewIndex, setPreviewIndex] = useState(0);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [thumbUrls, setThumbUrls] = useState<Record<number, string>>({});
 
   const [publicRef, setPublicRef] = useState(initialPublicRef ?? "");
   /** SLA par étape (heures) pour un nouveau circuit */
@@ -321,9 +322,13 @@ export function SendDocument({
   const removeFileAt = (index: number) => {
     setFiles((prev) => {
       const next = prev.filter((_, i) => i !== index);
-      setPreviewIndex((pi) =>
-        next.length === 0 ? 0 : Math.min(pi, next.length - 1),
-      );
+      setPreviewIndex((pi) => {
+        if (pi === null) return null;
+        if (next.length === 0) return null;
+        if (pi === index) return null;
+        if (pi > index) return pi - 1;
+        return pi;
+      });
       return next;
     });
   };
@@ -344,6 +349,26 @@ export function SendDocument({
     }
     window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
+
+  // Miniatures pour les images sélectionnées
+  useEffect(() => {
+    const urls: Record<number, string> = {};
+    files.forEach((f, i) => {
+      if (f.type.startsWith("image/")) {
+        urls[i] = URL.createObjectURL(f);
+      }
+    });
+    setThumbUrls((prev) => {
+      Object.values(prev).forEach((u) => URL.revokeObjectURL(u));
+      return urls;
+    });
+    setPreviewIndex((pi) =>
+      pi !== null && pi < files.length ? pi : null,
+    );
+    return () => {
+      Object.values(urls).forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [files]);
 
   const toggleDest = (id: Id<"departments">) => {
     setDestIds((prev) =>
@@ -420,6 +445,8 @@ export function SendDocument({
         ? destIds.length > 0
         : (() => {
               // Étape détails (index 3)
+              if (!isTransmission && !publicRef.trim()) return false;
+              if (isTransmission && !referenceText.trim()) return false;
               if (!objet.trim()) return false;
               if (selectedTasks.length === 0 && !customTask.trim()) return false;
               return true;
@@ -427,6 +454,10 @@ export function SendDocument({
 
   const handleSend = async () => {
     if (files.length === 0 || destIds.length === 0) return;
+    if (!isTransmission && !publicRef.trim()) {
+      toast.error("Indiquez le N° du courrier.");
+      return;
+    }
     if (!objet.trim()) {
       toast.error("Précisez l'objet de l'envoi.");
       return;
@@ -1147,7 +1178,12 @@ export function SendDocument({
               <div className="space-y-2">
                 {!isTransmission ? (
                   <>
-                    <Label htmlFor="publicRef">N° du courrier</Label>
+                    <Label htmlFor="publicRef">
+                      N° du courrier
+                      <span className="ml-1 text-destructive" aria-hidden>
+                        *
+                      </span>
+                    </Label>
                     <Input
                       id="publicRef"
                       value={publicRef}
@@ -1437,37 +1473,66 @@ export function SendDocument({
           ) : null}
 
           {step === 3 && files.length > 0 ? (
-            <div className="flex flex-col items-center gap-3 py-2">
-              {files.length > 1 ? (
-                <select
-                  className="h-9 max-w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={Math.min(previewIndex, files.length - 1)}
-                  onChange={(e) => setPreviewIndex(Number(e.target.value))}
-                  aria-label="Fichier à visualiser"
-                >
-                  {files.map((f, i) => (
-                    <option key={`${f.name}-${i}`} value={i}>
-                      {f.name}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="max-w-xs truncate text-center text-xs text-muted-foreground">
-                  {files[0]?.name}
-                </p>
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={() =>
-                  openFilePreview(Math.min(previewIndex, files.length - 1))
-                }
-              >
-                <FileText className="size-4" />
-                Visualiser le document
-              </Button>
+            <div className="space-y-4">
+              <div className="flex gap-3 overflow-x-auto pb-2 pt-1">
+                {files.map((f, i) => {
+                  const selected = previewIndex === i;
+                  const isImg = f.type.startsWith("image/");
+                  const ext = (f.name.split(".").pop() || "").toUpperCase();
+                  return (
+                    <button
+                      key={`${f.name}-${f.size}-${i}`}
+                      type="button"
+                      onClick={() =>
+                        setPreviewIndex((cur) => (cur === i ? null : i))
+                      }
+                      className={cn(
+                        "group flex w-[7.5rem] shrink-0 flex-col overflow-hidden rounded-lg border bg-card text-left shadow-sm transition-all",
+                        selected
+                          ? "border-brand ring-2 ring-brand/40"
+                          : "border-border hover:border-brand/40",
+                      )}
+                    >
+                      <div className="relative aspect-[2/3] w-full overflow-hidden bg-muted">
+                        {isImg && thumbUrls[i] ? (
+                          <img
+                            src={thumbUrls[i]}
+                            alt=""
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex size-full flex-col items-center justify-center gap-2 bg-gradient-to-b from-muted to-muted/60 p-2">
+                            <FileText className="size-8 text-muted-foreground/70" />
+                            <span className="rounded bg-foreground/80 px-1.5 py-0.5 text-[9px] font-semibold tracking-wide text-background">
+                              {ext || "FICHIER"}
+                            </span>
+                          </div>
+                        )}
+                        <span className="absolute right-1.5 top-1.5 rounded bg-black/60 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white">
+                          {isImg ? "Photo" : ext || "Doc"}
+                        </span>
+                      </div>
+                      <p className="line-clamp-2 px-2 py-1.5 text-[10px] font-medium leading-snug text-foreground">
+                        {f.name}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              {previewIndex !== null && files[previewIndex] ? (
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => openFilePreview(previewIndex)}
+                  >
+                    <FileText className="size-4" />
+                    Visualiser ce document
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
