@@ -118,6 +118,8 @@ export function SendDocument({
   const [destIds, setDestIds] = useState<Id<"departments">[]>(
     replyTo?.senderDepartmentId ? [replyTo.senderDepartmentId] : [],
   );
+  /** Membres de direction (hors services) cochés comme destinataires */
+  const [memberDestIds, setMemberDestIds] = useState<Id<"users">[]>([]);
   /** direction = envoi aux directions ; service = envoi aux services uniquement */
   const [destMode, setDestMode] = useState<"direction" | "service">("direction");
   const [selectedDirectionId, setSelectedDirectionId] = useState<
@@ -373,6 +375,17 @@ export function SendDocument({
     );
   };
 
+  const toggleMemberDest = (userId: Id<"users">) => {
+    setMemberDestIds((prev) =>
+      prev.includes(userId)
+        ? prev.filter((x) => x !== userId)
+        : [...prev, userId],
+    );
+  };
+
+  /** Directions ciblées via chef ou membres (pas via la case direction retirée) */
+  // memberDestIds → directions résolues à l'envoi
+
   const directions = (departments ?? [])
     .filter((d) => {
       if ((d as { active?: boolean }).active === false) return false;
@@ -414,6 +427,7 @@ export function SendDocument({
     setStep(0);
     setFiles([]);
     setDestIds([]);
+    setMemberDestIds([]);
     setDestMode("direction");
     setSelectedDirectionId(null);
     setExtractedText("");
@@ -438,7 +452,7 @@ export function SendDocument({
     step === 0
       ? files.length > 0
       : step === 1
-        ? destIds.length > 0
+        ? destIds.length > 0 || memberDestIds.length > 0
         : (() => {
               // Étape détails (index 3) — fichier obligatoire (envoi et transmission)
               if (files.length === 0) return false;
@@ -456,8 +470,8 @@ export function SendDocument({
       toast.error("Joignez au moins un document pour envoyer ou transmettre.");
       return;
     }
-    if (destIds.length === 0) {
-      toast.error("Choisissez au moins un destinataire.");
+    if (destIds.length === 0 && memberDestIds.length === 0) {
+      toast.error("Choisissez au moins un destinataire (service, chef ou membre).");
       return;
     }
     if (!arriveeLe.trim()) {
@@ -527,11 +541,21 @@ export function SendDocument({
       let lastId: Id<"documents"> | undefined;
       let count = 0;
 
-      // Destinations structurelles (traitement uniquement — document unique)
-      const recipientTargets = destIds.map((departmentId) => ({
-        departmentId,
+      // Destinations structurelles : services + directions (chef) + directions des membres cochés
+      const mergedDest = new Set(destIds.map(String));
+      for (const uid of memberDestIds) {
+        for (const d of departments ?? []) {
+          if ((d.members ?? []).some((m) => m._id === uid)) {
+            mergedDest.add(String(d._id));
+          }
+        }
+      }
+      const recipientTargets = [...mergedDest].map((departmentId) => ({
+        departmentId: departmentId as Id<"departments">,
         kind: "traitement" as const,
       }));
+      const primaryRecipientId =
+        memberDestIds[0] ?? recipientId ?? undefined;
 
       for (let fi = 0; fi < uploaded.length; fi++) {
         const up = uploaded[fi]!;
@@ -579,9 +603,9 @@ export function SendDocument({
           observations: observations.trim() || undefined,
           tasks: effectiveTasks,
           extractedText: fi === 0 ? extractedText || undefined : undefined,
-          recipientDepartmentId: destIds[0],
+          recipientDepartmentId: (recipientTargets[0]?.departmentId ?? destIds[0]) as Id<"departments">,
           recipientTargets,
-          recipientId: fi === 0 ? recipientId ?? undefined : undefined,
+          recipientId: fi === 0 ? primaryRecipientId : undefined,
           publicRef: isTransmission ? undefined : ref || undefined,
           mailKind: isTransmission ? "transmission" : "envoi",
           stepDeadlineHours: undefined,
@@ -800,7 +824,7 @@ export function SendDocument({
               ) : (
                 <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
                   {directions.map((dir) => {
-                    const dirActive = destIds.includes(dir._id);
+                    const chefActive = destIds.includes(dir._id);
                     const services = (departments ?? [])
                       .filter(
                         (s) =>
@@ -818,39 +842,40 @@ export function SendDocument({
                     const selectedSvcCount = services.filter((s) =>
                       destIds.includes(s._id),
                     ).length;
+                    // Membres rattachés à la direction uniquement (pas aux services)
+                    const dirMembers = (dir.members ?? []).filter(
+                      (m) => m._id !== me?.user._id,
+                    );
+                    const selectedMemberCount = dirMembers.filter((m) =>
+                      memberDestIds.includes(m._id),
+                    ).length;
+                    const cardActive =
+                      chefActive ||
+                      selectedSvcCount > 0 ||
+                      selectedMemberCount > 0;
                     return (
                       <div
                         key={dir._id}
                         className={cn(
                           "rounded-lg border p-3 transition-colors",
-                          dirActive || selectedSvcCount > 0
+                          cardActive
                             ? "border-brand/40 bg-brand-soft/40"
                             : "border-border bg-card",
                         )}
                       >
-                        {/* Direction (chef / structure entière) */}
-                        <label className="flex cursor-pointer items-start gap-3">
-                          <input
-                            type="checkbox"
-                            className="mt-1 size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
-                            checked={dirActive}
-                            onChange={() => toggleDest(dir._id)}
-                          />
-                          <span className="min-w-0 flex-1">
-                            <span className="flex flex-wrap items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground">
-                                {dir.name}
-                              </span>
-                              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                                Direction
-                              </span>
-                            </span>
+                        {/* En-tête direction — sans case à cocher */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-sm font-semibold text-foreground">
+                            {dir.name}
                           </span>
-                        </label>
+                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            Direction
+                          </span>
+                        </div>
 
-                        {/* Services de cette direction */}
+                        {/* Services */}
                         {services.length > 0 ? (
-                          <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3 pl-7">
+                          <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                               Services
                             </p>
@@ -872,16 +897,99 @@ export function SendDocument({
                                     checked={svcActive}
                                     onChange={() => toggleDest(svc._id)}
                                   />
-                                  <span className="min-w-0 flex-1 text-sm">
-                                    <span className="font-medium text-foreground">
-                                      {svc.name}
-                                    </span>
+                                  <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
+                                    {svc.name}
                                   </span>
                                 </label>
                               );
                             })}
                           </div>
                         ) : null}
+
+                        {/* Chef de direction */}
+                        <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Direction
+                          </p>
+                          <label
+                            className={cn(
+                              "flex cursor-pointer items-center gap-3 rounded-md border px-2.5 py-2 transition-colors",
+                              chefActive
+                                ? "border-brand bg-card shadow-sm"
+                                : "border-transparent hover:bg-muted/40",
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              className="size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
+                              checked={chefActive}
+                              onChange={() => toggleDest(dir._id)}
+                            />
+                            <span className="text-sm font-medium text-foreground">
+                              Chef de direction
+                              {dir.chief?.name
+                                ? ` · ${dir.chief.name}`
+                                : ""}
+                            </span>
+                          </label>
+                        </div>
+
+                        {/* Autre : membres de la direction (hors services) */}
+                        <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            Autre — membres de la direction
+                          </p>
+                          {dirMembers.length === 0 ? (
+                            <p className="px-1 text-xs text-muted-foreground">
+                              Aucun membre rattaché directement à cette
+                              direction.
+                            </p>
+                          ) : (
+                            dirMembers.map((m) => {
+                              const active = memberDestIds.includes(m._id);
+                              const isChef =
+                                (m as { departmentRole?: string })
+                                  .departmentRole === "chef";
+                              return (
+                                <label
+                                  key={m._id}
+                                  className={cn(
+                                    "flex cursor-pointer items-center gap-3 rounded-md border px-2.5 py-2 transition-colors",
+                                    active
+                                      ? "border-brand bg-card shadow-sm"
+                                      : "border-transparent hover:bg-muted/40",
+                                  )}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    className="size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
+                                    checked={active}
+                                    onChange={() => toggleMemberDest(m._id)}
+                                  />
+                                  <span className="min-w-0 flex-1 text-sm">
+                                    <span className="font-medium text-foreground">
+                                      {m.name}
+                                    </span>
+                                    {isChef ? (
+                                      <span className="ml-1.5 text-[10px] text-muted-foreground">
+                                        (chef)
+                                      </span>
+                                    ) : null}
+                                    {(m as { fonction?: string | null })
+                                      .fonction ? (
+                                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                                        {
+                                          (m as { fonction?: string | null })
+                                            .fonction
+                                        }
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -1370,16 +1478,23 @@ export function SendDocument({
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">Qui reçoit</dt>
                     <dd className="max-w-[65%] text-right font-medium">
-                      {destIds
-                        .map((id) => {
+                      {[
+                        ...destIds.map((id) => {
                           const d = departments?.find((x) => x._id === id);
                           if (!d) return null;
-                          const kind =
-                            (d as { kind?: string | null }).kind === "service"
-                              ? "Service"
-                              : "Direction";
-                          return `${kind} : ${d.name}`;
-                        })
+                          const isSvc =
+                            (d as { kind?: string | null }).kind === "service";
+                          return isSvc
+                            ? `Service : ${d.name}`
+                            : `Chef de direction : ${d.name}`;
+                        }),
+                        ...memberDestIds.map((uid) => {
+                          const m = departments
+                            ?.flatMap((d) => d.members ?? [])
+                            .find((x) => x._id === uid);
+                          return m ? `Membre : ${m.name}` : null;
+                        }),
+                      ]
                         .filter(Boolean)
                         .join(" · ") || "—"}
                     </dd>
