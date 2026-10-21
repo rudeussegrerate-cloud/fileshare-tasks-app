@@ -209,14 +209,6 @@ export function DashboardHome({
         </Section>
       ) : null}
 
-      {!isManager ? (
-        <div className="sc-dash-card text-sm text-muted-foreground">
-          Espace personnel. Le tableau de bord de pilotage (indicateurs de
-          structure) est réservé au <strong className="text-foreground">chef</strong> et au{" "}
-          <strong className="text-foreground">DG</strong>.
-        </div>
-      ) : null}
-
       <Section
         icon={Inbox}
         title="Mes courriers"
