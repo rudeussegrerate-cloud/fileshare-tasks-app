@@ -39,7 +39,6 @@ import {
   type DocumentStatus,
   PREDEFINED_TASKS,
 } from "./shared";
-import { CircuitPathMap } from "./CircuitPathMap";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export function DocumentDetailDialog({
@@ -741,20 +740,6 @@ export function DocumentDetailDialog({
               </section>
             ) : (
               <section className="space-y-3">
-                {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 0 ? (
-                  <div data-scandoc-tour="doc-circuit-map">
-                    <CircuitPathMap
-                      steps={documentOrNull.steps}
-                      currentStepIndex={documentOrNull.currentStepIndex ?? 0}
-                      publicRef={documentOrNull.publicRef}
-                      isFullyTreated={
-                        Boolean(documentOrNull.isFullyTreated) ||
-                        documentOrNull.status === "traite"
-                      }
-                    />
-                  </div>
-                ) : null}
-
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Suivi du courrier
                 </h4>
