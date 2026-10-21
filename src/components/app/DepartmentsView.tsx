@@ -303,6 +303,10 @@ function AssignPersonDialog({
           </div>
 
           {people !== undefined && list.length === 0 ? (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              <Info className="mt-0.5 size-3.5 shrink-0" />
+              <p>{EMPTY_PEOPLE}</p>
+            </div>
           ) : null}
         </div>
 
@@ -510,6 +514,10 @@ function CreateDepartmentDialog({
               département. Vous pouvez aussi le désigner plus tard.
             </p>
             {people !== undefined && list.length === 0 ? (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
+                <Info className="mt-0.5 size-3.5 shrink-0" />
+                <p>{EMPTY_PEOPLE}</p>
+              </div>
             ) : null}
           </div>
         </div>
@@ -582,6 +590,7 @@ export function DepartmentsView() {
         </h2>
         <p className="text-sm text-muted-foreground">
           Directions et services MNDPT. Affectez les membres, nommez les chefs,
+          validez les demandes d&apos;adhésion.
         </p>
       </div>
 
