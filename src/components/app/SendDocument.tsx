@@ -442,7 +442,6 @@ export function SendDocument({
         : (() => {
               // Étape détails (index 3) — fichier obligatoire (envoi et transmission)
               if (files.length === 0) return false;
-              if (!isTransmission && !publicRef.trim()) return false;
               if (isTransmission && !referenceText.trim()) return false;
               if (!arriveeLe.trim()) return false;
               if (!duField.trim()) return false;
@@ -461,16 +460,12 @@ export function SendDocument({
       toast.error("Choisissez au moins un destinataire.");
       return;
     }
-    if (!isTransmission && !publicRef.trim()) {
-      toast.error("Indiquez le N° du courrier.");
-      return;
-    }
     if (!arriveeLe.trim()) {
       toast.error("Indiquez la date d'arrivée (Arrivée le).");
       return;
     }
     if (!duField.trim()) {
-      toast.error('Indiquez le champ « Du ».');
+      toast.error('Indiquez le champ « Émetteur ».');
       return;
     }
     if (!dateCourrier.trim()) {
@@ -558,7 +553,7 @@ export function SendDocument({
             ? { label: "Arrivée le", value: arriveeLe.trim(), source: "manual" as const }
             : null,
           duField.trim()
-            ? { label: "Du", value: duField.trim(), source: "manual" as const }
+            ? { label: "Émetteur", value: duField.trim(), source: "manual" as const }
             : null,
           dateCourrier.trim()
             ? { label: "Date", value: dateCourrier.trim(), source: "manual" as const }
@@ -1217,10 +1212,6 @@ export function SendDocument({
                       className="w-full font-mono text-base"
                       autoComplete="off"
                     />
-                    <p className="text-[11px] text-muted-foreground">
-                      Numéro officiel de sortie (laissé vide = génération auto
-                      selon la structure émettrice).
-                    </p>
                   </>
                 ) : null}
                 <div className={isTransmission ? "space-y-1.5" : "space-y-1.5 pt-2"}>
@@ -1275,7 +1266,7 @@ export function SendDocument({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="duField">
-                    Du
+                    Émetteur
                     <span className="ml-1 text-destructive" aria-hidden>
                       *
                     </span>
@@ -1313,9 +1304,6 @@ export function SendDocument({
                   rows={3}
                   className="resize-y"
                 />
-                <p className="text-[11px] text-muted-foreground">
-                  Zone Observations de la fiche de transmission MNDPT.
-                </p>
               </div>
 
               
@@ -1355,25 +1343,13 @@ export function SendDocument({
                   })}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="customTask">
-                    Autre{" "}
-                    <span className="font-normal text-muted-foreground">
-                      (si la tâche n&apos;est pas dans la liste)
-                    </span>
-                  </Label>
+                  <Label htmlFor="customTask">Autre</Label>
                   <Input
                     id="customTask"
                     value={customTask}
                     onChange={(e) => setCustomTask(e.target.value)}
                   />
                 </div>
-                {effectiveTasks.length > 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    {effectiveTasks.length} tâche
-                    {effectiveTasks.length > 1 ? "s" : ""} sélectionnée
-                    {effectiveTasks.length > 1 ? "s" : ""}
-                  </p>
-                ) : null}
               </div>
 
                             <div className="rounded-lg border border-border bg-brand-soft/40 p-5 text-center sm:text-left">
@@ -1410,7 +1386,7 @@ export function SendDocument({
                   </div>
 
                   <div className="flex justify-between gap-4">
-                    <dt className="shrink-0 text-muted-foreground">Émetteur</dt>
+                    <dt className="shrink-0 text-muted-foreground">Envoyé par</dt>
                     <dd className="max-w-[65%] text-right font-medium">
                       {[
                         me?.user?.name?.trim() || null,
@@ -1443,7 +1419,7 @@ export function SendDocument({
                   ) : null}
                   {duField.trim() ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="shrink-0 text-muted-foreground">Du</dt>
+                      <dt className="shrink-0 text-muted-foreground">Émetteur</dt>
                       <dd className="text-right font-medium">{duField.trim()}</dd>
                     </div>
                   ) : null}
