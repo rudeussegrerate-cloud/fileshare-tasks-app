@@ -1474,7 +1474,10 @@ export function SendDocument({
 
           {step === 3 && files.length > 0 ? (
             <div className="space-y-4">
-              <div className="flex gap-3 overflow-x-auto pb-2 pt-1">
+              <p className="text-center text-sm font-medium text-foreground">
+                Voici les documents à envoyer
+              </p>
+              <div className="flex justify-center gap-3 overflow-x-auto pb-2 pt-1">
                 {files.map((f, i) => {
                   const selected = previewIndex === i;
                   const isImg = f.type.startsWith("image/");
