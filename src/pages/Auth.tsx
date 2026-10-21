@@ -20,7 +20,7 @@ import loginBackdrop from "@/assets/login-backdrop.jpg";
 import { api } from "@/convex/_generated/api";
 import { useMutation, useQuery } from "convex/react";
 import type { Id } from "@/convex/_generated/dataModel";
-import { ArrowLeft, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import { BrandLogo } from "@/components/Logo";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -146,6 +146,11 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [info, setInfo] = useState<string | null>(null);
   const [cguAccepted, setCguAccepted] = useState(false);
   const [pwdDraft, setPwdDraft] = useState("");
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [showSignUpConfirm, setShowSignUpConfirm] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // Message si redirection après timeout de session
   useEffect(() => {
@@ -597,27 +602,67 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reset-new">Nouveau mot de passe</Label>
-                  <Input
-                    id="reset-new"
-                    name="newPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    disabled={isLoading}
-                    required
-                    minLength={8}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="reset-new"
+                      name="newPassword"
+                      type={showResetPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      disabled={isLoading}
+                      required
+                      minLength={8}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground"
+                      aria-label={
+                        showResetPassword
+                          ? "Masquer le mot de passe"
+                          : "Afficher le mot de passe"
+                      }
+                      onClick={() => setShowResetPassword((v) => !v)}
+                      tabIndex={-1}
+                    >
+                      {showResetPassword ? (
+                        <EyeOff className="size-4" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="reset-confirm">Confirmer le mot de passe</Label>
-                  <Input
-                    id="reset-confirm"
-                    name="confirmPassword"
-                    type="password"
-                    autoComplete="new-password"
-                    disabled={isLoading}
-                    required
-                    minLength={8}
-                  />
+                  <div className="relative">
+                    <Input
+                      id="reset-confirm"
+                      name="confirmPassword"
+                      type={showResetConfirm ? "text" : "password"}
+                      autoComplete="new-password"
+                      disabled={isLoading}
+                      required
+                      minLength={8}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground"
+                      aria-label={
+                        showResetConfirm
+                          ? "Masquer le mot de passe"
+                          : "Afficher le mot de passe"
+                      }
+                      onClick={() => setShowResetConfirm((v) => !v)}
+                      tabIndex={-1}
+                    >
+                      {showResetConfirm ? (
+                        <EyeOff className="size-4" />
+                      ) : (
+                        <Eye className="size-4" />
+                      )}
+                    </button>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
@@ -723,14 +768,34 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="signin-password">Mot de passe</Label>
-                    <Input
-                      id="signin-password"
-                      name="password"
-                      type="password"
-                      autoComplete="current-password"
-                      disabled={isLoading}
-                      required
-                    />
+                    <div className="relative">
+                      <Input
+                        id="signin-password"
+                        name="password"
+                        type={showSignInPassword ? "text" : "password"}
+                        autoComplete="current-password"
+                        disabled={isLoading}
+                        required
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground"
+                        aria-label={
+                          showSignInPassword
+                            ? "Masquer le mot de passe"
+                            : "Afficher le mot de passe"
+                        }
+                        onClick={() => setShowSignInPassword((v) => !v)}
+                        tabIndex={-1}
+                      >
+                        {showSignInPassword ? (
+                          <EyeOff className="size-4" />
+                        ) : (
+                          <Eye className="size-4" />
+                        )}
+                      </button>
+                    </div>
                     <button
                       type="button"
                       className="mt-1 text-sm font-bold text-white underline underline-offset-4 hover:text-white/90"
@@ -829,17 +894,37 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="signup-password">Mot de passe</Label>
-                      <Input
-                        id="signup-password"
-                        name="password"
-                        type="password"
-                        autoComplete="new-password"
-                        disabled={isLoading}
-                        required
-                        minLength={8}
-                        value={pwdDraft}
-                        onChange={(e) => setPwdDraft(e.target.value)}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="signup-password"
+                          name="password"
+                          type={showSignUpPassword ? "text" : "password"}
+                          autoComplete="new-password"
+                          disabled={isLoading}
+                          required
+                          minLength={8}
+                          value={pwdDraft}
+                          onChange={(e) => setPwdDraft(e.target.value)}
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground"
+                          aria-label={
+                            showSignUpPassword
+                              ? "Masquer le mot de passe"
+                              : "Afficher le mot de passe"
+                          }
+                          onClick={() => setShowSignUpPassword((v) => !v)}
+                          tabIndex={-1}
+                        >
+                          {showSignUpPassword ? (
+                            <EyeOff className="size-4" />
+                          ) : (
+                            <Eye className="size-4" />
+                          )}
+                        </button>
+                      </div>
                       <ul className="mt-2 space-y-1 text-xs" aria-live="polite">
                         {[
                           { ok: pwdDraft.length >= 8, label: "Au moins 8 caractères" },
@@ -863,15 +948,35 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="signup-confirmation">Confirmation</Label>
-                      <Input
-                        id="signup-confirmation"
-                        name="confirmation"
-                        type="password"
-                        autoComplete="new-password"
-                        disabled={isLoading}
-                        required
-                        minLength={8}
-                      />
+                      <div className="relative">
+                        <Input
+                          id="signup-confirmation"
+                          name="confirmation"
+                          type={showSignUpConfirm ? "text" : "password"}
+                          autoComplete="new-password"
+                          disabled={isLoading}
+                          required
+                          minLength={8}
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground"
+                          aria-label={
+                            showSignUpConfirm
+                              ? "Masquer le mot de passe"
+                              : "Afficher le mot de passe"
+                          }
+                          onClick={() => setShowSignUpConfirm((v) => !v)}
+                          tabIndex={-1}
+                        >
+                          {showSignUpConfirm ? (
+                            <EyeOff className="size-4" />
+                          ) : (
+                            <Eye className="size-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <label className="flex items-start gap-2 text-xs text-muted-foreground">
