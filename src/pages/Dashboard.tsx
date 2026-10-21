@@ -66,7 +66,6 @@ export default function Dashboard() {
   const [openDocumentId, setOpenDocumentId] = useState<Id<"documents"> | null>(
     null,
   );
-  const [continueRef, setContinueRef] = useState<string | undefined>(undefined);
   const [replyTo, setReplyTo] = useState<{
     documentId: import("@/convex/_generated/dataModel").Id<"documents">;
     publicRef?: string | null;
@@ -190,12 +189,10 @@ export default function Dashboard() {
 
       {view === "send" ? (
         <SendDocument
-          key={replyTo ? `reply-${replyTo.documentId}` : continueRef ?? "new"}
+          key={replyTo ? `reply-${replyTo.documentId}` : "new"}
           mode="envoi"
-          initialPublicRef={continueRef}
           replyTo={replyTo}
           onSent={() => {
-            setContinueRef(undefined);
             setReplyTo(null);
             setView("inbox");
           }}

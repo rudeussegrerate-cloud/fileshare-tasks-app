@@ -63,8 +63,6 @@ export function CircuitTrackingView({
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Dossiers classés par statut. Relancez la personne en charge si besoin.
-          Pour transmettre dans un circuit, renvoyez le fichier avec le{" "}
-          <strong>même identifiant</strong>.
         </p>
       </div>
 
@@ -235,10 +233,8 @@ export function CircuitTrackingView({
 
       <p className="flex items-start gap-2 text-[11px] text-muted-foreground">
         <Clock className="mt-0.5 size-3.5 shrink-0" />
-        Un courrier en circuit avance quand l&apos;intervenant envoie le fichier
-        avec le <em>même identifiant</em> vers l&apos;étape suivante. Des
-        alertes automatiques sont envoyées ~12 h avant l&apos;échéance et en
-        cas de retard (intervenant + émetteur).
+        Des alertes automatiques peuvent être envoyées en cas de retard
+        (intervenant + émetteur).
       </p>
     </div>
   );

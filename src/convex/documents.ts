@@ -585,163 +585,17 @@ export const send = mutation({
       }
     }
 
-    // ——— CONTINUER un circuit existant via identifiant (uniquement si c'est mon tour) ———
+    // N° unique : pas de continuation de circuit
     if (manualRef) {
       const existing = await ctx.db
         .query("documents")
         .withIndex("by_publicRef", (q) => q.eq("publicRef", manualRef))
         .first();
-
-      if (existing && existing.status === "traite") {
+      if (existing) {
         throw new Error(
-          `Le dossier « ${manualRef} » est déjà clôturé. Utilisez un nouvel identifiant pour un nouvel envoi.`,
-        );
-      }
-
-      if (existing && existing.status !== "traite") {
-        const steps = (
-          await ctx.db
-            .query("documentSteps")
-            .withIndex("by_document", (q) => q.eq("documentId", existing._id))
-            .collect()
-        ).sort((a, b) => a.stepIndex - b.stepIndex);
-
-        const active =
-          steps.length > 0
-            ? (steps.find((s) => s.status === "active") ??
-              steps.find(
-                (s) => s.assigneeId === userId && s.status !== "done",
-              ))
-            : null;
-
-        // Continuation circuit seulement si je suis l'intervenant actif
-        if (active && active.assigneeId === userId) {
-          const now = Date.now();
-          await ctx.db.insert("documentRevisions", {
-            documentId: existing._id,
-            storageId: existing.storageId,
-            fileName: existing.fileName,
-            contentType: existing.contentType,
-            size: existing.size,
-            uploadedBy: userId,
-            uploadedByName: displayName(sender),
-            stepIndex: active.stepIndex,
-            note: "Version avant transmission",
-            createdAt: now,
-          });
-          await ctx.db.insert("documentRevisions", {
-            documentId: existing._id,
-            storageId: args.storageId,
-            fileName: args.fileName,
-            contentType: args.contentType,
-            size: args.size,
-            uploadedBy: userId,
-            uploadedByName: displayName(sender),
-            stepIndex: active.stepIndex,
-            note: "Transmission avec fichier (même identifiant)",
-            createdAt: now + 1,
-          });
-
-          await ctx.db.patch(active._id, {
-            status: "done",
-            actedAt: now,
-            note: args.objet?.trim().slice(0, 200) || undefined,
-          });
-
-          const next = steps.find((s) => s.stepIndex === active.stepIndex + 1);
-          if (!next) {
-            await ctx.db.patch(existing._id, {
-              storageId: args.storageId,
-              fileName: args.fileName,
-              contentType: args.contentType,
-              size: args.size,
-              revisionCount: (existing.revisionCount ?? 0) + 1,
-              lastRevisedAt: now,
-              lastRevisedByName: displayName(sender),
-              status: "traite",
-              currentStepIndex: active.stepIndex,
-              updatedAt: now,
-            });
-            try {
-              await pushNotification(ctx, {
-                userId: existing.senderId,
-                type: "document.status",
-                title: "Circuit terminé",
-                body: `« ${existing.objet} » (${manualRef}) — clôturé par ${displayName(sender)}`,
-                documentId: existing._id,
-              });
-            } catch {}
-            return existing._id;
-          }
-
-          // Prochain intervenant : choix optionnel, sinon l'étape suivante du circuit
-          let nextAssigneeId = next.assigneeId;
-          let nextAssigneeName = next.assigneeName;
-          let nextDepName = next.assigneeDepartmentName;
-          if (args.recipientId && args.recipientId !== userId) {
-            const chosen = await ctx.db.get(args.recipientId);
-            if (chosen) {
-              nextAssigneeId = args.recipientId;
-              nextAssigneeName = displayName(chosen);
-              if (chosen.departmentId) {
-                const dep = await ctx.db.get(chosen.departmentId);
-                nextDepName = dep?.name;
-              }
-              await ctx.db.patch(next._id, {
-                assigneeId: nextAssigneeId,
-                assigneeName: nextAssigneeName,
-                assigneeDepartmentName: nextDepName,
-              });
-            }
-          }
-
-          const stepHours =
-            existing.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
-          await ctx.db.patch(next._id, {
-            status: "active",
-            activatedAt: now,
-            dueAt: now + stepHours * 3600 * 1000,
-          });
-          const nextUser = await ctx.db.get(nextAssigneeId);
-          await ctx.db.patch(existing._id, {
-            storageId: args.storageId,
-            fileName: args.fileName,
-            contentType: args.contentType,
-            size: args.size,
-            revisionCount: (existing.revisionCount ?? 0) + 1,
-            lastRevisedAt: now,
-            lastRevisedByName: displayName(sender),
-            recipientId: nextAssigneeId,
-            recipientName: nextAssigneeName,
-            recipientDepartmentId: nextUser?.departmentId,
-            currentStepIndex: next.stepIndex,
-            status: "en_cours",
-            updatedAt: now,
-          });
-          try {
-            await pushNotification(ctx, {
-              userId: nextAssigneeId,
-              type: "document.received",
-              title: "Document à traiter (circuit)",
-              body: `Identifiant ${manualRef} — transmis par ${displayName(sender)}. « ${existing.objet} »`,
-              documentId: existing._id,
-            });
-          } catch {}
-          try {
-            await pushNotification(ctx, {
-              userId: existing.senderId,
-              type: "document.status",
-              title: "Circuit avancé",
-              body: `« ${existing.objet} » (${manualRef}) → maintenant chez ${nextAssigneeName}`,
-              documentId: existing._id,
-            });
-          } catch {}
-          return existing._id;
-        }
-
-        // N° déjà pris et ce n'est pas mon tour de circuit → nouvel envoi impossible
-        throw new Error(
-          `Le N° « ${manualRef} » est déjà utilisé. Choisissez un autre numéro pour un nouvel envoi.`,
+          existing.status === "traite"
+            ? `Le dossier « ${manualRef} » est déjà clôturé. Utilisez un nouvel identifiant.`
+            : `Le N° « ${manualRef} » est déjà utilisé. Choisissez un autre numéro pour un nouvel envoi.`,
         );
       }
     }

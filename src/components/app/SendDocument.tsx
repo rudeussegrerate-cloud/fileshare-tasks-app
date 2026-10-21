@@ -90,7 +90,7 @@ export function SendDocument({
   onManageDepartments: () => void;
   /** envoi = N° officiel · transmission = papier (Réf. seule) */
   mode?: "envoi" | "transmission";
-  /** Préremplir l'identifiant (continuation de circuit). */
+  /** Préremplir le N° (optionnel). */
   initialPublicRef?: string;
   /** Mode réponse à un courrier reçu */
   replyTo?: {
@@ -129,10 +129,6 @@ export function SendDocument({
   >(null);
   const departmentId = destIds[0] ?? null;
   const [recipientId, setRecipientId] = useState<Id<"users"> | null>(null);
-  /** Intervenants suivants dans le circuit (après le destinataire principal) */
-  const [circuitExtra, setCircuitExtra] = useState<
-    Array<{ userId: Id<"users">; name: string; dept?: string }>
-  >([]);
   /** Autres directions/services destinataires (en plus de la destination principale) */
   const [extraDestIds, setExtraDestIds] = useState<Id<"departments">[]>([]);
 
@@ -152,16 +148,6 @@ export function SendDocument({
   const [thumbUrls, setThumbUrls] = useState<Record<number, string>>({});
 
   const [publicRef, setPublicRef] = useState(initialPublicRef ?? "");
-  /** SLA par étape (heures) pour un nouveau circuit */
-  const [stepDeadlineHours, setStepDeadlineHours] = useState(48);
-  const refLookup = useQuery(
-    api.documents.lookupByPublicRef,
-    // Recherche circuit uniquement si N° complet collé (pas la simple séquence)
-    publicRef.trim().startsWith("N°") || publicRef.trim().startsWith("REF-")
-      ? { publicRef: publicRef.trim() }
-      : "skip",
-  );
-
   // Tâches (multi-sélection)
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [customTask, setCustomTask] = useState("");
@@ -203,18 +189,6 @@ export function SendDocument({
         .find((member) => member._id === recipientId) ?? null
     );
   })();
-
-  /** Tous les membres validés de tous les départements (pour le circuit inter-services) */
-  const allCircuitCandidates = (departments ?? []).flatMap((d) =>
-    (d.members ?? [])
-      .filter((m) => m._id !== me?.user._id)
-      .map((m) => ({
-        userId: m._id as Id<"users">,
-        name: m.name,
-        dept: d.name as string,
-        deptId: d._id as Id<"departments">,
-      })),
-  );
 
   const onBehalfDepartment = departments?.find(
     (d) => d._id === onBehalfDepartmentId,
@@ -445,7 +419,6 @@ export function SendDocument({
     setExtractedText("");
     // destIds cleared above
     setRecipientId(null);
-    setCircuitExtra([]);
     setObjet("");
     setObservations("");
     setPublicRef("");
@@ -624,10 +597,6 @@ export function SendDocument({
             (me?.user?.departmentId as Id<"departments"> | undefined) ??
             onBehalfDepartmentId ??
             undefined,
-          circuitAssigneeIds:
-            fi === 0 && circuitExtra.length > 0
-              ? circuitExtra.map((c) => c.userId)
-              : undefined,
           onBehalfOfType: "internal",
           onBehalfOfUserId: me?.user?._id ?? undefined,
           onBehalfOfName: me?.user?.name?.trim() || undefined,
@@ -1271,39 +1240,6 @@ export function SendDocument({
                     rows={2}
                   />
                 </div>
-                {refLookup?.found && !refLookup.isClosed ? (
-                  <div
-                    className={
-                      refLookup.isMyTurn
-                        ? "rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900"
-                        : "rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-foreground"
-                    }
-                  >
-                    {refLookup.isMyTurn ? (
-                      <>
-                        Circuit reconnu — « {refLookup.objet} ».{" "}
-                        {refLookup.isLastStep
-                          ? "Vous êtes la dernière étape : l'envoi clôturera le dossier."
-                          : refLookup.suggestedNext
-                            ? `Prochain suggéré : ${refLookup.suggestedNext.name}${refLookup.suggestedNext.department ? ` (${refLookup.suggestedNext.department})` : ""}.`
-                            : "Transmettez à l'étape suivante."}
-                      </>
-                    ) : (
-                      <>
-                        Identifiant trouvé, mais ce n&apos;est pas votre tour
-                        {refLookup.activeAssigneeName
-                          ? ` (chez ${refLookup.activeAssigneeName})`
-                          : ""}
-                        . L&apos;envoi sera refusé.
-                      </>
-                    )}
-                  </div>
-                ) : null}
-                {refLookup?.found && refLookup.isClosed ? (
-                  <p className="text-xs text-red-700">
-                    Ce dossier est déjà clôturé. Choisissez un autre identifiant.
-                  </p>
-                ) : null}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="objet">
