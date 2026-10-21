@@ -934,10 +934,10 @@ export function SendDocument({
                           </label>
                         </div>
 
-                        {/* Autre : membres de la direction (hors services) */}
+                        {/* Autre : destinataires par fonction (membres de la direction) */}
                         <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3">
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Autre — membres de la direction
+                            Autre — par fonction
                           </p>
                           {dirMembers.length === 0 ? (
                             <p className="px-1 text-xs text-muted-foreground">
@@ -947,9 +947,11 @@ export function SendDocument({
                           ) : (
                             dirMembers.map((m) => {
                               const active = memberDestIds.includes(m._id);
-                              const isChef =
-                                (m as { departmentRole?: string })
-                                  .departmentRole === "chef";
+                              const fonction =
+                                (
+                                  (m as { fonction?: string | null })
+                                    .fonction ?? ""
+                                ).trim() || "Fonction non renseignée";
                               return (
                                 <label
                                   key={m._id}
@@ -968,22 +970,11 @@ export function SendDocument({
                                   />
                                   <span className="min-w-0 flex-1 text-sm">
                                     <span className="font-medium text-foreground">
-                                      {m.name}
+                                      {fonction}
                                     </span>
-                                    {isChef ? (
-                                      <span className="ml-1.5 text-[10px] text-muted-foreground">
-                                        (chef)
-                                      </span>
-                                    ) : null}
-                                    {(m as { fonction?: string | null })
-                                      .fonction ? (
-                                      <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                                        {
-                                          (m as { fonction?: string | null })
-                                            .fonction
-                                        }
-                                      </span>
-                                    ) : null}
+                                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
+                                      Cocher pour désigner ce destinataire
+                                    </span>
                                   </span>
                                 </label>
                               );
@@ -1492,7 +1483,11 @@ export function SendDocument({
                           const m = departments
                             ?.flatMap((d) => d.members ?? [])
                             .find((x) => x._id === uid);
-                          return m ? `Membre : ${m.name}` : null;
+                          if (!m) return null;
+                          const fn = (m.fonction ?? "").trim();
+                          return fn
+                            ? `Fonction : ${fn}`
+                            : `Membre : ${m.name}`;
                         }),
                       ]
                         .filter(Boolean)
