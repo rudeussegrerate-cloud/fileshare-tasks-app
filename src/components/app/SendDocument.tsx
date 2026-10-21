@@ -673,6 +673,30 @@ export function SendDocument({
 
       <Card className="border-border/80 shadow-sm">
         <CardContent className="space-y-8 px-5 py-8 sm:px-8">
+          {/* Toujours montés pour permettre d'ajouter des fichiers à toute étape */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            data-scandoc-tour="send-file"
+            accept={ACCEPT_DOCS}
+            className="hidden"
+            multiple
+            onChange={(event) => {
+              void handleFiles(event.target.files, "document");
+              event.target.value = "";
+            }}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept={ACCEPT_PHOTOS}
+            capture="environment"
+            className="hidden"
+            onChange={(event) => {
+              void handleFiles(event.target.files, "photo");
+              event.target.value = "";
+            }}
+          />
           {replyTo ? (
             <p className="rounded-lg border border-brand/30 bg-brand-soft/50 px-4 py-3 text-sm">
               <strong>Réponse</strong> au courrier
@@ -763,27 +787,6 @@ export function SendDocument({
                 </div>
               </div>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                data-scandoc-tour="send-file"
-                accept={ACCEPT_DOCS}
-                className="hidden"
-                multiple
-                onChange={(event) =>
-                  void handleFiles(event.target.files, "document")
-                }
-              />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept={ACCEPT_PHOTOS}
-                capture="environment"
-                className="hidden"
-                onChange={(event) =>
-                  void handleFiles(event.target.files, "photo")
-                }
-              />
             </div>
           ) : null}
 
@@ -1495,10 +1498,12 @@ export function SendDocument({
             </div>
           ) : null}
 
-          {step === 3 && files.length > 0 ? (
+          {step === 3 ? (
             <div className="space-y-4">
               <p className="text-center text-sm font-medium text-foreground">
-                Voici les documents à envoyer
+                {files.length > 0
+                  ? "Voici les documents à envoyer"
+                  : "Aucun document — ajoutez-en un"}
               </p>
               <div className="flex justify-center gap-3 overflow-x-auto pb-2 pt-1">
                 {files.map((f, i) => {
@@ -1560,19 +1565,34 @@ export function SendDocument({
                   );
                 })}
                 {files.length < 20 ? (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex w-[7.5rem] shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 aspect-[2/3] text-muted-foreground transition-colors hover:border-brand/50 hover:bg-brand-soft/30 hover:text-brand"
-                    title="Ajouter un document"
-                  >
-                    <span className="flex size-10 items-center justify-center rounded-full border border-dashed border-current">
-                      <Plus className="size-5" />
-                    </span>
-                    <span className="px-2 text-center text-[10px] font-medium">
-                      Ajouter
-                    </span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex aspect-[2/3] w-[7.5rem] shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:border-brand/50 hover:bg-brand-soft/30 hover:text-brand"
+                      title="Ajouter un document"
+                    >
+                      <span className="flex size-10 items-center justify-center rounded-full border border-dashed border-current">
+                        <Plus className="size-5" />
+                      </span>
+                      <span className="px-2 text-center text-[10px] font-medium">
+                        Document
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cameraInputRef.current?.click()}
+                      className="flex aspect-[2/3] w-[7.5rem] shrink-0 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 text-muted-foreground transition-colors hover:border-brand/50 hover:bg-brand-soft/30 hover:text-brand"
+                      title="Ajouter une photo"
+                    >
+                      <span className="flex size-10 items-center justify-center rounded-full border border-dashed border-current">
+                        <Camera className="size-5" />
+                      </span>
+                      <span className="px-2 text-center text-[10px] font-medium">
+                        Photo
+                      </span>
+                    </button>
+                  </>
                 ) : null}
               </div>
               {previewIndex !== null && files[previewIndex] ? (
