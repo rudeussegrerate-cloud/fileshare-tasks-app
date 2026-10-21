@@ -223,10 +223,6 @@ export function AccountsView() {
         </div>
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Comptes</h2>
-          <p className="text-xs text-muted-foreground">
-            Validez ou rejetez les demandes. Seuls les comptes validés peuvent
-            rejoindre un département.
-          </p>
         </div>
       </div>
 

@@ -783,39 +783,6 @@ const stats = useQuery(api.documents.stats);
         </CardContent>
       </Card>
 
-      {/* —— Aide —— */}
-      <Card className="border-border">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <HelpCircle className="size-4" />
-            Aide & informations
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm text-muted-foreground">
-          <p>
-            <strong className="text-foreground">Envoyer un document :</strong>{" "}
-            fichier, destinataire, objet, « de la part de », tâches à cocher.
-          </p>
-          <p>
-            <strong className="text-foreground">Statuts :</strong> Envoyé →
-            Consulté → En cours → Traité.
-          </p>
-          <p>
-            <strong className="text-foreground">Département :</strong> à
-            l&apos;inscription vous pouvez demander un département ; le chef
-            valide. Tout membre peut inviter un collègue ; seul le chef
-            confirme l&apos;adhésion.
-          </p>
-          {(me.isChef || me.isAdmin) && (
-            <p>
-              <strong className="text-foreground">Chefs / DG :</strong> valider
-              les adhésions, gérer les membres ; le DG valide aussi les
-              comptes.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
       {(me.isAdmin || me.isRoot) && (
         <Card className="border-border">
           <CardHeader>

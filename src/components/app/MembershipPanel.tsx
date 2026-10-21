@@ -66,10 +66,6 @@ export function MembershipPanel({
         <Card className="border-border">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Invitations reçues</CardTitle>
-            <CardDescription>
-              Acceptez pour demander l&apos;adhésion — le chef du département
-              validera ensuite.
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {myInvites!.map((inv) => (
@@ -134,10 +130,6 @@ export function MembershipPanel({
               <UserPlus className="size-4" />
               Demandes d&apos;adhésion
             </CardTitle>
-            <CardDescription>
-              Validez ou refusez les personnes qui souhaitent rejoindre le
-              département (inscription ou invitation).
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {pending!.map((r) => (
@@ -203,9 +195,6 @@ export function MembershipPanel({
               <Mail className="size-4" />
               Inviter dans {me.department.name}
             </CardTitle>
-            <CardDescription>
-              Uniquement des comptes déjà inscrits et validés par le DG.
-            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <form

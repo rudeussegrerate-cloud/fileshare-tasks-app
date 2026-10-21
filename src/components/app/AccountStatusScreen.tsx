@@ -124,24 +124,6 @@ export function AccountStatusScreen({
             </div>
 
             {pending ? (
-              <div className="flex items-start gap-2 rounded-lg border border-brand-sky/25 bg-brand-soft/60 px-3 py-2 text-xs text-muted-foreground">
-                <RefreshCw className="mt-0.5 size-3.5 shrink-0 text-brand-sky" />
-                <p>
-                  Cette page se met à jour automatiquement : dès que le DG
-                  valide votre compte, votre espace de travail s'ouvre.
-                </p>
-              </div>
-            ) : (
-              <div className="flex items-start gap-2 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-muted-foreground">
-                <ShieldAlert className="mt-0.5 size-3.5 shrink-0 text-destructive" />
-                <p>
-                  Si le DG vous valide plus tard, votre accès sera rétabli
-                  automatiquement avec le même compte.
-                </p>
-              </div>
-            )}
-
-            {pending ? (
               <Button
                 type="button"
                 variant="secondary"
