@@ -548,8 +548,6 @@ export function DepartmentsView() {
   const departments = useQuery(api.workspace.listDepartments);
   const removeMember = useMutation(api.workspace.removeMember);
   const deleteDepartment = useMutation(api.workspace.deleteDepartment);
-  const seedMndptTree = useMutation(api.entities.seedMndptTree);
-
   const [creating, setCreating] = useState(false);
   const [subParent, setSubParent] = useState<{
     id: Id<"departments">;
@@ -610,26 +608,6 @@ export function DepartmentsView() {
           >
             <UserPlus className="size-4" />
             Ajouter un membre
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              void seedMndptTree({})
-                .then((r: { count: number }) =>
-                  toast.success(
-                    "Arbre MNDPT installé (" + r.count + " entités)",
-                  ),
-                )
-                .catch((e: unknown) =>
-                  toast.error(
-                    e instanceof Error ? e.message : "Échec du seed",
-                  ),
-                );
-            }}
-          >
-            Installer arbre MNDPT
           </Button>
           <Button
             onClick={() => setCreating(true)}
