@@ -39,28 +39,6 @@ function isOnline(lastSeenAt?: number | null) {
   return Boolean(lastSeenAt && Date.now() - lastSeenAt < ONLINE_MS);
 }
 
-/** Nettoie un extrait OCR/brut pour un aperçu lisible (pas un vrai résumé IA). */
-function cleanExtractPreview(raw: string, maxLen = 280): string {
-  let s = raw
-    .replace(/\r/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-  // Retire les lignes trop bruyantes (menus UI, symboles isolés)
-  const lines = s
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => {
-      if (l.length < 3) return false;
-      if (/^[\W\d_]{1,8}$/.test(l)) return false;
-      if (/^(voir le|voila|voile|classés|recherche|nouveau courrier)/i.test(l))
-        return false;
-      return true;
-    });
-  s = lines.join(" · ");
-  if (s.length > maxLen) s = s.slice(0, maxLen).replace(/\s+\S*$/, "") + "…";
-  return s;
-}
 
 
 const ACCEPT =
@@ -143,7 +121,6 @@ export function SendDocument({
   const [arriveeLe, setArriveeLe] = useState("");
   const [duField, setDuField] = useState("");
   const [dateCourrier, setDateCourrier] = useState("");
-  const [summaryOpen, setSummaryOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const [refPickerOpen, setRefPickerOpen] = useState(false);
@@ -840,41 +817,6 @@ export function SendDocument({
                 </div>
               )}
 
-              {destIds.length > 0 ? (
-                <div className="rounded-sm border border-border bg-muted/30 px-3 py-2">
-                  <p className="text-xs font-semibold text-foreground">
-                    Sélection ({destIds.length})
-                  </p>
-                  <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    {destIds.map((id) => {
-                      const d = departments?.find((x) => x._id === id);
-                      if (!d) return null;
-                      const isSvc =
-                        (d as { kind?: string | null }).kind === "service";
-                      return (
-                        <button
-                          key={id}
-                          type="button"
-                          onClick={() => toggleDest(id)}
-                          className="inline-flex max-w-full items-center gap-1 rounded-full border border-brand/40 bg-card px-2.5 py-1 text-[11px] font-medium text-foreground"
-                          title={d.name}
-                        >
-                          <span className="shrink-0 text-[9px] uppercase text-muted-foreground">
-                            {isSvc ? "Svc" : "Dir"}
-                          </span>
-                          <span className="truncate">{d.name}</span>
-                          <span className="text-muted-foreground">×</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <p className="text-center text-xs text-muted-foreground">
-                  Aucune destination sélectionnée.
-                </p>
-              )}
-
 
             </div>
           ) : null}
@@ -1182,43 +1124,6 @@ export function SendDocument({
 
 {step === 3 ? (
             <div className="space-y-6">
-              <div className="rounded-lg border border-border bg-muted/25 px-5 py-4 text-center">
-                <div className="flex flex-col items-center gap-2 sm:flex-row sm:items-start sm:justify-between sm:text-left">
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Aperçu du contenu
-                    </p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {extracting
-                        ? "Analyse du fichier en cours…"
-                        : extractedText.trim()
-                          ? "Texte détecté dans le fichier (aperçu). Ce n’est pas un résumé officiel."
-                          : "Aucun texte détecté — le destinataire verra le fichier joint."}
-                    </p>
-                  </div>
-                  {extractedText.trim() ? (
-                    <button
-                      type="button"
-                      className="shrink-0 text-xs font-medium text-brand underline-offset-2 hover:underline"
-                      onClick={() => setSummaryOpen((v) => !v)}
-                    >
-                      {summaryOpen ? "Réduire" : "Voir plus"}
-                    </button>
-                  ) : null}
-                </div>
-                {extracting ? (
-                  <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                    <Loader2 className="size-4 animate-spin" />
-                    Extraction…
-                  </div>
-                ) : extractedText.trim() ? (
-                  <p className="mt-2 text-sm leading-relaxed text-foreground">
-                    {summaryOpen
-                      ? cleanExtractPreview(extractedText, 900)
-                      : cleanExtractPreview(extractedText, 220)}
-                  </p>
-                ) : null}
-              </div>
 
               <div className="space-y-2">
                 {!isTransmission ? (
@@ -1724,18 +1629,6 @@ export function SendDocument({
                       {effectiveTasks.length > 0
                         ? effectiveTasks.join(" · ")
                         : "—"}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <dt className="shrink-0 text-muted-foreground">
-                      Aperçu contenu
-                    </dt>
-                    <dd className="max-w-[65%] text-right text-xs leading-relaxed">
-                      {extracting
-                        ? "en préparation…"
-                        : extractedText.trim()
-                          ? cleanExtractPreview(extractedText, 160)
-                          : "aucun texte détecté"}
                     </dd>
                   </div>
                 </dl>
