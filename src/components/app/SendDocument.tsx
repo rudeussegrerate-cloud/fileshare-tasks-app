@@ -24,7 +24,6 @@ import {
   Camera,
   CheckCircle2,
   FileText,
-  FolderPlus,
   Loader2,
   Plus,
   Send,
@@ -112,15 +111,7 @@ export function SendDocument({
   const goNext = () => setStep((s) => (s === 1 ? 3 : Math.min(3, s + 1)));
   const goBack = () => setStep((s) => (s === 3 ? 1 : Math.max(0, s - 1)));
 
-  /** Groupes de documents (cartes) — fichiers qui vont ensemble */
-  type FileGroup = { id: string; title: string; files: File[] };
-  const newGroupId = () =>
-    `g-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-  const [fileGroups, setFileGroups] = useState<FileGroup[]>([
-    { id: newGroupId(), title: "Groupe 1", files: [] },
-  ]);
-  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
-  const files = fileGroups.flatMap((g) => g.files);
+  const [files, setFiles] = useState<File[]>([]);
   const [extractedText, setExtractedText] = useState("");
   const [extracting, setExtracting] = useState(false);
   /** Services destinataires (rattachés à une direction) */
@@ -285,26 +276,19 @@ export function SendDocument({
       accepted.push(next);
     }
     if (accepted.length === 0) return;
-    setFileGroups((prev) => {
-      const flat = prev.flatMap((g) => g.files);
-      const names = new Set(flat.map((f) => f.name + f.size));
-      const toAdd = accepted.filter((f) => !names.has(f.name + f.size));
-      if (toAdd.length === 0) return prev;
-      const total = flat.length + toAdd.length;
-      if (total > 20) {
-        toast.error("Maximum 20 fichiers au total.");
-        return prev;
+    let addedCount = 0;
+    setFiles((prev) => {
+      const names = new Set(prev.map((f) => f.name + f.size));
+      const merged = [...prev];
+      for (const f of accepted) {
+        const key = f.name + f.size;
+        if (!names.has(key)) {
+          merged.push(f);
+          names.add(key);
+          addedCount += 1;
+        }
       }
-      const targetId =
-        activeGroupId && prev.some((g) => g.id === activeGroupId)
-          ? activeGroupId
-          : prev[prev.length - 1]?.id;
-      if (!targetId) {
-        return [{ id: newGroupId(), title: "Groupe 1", files: toAdd }];
-      }
-      return prev.map((g) =>
-        g.id === targetId ? { ...g, files: [...g.files, ...toAdd] } : g,
-      );
+      return merged.slice(0, 20);
     });
     if (kind === "photo" && accepted.length > 0) {
       toast.success(
@@ -322,65 +306,18 @@ export function SendDocument({
     }
   };
 
-  const removeFileFromGroup = (groupId: string, fileIndex: number) => {
-    setFileGroups((prev) =>
-      prev.map((g) => {
-        if (g.id !== groupId) return g;
-        return { ...g, files: g.files.filter((_, i) => i !== fileIndex) };
-      }),
-    );
-    setPreviewIndex(null);
-  };
-
-  const addEmptyGroup = () => {
-    const id = newGroupId();
-    const n = fileGroups.length + 1;
-    setFileGroups((prev) => [
-      ...prev,
-      { id, title: `Groupe ${n}`, files: [] },
-    ]);
-    setActiveGroupId(id);
-    toast.message("Nouveau groupe créé — les prochains fichiers iront dedans.");
-  };
-
-  const removeGroup = (groupId: string) => {
-    setFileGroups((prev) => {
-      const next = prev.filter((g) => g.id !== groupId);
-      if (next.length === 0) {
-        return [{ id: newGroupId(), title: "Groupe 1", files: [] }];
-      }
+  const removeFileAt = (index: number) => {
+    setFiles((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      setPreviewIndex((pi) => {
+        if (pi === null) return null;
+        if (next.length === 0) return null;
+        if (pi === index) return null;
+        if (pi > index) return pi - 1;
+        return pi;
+      });
       return next;
     });
-    setActiveGroupId((cur) => (cur === groupId ? null : cur));
-  };
-
-  const moveFileToGroup = (
-    fromGroupId: string,
-    fileIndex: number,
-    toGroupId: string,
-  ) => {
-    if (fromGroupId === toGroupId) return;
-    setFileGroups((prev) => {
-      const from = prev.find((g) => g.id === fromGroupId);
-      if (!from) return prev;
-      const file = from.files[fileIndex];
-      if (!file) return prev;
-      return prev.map((g) => {
-        if (g.id === fromGroupId) {
-          return { ...g, files: g.files.filter((_, i) => i !== fileIndex) };
-        }
-        if (g.id === toGroupId) {
-          return { ...g, files: [...g.files, file] };
-        }
-        return g;
-      });
-    });
-  };
-
-  const renameGroup = (groupId: string, title: string) => {
-    setFileGroups((prev) =>
-      prev.map((g) => (g.id === groupId ? { ...g, title: title || g.title } : g)),
-    );
   };
 
   /** Ouvre le fichier dans le visualiseur / éditeur du navigateur ou de l'appareil. */
@@ -497,8 +434,7 @@ export function SendDocument({
 
   const reset = () => {
     setStep(0);
-    setFileGroups([{ id: newGroupId(), title: "Groupe 1", files: [] }]);
-    setActiveGroupId(null);
+    setFiles([]);
     setDestIds([]);
     setMemberDestIds([]);
     setDestMode("direction");
@@ -579,7 +515,42 @@ export function SendDocument({
           : undefined;
       // Structure émettrice obligatoire (N° hiérarchique)
 
-      // Destinations structurelles
+      const uploaded: Array<{
+        storageId: Id<"_storage">;
+        fileName: string;
+        contentType: string | undefined;
+        size: number;
+      }> = [];
+
+      for (const file of files) {
+        const uploadUrl = await generateUploadUrl();
+        const response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": file.type || "application/octet-stream",
+          },
+          body: file,
+        });
+        if (!response.ok) {
+          throw new Error(
+            `Échec d'envoi du fichier « ${files[0]?.name} » (${response.status}).`,
+          );
+        }
+        const { storageId } = (await response.json()) as {
+          storageId: Id<"_storage">;
+        };
+        uploaded.push({
+          storageId,
+          fileName: file.name || `document-${Date.now()}.bin`,
+          contentType: file.type?.trim() || undefined,
+          size: file.size,
+        });
+      }
+
+      let lastId: Id<"documents"> | undefined;
+      let count = 0;
+
+      // Destinations structurelles : services + directions (chef) + directions des membres cochés
       const mergedDest = new Set(destIds.map(String));
       for (const uid of memberDestIds) {
         for (const d of departments ?? []) {
@@ -595,41 +566,31 @@ export function SendDocument({
       const primaryRecipientId =
         memberDestIds[0] ?? recipientId ?? undefined;
 
-      let lastId: Id<"documents"> | undefined;
-      let count = 0;
-      const groupsToSend = fileGroups.filter((g) => g.files.length > 0);
-      let groupOrdinal = 0;
-
-      for (const group of groupsToSend) {
-        groupOrdinal += 1;
-        let parentInGroup: Id<"documents"> | undefined;
+      for (let fi = 0; fi < uploaded.length; fi++) {
+        const up = uploaded[fi]!;
+        // N° complet = N°{séquence}-{année}/{hiérarchie émetteur}
+        let refBase: string | undefined;
+        if (publicRef.trim()) {
+          refBase = publicRef.trim();
+        } else {
+          refBase = undefined;
+        }
+        const ref =
+          refBase && uploaded.length === 1
+            ? refBase
+            : refBase
+              ? `${refBase}#${fi + 1}`
+              : undefined;
         const metaFields = [
           arriveeLe.trim()
-            ? {
-                label: "Arrivée le",
-                value: arriveeLe.trim(),
-                source: "manual" as const,
-              }
+            ? { label: "Arrivée le", value: arriveeLe.trim(), source: "manual" as const }
             : null,
           duField.trim()
-            ? {
-                label: "Émetteur",
-                value: duField.trim(),
-                source: "manual" as const,
-              }
+            ? { label: "Émetteur", value: duField.trim(), source: "manual" as const }
             : null,
           dateCourrier.trim()
-            ? {
-                label: "Date",
-                value: dateCourrier.trim(),
-                source: "manual" as const,
-              }
+            ? { label: "Date", value: dateCourrier.trim(), source: "manual" as const }
             : null,
-          {
-            label: "Groupe de pièces",
-            value: group.title,
-            source: "manual" as const,
-          },
         ].filter(Boolean) as Array<{
           label: string;
           value: string;
@@ -637,89 +598,41 @@ export function SendDocument({
         }>;
         const mergedFields = [...metaFields].slice(0, 8);
 
-        for (let fi = 0; fi < group.files.length; fi++) {
-          const file = group.files[fi]!;
-          const uploadUrl = await generateUploadUrl();
-          const response = await fetch(uploadUrl, {
-            method: "POST",
-            headers: {
-              "Content-Type": file.type || "application/octet-stream",
-            },
-            body: file,
-          });
-          if (!response.ok) {
-            throw new Error(
-              `Échec d'envoi du fichier « ${file.name} » (${response.status}).`,
-            );
-          }
-          const { storageId } = (await response.json()) as {
-            storageId: Id<"_storage">;
-          };
-          const up = {
-            storageId,
-            fileName: file.name || `document-${Date.now()}.bin`,
-            contentType: file.type?.trim() || undefined,
-            size: file.size,
-          };
-
-          let refBase: string | undefined = publicRef.trim() || undefined;
-          const ref =
-            refBase && groupsToSend.length === 1 && group.files.length === 1
-              ? refBase
-              : refBase
-                ? `${refBase}#G${groupOrdinal}${group.files.length > 1 ? `-P${fi + 1}` : ""}`
-                : undefined;
-
-          if (isTransmission && !referenceText.trim()) {
-            toast.error("Indiquez la Réf. du courrier papier.");
-            setSending(false);
-            return;
-          }
-
-          const isPrimary = fi === 0;
-          const pieceObjet =
-            group.files.length === 1
-              ? objet.trim()
-              : isPrimary
-                ? `${objet.trim()} — ${group.title}`
-                : `${objet.trim()} — ${group.title} (annexe ${fi})`;
-
-          lastId = await sendDocument({
-            storageId: up.storageId,
-            fileName: up.fileName,
-            contentType: up.contentType,
-            size: up.size,
-            objet: pieceObjet,
-            observations: observations.trim() || undefined,
-            tasks: effectiveTasks,
-            extractedText:
-              groupOrdinal === 1 && fi === 0
-                ? extractedText || undefined
-                : undefined,
-            recipientDepartmentId: (recipientTargets[0]?.departmentId ??
-              destIds[0]) as Id<"departments">,
-            recipientTargets,
-            recipientId: isPrimary ? primaryRecipientId : undefined,
-            publicRef: isTransmission ? undefined : ref || undefined,
-            mailKind: isTransmission ? "transmission" : "envoi",
-            stepDeadlineHours: undefined,
-            parentCourrierId: parentInGroup ?? replyTo?.documentId,
-            referenceText: referenceText.trim() || undefined,
-            requiresResponse: false,
-            emittingDepartmentId:
-              (me?.user?.departmentId as Id<"departments"> | undefined) ??
-              onBehalfDepartmentId ??
-              undefined,
-            onBehalfOfType: "internal",
-            onBehalfOfUserId: me?.user?._id ?? undefined,
-            onBehalfOfName: me?.user?.name?.trim() || undefined,
-            onBehalfOfFunction: me?.user?.fonction?.trim() || undefined,
-            onBehalfOfDepartment: me?.department?.name?.trim() || undefined,
-            customFields: mergedFields.length ? mergedFields : undefined,
-          });
-          if (isPrimary) parentInGroup = lastId;
-          count += 1;
+        if (isTransmission && !referenceText.trim()) {
+          toast.error("Indiquez la Réf. du courrier papier.");
+          setSending(false);
+          return;
         }
+        lastId = await sendDocument({
+          storageId: up.storageId,
+          fileName: up.fileName,
+          contentType: up.contentType,
+          size: up.size,
+          objet: objet.trim(),
+          observations: observations.trim() || undefined,
+          tasks: effectiveTasks,
+          extractedText: fi === 0 ? extractedText || undefined : undefined,
+          recipientDepartmentId: (recipientTargets[0]?.departmentId ?? destIds[0]) as Id<"departments">,
+          recipientTargets,
+          recipientId: fi === 0 ? primaryRecipientId : undefined,
+          publicRef: isTransmission ? undefined : ref || undefined,
+          mailKind: isTransmission ? "transmission" : "envoi",
+          stepDeadlineHours: undefined,
+          parentCourrierId: replyTo?.documentId,
+          referenceText: referenceText.trim() || undefined,
+          requiresResponse: false,
+          emittingDepartmentId:
+            (me?.user?.departmentId as Id<"departments"> | undefined) ??
+            onBehalfDepartmentId ??
+            undefined,
+          onBehalfOfType: "internal",
+          onBehalfOfUserId: me?.user?._id ?? undefined,
+          onBehalfOfName: me?.user?.name?.trim() || undefined,
+          onBehalfOfFunction: me?.user?.fonction?.trim() || undefined,
+          onBehalfOfDepartment: me?.department?.name?.trim() || undefined,
+          customFields: mergedFields.length ? mergedFields : undefined,
+        });
+        count += 1;
       }
 
       toast.success(
@@ -821,168 +734,53 @@ export function SendDocument({
 
           {step === 0 ? (
             <div className="space-y-8">
-            {files.length > 0 ? (
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs text-muted-foreground">
-                      {files.length} fichier{files.length > 1 ? "s" : ""} ·{" "}
-                      {fileGroups.filter((g) => g.files.length > 0).length} groupe
-                      {fileGroups.filter((g) => g.files.length > 0).length > 1
-                        ? "s"
-                        : ""}
-                      {extracting
-                        ? " · analyse…"
-                        : extractedText
-                          ? " · texte extrait"
-                          : ""}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        onClick={addEmptyGroup}
+                            {files.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground">
+                    {files.length} fichier{files.length > 1 ? "s" : ""} sélectionné
+                    {files.length > 1 ? "s" : ""}
+                    {extracting ? " · analyse…" : extractedText ? " · texte extrait" : ""}
+                  </p>
+                  <ul className="space-y-2">
+                    {files.map((f, i) => (
+                      <li
+                        key={`${f.name}-${f.size}-${i}`}
+                        className="flex items-center gap-3 rounded-sm border border-border bg-brand-soft/50 p-3"
                       >
-                        <FolderPlus className="size-3.5" />
-                        Nouveau groupe
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setFileGroups([
-                            { id: newGroupId(), title: "Groupe 1", files: [] },
-                          ]);
-                          setActiveGroupId(null);
-                          setExtractedText("");
-                          if (fileInputRef.current)
-                            fileInputRef.current.value = "";
-                          if (cameraInputRef.current)
-                            cameraInputRef.current.value = "";
-                        }}
-                      >
-                        Tout retirer
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {fileGroups.map((group, gi) => {
-                      const isActive =
-                        activeGroupId === group.id ||
-                        (!activeGroupId && gi === fileGroups.length - 1);
-                      return (
-                        <div
-                          key={group.id}
-                          className={cn(
-                            "flex flex-col rounded-xl border bg-card p-3 shadow-sm transition-colors",
-                            isActive
-                              ? "border-brand ring-2 ring-brand/25"
-                              : "border-border",
-                          )}
-                        >
-                          <div className="mb-2 flex items-center gap-2">
-                            <input
-                              type="text"
-                              value={group.title}
-                              onChange={(e) =>
-                                renameGroup(group.id, e.target.value)
-                              }
-                              className="min-w-0 flex-1 rounded-md border border-transparent bg-transparent px-1 text-sm font-semibold text-foreground hover:border-border focus:border-brand focus:outline-none"
-                              aria-label="Nom du groupe"
-                            />
-                            <button
-                              type="button"
-                              className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                                isActive
-                                  ? "bg-brand text-primary-foreground"
-                                  : "bg-muted text-muted-foreground",
-                              )}
-                              onClick={() => setActiveGroupId(group.id)}
-                              title="Les prochains fichiers iront dans ce groupe"
-                            >
-                              {isActive ? "Actif" : "Cible"}
-                            </button>
-                            {fileGroups.length > 1 ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="size-7 text-destructive"
-                                onClick={() => removeGroup(group.id)}
-                                aria-label="Supprimer le groupe"
-                              >
-                                <X className="size-3.5" />
-                              </Button>
-                            ) : null}
-                          </div>
-                          {group.files.length === 0 ? (
-                            <p className="rounded-lg border border-dashed border-border px-2 py-6 text-center text-xs text-muted-foreground">
-                              Aucun fichier — cliquez « Actif » puis ajoutez
-                              documents ou photos.
-                            </p>
-                          ) : (
-                            <ul className="space-y-2">
-                              {group.files.map((f, fi) => (
-                                <li
-                                  key={`${group.id}-${f.name}-${f.size}-${fi}`}
-                                  className="flex items-center gap-2 rounded-lg border border-border/70 bg-brand-soft/40 p-2"
-                                >
-                                  <div className="flex size-8 items-center justify-center rounded-md bg-card text-brand">
-                                    <FileText className="size-3.5" />
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <p className="truncate text-xs font-semibold">
-                                      {f.name}
-                                    </p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                      {formatBytes(f.size)}
-                                      {fi === 0 ? " · principal" : " · annexe"}
-                                    </p>
-                                  </div>
-                                  {fileGroups.length > 1 ? (
-                                    <select
-                                      className="max-w-[6.5rem] rounded border border-border bg-card px-1 py-0.5 text-[10px]"
-                                      value={group.id}
-                                      onChange={(e) =>
-                                        moveFileToGroup(
-                                          group.id,
-                                          fi,
-                                          e.target.value,
-                                        )
-                                      }
-                                      title="Déplacer vers un autre groupe"
-                                    >
-                                      {fileGroups.map((g) => (
-                                        <option key={g.id} value={g.id}>
-                                          {g.title}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  ) : null}
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-7"
-                                    onClick={() =>
-                                      removeFileFromGroup(group.id, fi)
-                                    }
-                                    aria-label={`Retirer ${f.name}`}
-                                  >
-                                    <X className="size-3.5" />
-                                  </Button>
-                                </li>
-                              ))}
-                            </ul>
-                          )}
+                        <div className="flex size-9 items-center justify-center rounded-sm bg-card text-brand">
+                          <FileText className="size-4" />
                         </div>
-                      );
-                    })}
-                  </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold">{f.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatBytes(f.size)}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeFileAt(i)}
+                          aria-label={`Retirer ${f.name}`}
+                        >
+                          <X className="size-4" />
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setFiles([]);
+                      setExtractedText("");
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                      if (cameraInputRef.current) cameraInputRef.current.value = "";
+                    }}
+                  >
+                    Tout retirer
+                  </Button>
                 </div>
               ) : null}
 
@@ -1672,13 +1470,9 @@ export function SendDocument({
                     <dd className="text-right font-medium break-all">
                       {files.length === 0
                         ? "—"
-                        : fileGroups
-                            .filter((g) => g.files.length > 0)
-                            .map(
-                              (g) =>
-                                `${g.title}: ${g.files.map((f) => f.name).join(", ")}`,
-                            )
-                            .join(" · ")}
+                        : files.length === 1
+                          ? files[0]?.name
+                          : files.map((f) => f.name).join(", ")}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
@@ -1809,19 +1603,7 @@ export function SendDocument({
                         title="Retirer ce document"
                         onClick={(e) => {
                           e.stopPropagation();
-                          {
-                            // Retirer par index plat
-                            let n = 0;
-                            for (const g of fileGroups) {
-                              for (let j = 0; j < g.files.length; j++) {
-                                if (n === i) {
-                                  removeFileFromGroup(g.id, j);
-                                  return;
-                                }
-                                n += 1;
-                              }
-                            }
-                          }
+                          removeFileAt(i);
                         }}
                       >
                         <Trash2 className="size-3.5" />
