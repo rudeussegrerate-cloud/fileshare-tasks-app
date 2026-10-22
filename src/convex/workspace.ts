@@ -1147,20 +1147,28 @@ async function reviewAccount(
     patch.departmentRole = undefined;
     patch.requestedDepartmentId = undefined;
   } else if (status === "valide" && target.requestedDepartmentId && !target.departmentId) {
-    // Si le chef a déjà accepté la demande, rattacher maintenant
+    // Rattachement automatique à la direction choisie à l'inscription (hors service)
+    let dirId = target.requestedDepartmentId;
+    const reqDept = await ctx.db.get(dirId);
+    if (reqDept?.parentId) {
+      dirId = reqDept.parentId; // sécurité : jamais un service
+    }
+    patch.departmentId = dirId;
+    patch.departmentRole = "membre";
+    patch.requestedDepartmentId = undefined;
+    // Clôturer les demandes en attente pour cette direction
     const requests = await ctx.db
       .query("departmentJoinRequests")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    const accepted = requests.find(
-      (r) =>
-        r.departmentId === target.requestedDepartmentId &&
-        r.status === "accepted",
-    );
-    if (accepted) {
-      patch.departmentId = target.requestedDepartmentId;
-      patch.departmentRole = "membre";
-      patch.requestedDepartmentId = undefined;
+    for (const r of requests) {
+      if (r.status === "pending" && r.departmentId === dirId) {
+        await ctx.db.patch(r._id, {
+          status: "accepted",
+          reviewedBy: reviewer._id,
+          reviewedAt: Date.now(),
+        });
+      }
     }
   }
   await ctx.db.patch(userId, patch as any);

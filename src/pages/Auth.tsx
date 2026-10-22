@@ -466,7 +466,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       }
       toast.success("Compte créé", {
         description: requestedDepartmentId
-          ? "Compte créé. Le DG validera votre compte ; le chef de direction traitera votre demande d'intégration."
+          ? "Compte créé. Après validation par le DG, vous serez rattaché automatiquement à la direction choisie (sans service)."
           : "Votre demande a été transmise au DG. Vous serez notifié dès sa validation.",
       });
       navigate(redirect);

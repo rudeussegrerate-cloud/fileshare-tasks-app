@@ -185,13 +185,20 @@ export const requestJoin = mutation({
   args: { departmentId: v.id("departments") },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
-    if (user.departmentId === args.departmentId) {
-      throw new Error("Vous êtes déjà dans ce département.");
+    let targetId = args.departmentId;
+    let dept = await ctx.db.get(targetId);
+    if (!dept) throw new Error("Direction introuvable.");
+    // Inscription / adhésion : uniquement au niveau direction (hors service)
+    if (dept.parentId) {
+      const parent = await ctx.db.get(dept.parentId);
+      if (!parent) throw new Error("Direction parente introuvable.");
+      targetId = parent._id;
+      dept = parent;
     }
-    const dept = await ctx.db.get(args.departmentId);
-    if (!dept) throw new Error("Département introuvable.");
+    if (user.departmentId === targetId) {
+      throw new Error("Vous êtes déjà rattaché à cette direction.");
+    }
 
-    // Autoriser le passage parent → sous-groupe (même arbre)
     if (user.departmentId) {
       const current = await ctx.db.get(user.departmentId);
       const isChildOfMine = dept.parentId === user.departmentId;
@@ -199,10 +206,15 @@ export const requestJoin = mutation({
         current?.parentId &&
         dept.parentId &&
         current.parentId === dept.parentId;
-      const fromChildToParent = current?.parentId === args.departmentId;
-      if (!isChildOfMine && !sameParent && !fromChildToParent && !isAdminRole(user.role)) {
+      const fromChildToParent = current?.parentId === targetId;
+      if (
+        !isChildOfMine &&
+        !sameParent &&
+        !fromChildToParent &&
+        !isAdminRole(user.role)
+      ) {
         throw new Error(
-          "Vous appartenez déjà à un autre département. Contactez le DG pour un changement.",
+          "Vous appartenez déjà à une autre direction. Contactez le DG pour un changement.",
         );
       }
     }
@@ -212,7 +224,7 @@ export const requestJoin = mutation({
       .withIndex("by_user", (q) => q.eq("userId", user._id))
       .collect();
     const pending = existing.find(
-      (r) => r.status === "pending" && r.departmentId === args.departmentId,
+      (r) => r.status === "pending" && r.departmentId === targetId,
     );
     if (pending) return pending._id;
 
@@ -222,10 +234,10 @@ export const requestJoin = mutation({
       }
     }
 
-    await ctx.db.patch(user._id, { requestedDepartmentId: args.departmentId });
+    await ctx.db.patch(user._id, { requestedDepartmentId: targetId });
     const requestId = await ctx.db.insert("departmentJoinRequests", {
       userId: user._id,
-      departmentId: args.departmentId,
+      departmentId: targetId,
       status: "pending",
       createdAt: Date.now(),
     });
@@ -233,16 +245,16 @@ export const requestJoin = mutation({
     const who = user.name ?? user.email ?? "Un utilisateur";
     await notifyDepartmentChefs(
       ctx,
-      args.departmentId,
+      targetId,
       "Demande d'adhésion",
-      `${who} souhaite rejoindre le département « ${dept.name} ». Validez ou refusez dans Départements.`,
+      `${who} souhaite rejoindre la direction « ${dept.name} ». Validez ou refusez dans Structures.`,
     );
 
     return requestId;
   },
 });
 
-/** Chef / DG : demandes en attente */
+/** Chef / DG/** Chef / DG : demandes en attente */
 export const listPendingRequests = query({
   args: { departmentId: v.optional(v.id("departments")) },
   handler: async (ctx, args) => {
@@ -343,15 +355,20 @@ export const reviewRequest = mutation({
     }
 
     if (person.accountStatus === "valide") {
+      let assignId = request.departmentId;
+      const assignDept = await ctx.db.get(assignId);
+      if (assignDept?.parentId) {
+        assignId = assignDept.parentId; // direction uniquement
+      }
       if (
         person.departmentId &&
-        person.departmentId !== request.departmentId &&
-        !(await isRelatedDepartment(ctx, person.departmentId, request.departmentId))
+        person.departmentId !== assignId &&
+        !(await isRelatedDepartment(ctx, person.departmentId, assignId))
       ) {
-        throw new Error("Cette personne est déjà dans un autre département.");
+        throw new Error("Cette personne est déjà dans une autre direction.");
       }
       await ctx.db.patch(person._id, {
-        departmentId: request.departmentId,
+        departmentId: assignId,
         departmentRole: "membre",
         requestedDepartmentId: undefined,
       });
