@@ -276,7 +276,7 @@ export function AppShell({
   );
 
   return (
-    <div className="sc-app-shell relative min-h-screen overflow-hidden bg-[#1b1440]">
+    <div className="sc-app-shell relative min-h-dvh overflow-x-hidden bg-[#1b1440]">
       <img
         src={loginBackdrop}
         alt=""
@@ -287,9 +287,9 @@ export function AppShell({
         className="pointer-events-none absolute inset-0 z-0 bg-[#f3f0fa]/88"
         aria-hidden
       />
-      <div className="relative z-10 mx-auto flex w-full max-w-[1280px]">
+      <div className="relative z-10 mx-auto flex w-full max-w-[1280px] min-w-0">
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sc-app-header sticky top-0 z-20 flex items-center justify-between gap-3 px-4 py-3.5 lg:px-8">
+          <header className="sc-app-header sticky top-0 z-20 flex min-w-0 items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-3.5 lg:px-8">
             <div className="flex items-center gap-3">
               <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
                 <SheetTrigger asChild>
@@ -351,8 +351,8 @@ export function AppShell({
             </div>
           </header>
 
-          <main className="sc-shell-main relative z-10 flex-1 px-4 py-5 lg:px-8 lg:py-7">
-            <div className="sc-fade-in mx-auto w-full max-w-6xl">{children}</div>
+          <main className="sc-shell-main relative z-10 min-w-0 flex-1 px-3 py-4 sm:px-4 sm:py-5 lg:px-8 lg:py-7">
+            <div className="sc-fade-in mx-auto w-full min-w-0 max-w-6xl">{children}</div>
           </main>
         </div>
       </div>

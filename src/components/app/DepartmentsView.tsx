@@ -211,7 +211,11 @@ function AssignPersonDialog({
           departmentId: dept,
           memberId: selectedId as Id<"users">,
         });
-        toast.success("Membre ajouté à la structure.");
+        toast.success(
+          serviceId
+            ? "Membre ajouté au service."
+            : "Membre rattaché à la direction (hors service).",
+        );
       }
       setSelectedId("");
       onOpenChange(false);
@@ -228,13 +232,14 @@ function AssignPersonDialog({
 
   return (
     <Dialog open={mode !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="max-h-[min(90dvh,36rem)] overflow-y-auto sm:max-w-md">
+        <DialogHeader className="pr-6">
+          <DialogTitle className="text-base sm:text-lg">
             {mode === "chief" ? "Nommer un chef" : "Ajouter un membre"}
           </DialogTitle>
           <DialogDescription>
-            Direction → service (optionnel) → personne
+            Rattachez la personne à une <strong>direction</strong> (sans service)
+            ou à un <strong>service</strong> précis.
             {departmentName ? ` · contexte : ${departmentName}` : ""}
           </DialogDescription>
         </DialogHeader>
@@ -273,7 +278,9 @@ function AssignPersonDialog({
                   setSelectedId("");
                 }}
               >
-                <option value="">Toute la direction</option>
+                <option value="">
+                  Direction entière (sans service)
+                </option>
                 {servicesOfDir.map((s) => (
                   <option key={s._id} value={s._id}>
                     {(s as { code?: string }).code
@@ -309,9 +316,10 @@ function AssignPersonDialog({
           ) : null}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button
             variant="ghost"
+            className="w-full sm:w-auto"
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
@@ -324,7 +332,7 @@ function AssignPersonDialog({
               !selectedId ||
               !(serviceId || directionId || departmentId)
             }
-            className="gap-2"
+            className="w-full gap-2 sm:w-auto"
           >
             {saving ? (
               <Loader2 className="size-4 animate-spin" />

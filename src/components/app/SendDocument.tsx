@@ -852,8 +852,13 @@ export function SendDocument({
                       destIds.includes(s._id),
                     ).length;
                     // Membres rattachés à la direction uniquement (pas aux services)
+                    // Membres rattachés à la direction elle-même
+                    // (pas aux services, pas le chef — case dédiée)
                     const dirMembers = (dir.members ?? []).filter(
-                      (m) => m._id !== me?.user._id,
+                      (m) =>
+                        m._id !== me?.user._id &&
+                        (m as { departmentRole?: string }).departmentRole !==
+                          "chef",
                     );
                     const selectedMemberCount = dirMembers.filter((m) =>
                       memberDestIds.includes(m._id),
@@ -950,8 +955,9 @@ export function SendDocument({
                           </p>
                           {dirMembers.length === 0 ? (
                             <p className="px-1 text-xs text-muted-foreground">
-                              Aucun membre rattaché directement à cette
-                              direction.
+                              Aucun membre rattaché à cette direction hors
+                              service. Dans Structures → Ajouter un membre →
+                              « Direction entière (sans service) ».
                             </p>
                           ) : (
                             dirMembers.map((m) => {
@@ -980,9 +986,6 @@ export function SendDocument({
                                   <span className="min-w-0 flex-1 text-sm">
                                     <span className="font-medium text-foreground">
                                       {fonction}
-                                    </span>
-                                    <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                                      Cocher pour désigner ce destinataire
                                     </span>
                                   </span>
                                 </label>
