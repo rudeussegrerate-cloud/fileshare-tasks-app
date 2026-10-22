@@ -92,6 +92,12 @@ export function DocumentDetailDialog({
   const [editSaving, setEditSaving] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
 
+  const [viewer, setViewer] = useState<{
+    url: string;
+    kind: "pdf" | "image" | "other";
+  } | null>(null);
+  const [viewerLoading, setViewerLoading] = useState(false);
+
   const openDocumentViewer = async () => {
     const url =
       documentOrNull?.downloadUrl ||
@@ -105,38 +111,55 @@ export function DocumentDetailDialog({
       type.startsWith("image/") ||
       /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
 
+    setViewerLoading(true);
     try {
-      // Blob local → le navigateur affiche au lieu de forcer le téléchargement
       const res = await fetch(url);
       if (!res.ok) throw new Error("fetch failed");
       const blob = await res.blob();
       const mime =
-        blob.type ||
-        documentOrNull.contentType ||
-        (isPdf
-          ? "application/pdf"
-          : isImage
-            ? "image/jpeg"
-            : "application/octet-stream");
-      const viewBlob = new Blob([blob], { type: mime });
-      const objectUrl = URL.createObjectURL(viewBlob);
-      const win = window.open(objectUrl, "_blank", "noopener,noreferrer");
-      if (!win) {
-        // Popup bloquée : onglet via <a> sans attribut download
-        const a = window.document.createElement("a");
-        a.href = objectUrl;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        window.document.body.appendChild(a);
-        a.click();
-        window.document.body.removeChild(a);
+        blob.type && blob.type !== "application/octet-stream"
+          ? blob.type
+          : documentOrNull.contentType ||
+            (isPdf
+              ? "application/pdf"
+              : isImage
+                ? "image/jpeg"
+                : "application/octet-stream");
+      const viewBlob = new Blob([await blob.arrayBuffer()], { type: mime });
+      if (viewer?.url) {
+        try {
+          URL.revokeObjectURL(viewer.url);
+        } catch {
+          /* ignore */
+        }
       }
-      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120_000);
+      const objectUrl = URL.createObjectURL(viewBlob);
+      setViewer({
+        url: objectUrl,
+        kind: isPdf ? "pdf" : isImage ? "image" : "other",
+      });
     } catch {
-      // Repli : ouvrir l'URL Convex sans forcer download
-      window.open(url, "_blank", "noopener,noreferrer");
+      toast.error(
+        "Impossible d'afficher le fichier ici. Utilisez Télécharger.",
+      );
+    } finally {
+      setViewerLoading(false);
     }
   };
+
+  // Libérer l'URL blob à la fermeture
+  useEffect(() => {
+    return () => {
+      if (viewer?.url) {
+        try {
+          URL.revokeObjectURL(viewer.url);
+        } catch {
+          /* ignore */
+        }
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewer?.url]);
 
 
   const printCourrier = () => {
@@ -348,6 +371,73 @@ export function DocumentDetailDialog({
                 </div>
               </div>
             </DialogHeader>
+
+
+            {viewerLoading ? (
+              <div className="flex items-center justify-center gap-2 rounded-lg border border-border bg-muted/30 py-10 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                Chargement du document…
+              </div>
+            ) : null}
+            {viewer ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Aperçu
+                  </p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (viewer.url) {
+                        try {
+                          URL.revokeObjectURL(viewer.url);
+                        } catch {
+                          /* ignore */
+                        }
+                      }
+                      setViewer(null);
+                    }}
+                  >
+                    Fermer l&apos;aperçu
+                  </Button>
+                </div>
+                <div className="overflow-hidden rounded-lg border border-border bg-muted/20">
+                  {viewer.kind === "image" ? (
+                    <img
+                      src={viewer.url}
+                      alt={documentOrNull.fileName}
+                      className="mx-auto max-h-[70vh] w-auto max-w-full object-contain"
+                    />
+                  ) : viewer.kind === "pdf" ? (
+                    <iframe
+                      src={viewer.url}
+                      title={documentOrNull.fileName}
+                      className="h-[min(70vh,32rem)] w-full border-0 bg-white"
+                    />
+                  ) : (
+                    <div className="space-y-3 p-6 text-center text-sm">
+                      <p className="text-muted-foreground">
+                        Aperçu non disponible pour ce type de fichier.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => {
+                          const a = window.document.createElement("a");
+                          a.href = viewer.url;
+                          a.download = documentOrNull.fileName ?? "document";
+                          a.click();
+                        }}
+                      >
+                        Télécharger
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">

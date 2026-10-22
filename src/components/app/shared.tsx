@@ -169,20 +169,16 @@ export function FileThumb({
       </div>
     );
   }
-  if (fileUrl && isPdfFile(fileName, contentType)) {
+  // Ne jamais charger le PDF en iframe (Android force le téléchargement)
+  if (isPdfFile(fileName, contentType)) {
     return (
       <div
         className={cn(
-          "relative shrink-0 overflow-hidden rounded-md border border-border bg-white shadow-sm",
+          "relative flex shrink-0 flex-col items-center justify-center overflow-hidden rounded-md border border-border bg-red-50 shadow-sm",
           box,
         )}
       >
-        <iframe
-          src={`${fileUrl}#page=1&view=FitH`}
-          title=""
-          className="pointer-events-none absolute -left-2 -top-1 h-[120%] w-[140%] origin-top-left scale-[0.55] border-0"
-          tabIndex={-1}
-        />
+        <FileText className="size-5 text-red-600 sm:size-6" />
         <span className="absolute bottom-0.5 left-0.5 rounded bg-red-600 px-1 text-[8px] font-bold text-white">
           PDF
         </span>
