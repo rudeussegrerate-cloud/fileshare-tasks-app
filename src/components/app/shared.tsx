@@ -152,6 +152,22 @@ export function FileThumb({
 }) {
   const box =
     size === "sm" ? "size-10" : size === "lg" ? "size-16" : "size-14";
+  // PDF : jamais d'URL distante (évite téléchargement auto Android)
+  if (isPdfFile(fileName, contentType)) {
+    return (
+      <div
+        className={cn(
+          "relative flex shrink-0 flex-col items-center justify-center overflow-hidden rounded-md border border-border bg-red-50 shadow-sm",
+          box,
+        )}
+      >
+        <FileText className="size-5 text-red-600 sm:size-6" />
+        <span className="absolute bottom-0.5 left-0.5 rounded bg-red-600 px-1 text-[8px] font-bold text-white">
+          PDF
+        </span>
+      </div>
+    );
+  }
   if (fileUrl && isImageFile(fileName, contentType)) {
     return (
       <div
@@ -166,22 +182,6 @@ export function FileThumb({
           className="size-full object-cover"
           loading="lazy"
         />
-      </div>
-    );
-  }
-  // Ne jamais charger le PDF en iframe (Android force le téléchargement)
-  if (isPdfFile(fileName, contentType)) {
-    return (
-      <div
-        className={cn(
-          "relative flex shrink-0 flex-col items-center justify-center overflow-hidden rounded-md border border-border bg-red-50 shadow-sm",
-          box,
-        )}
-      >
-        <FileText className="size-5 text-red-600 sm:size-6" />
-        <span className="absolute bottom-0.5 left-0.5 rounded bg-red-600 px-1 text-[8px] font-bold text-white">
-          PDF
-        </span>
       </div>
     );
   }

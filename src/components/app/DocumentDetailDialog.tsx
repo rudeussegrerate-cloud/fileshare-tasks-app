@@ -349,7 +349,20 @@ export function DocumentDetailDialog({
                     <FileThumb
                       fileName={documentOrNull.fileName}
                       contentType={documentOrNull.contentType}
-                      fileUrl={(documentOrNull as { fileUrl?: string | null }).fileUrl ?? (documentOrNull as { downloadUrl?: string | null }).downloadUrl}
+                      fileUrl={
+                        // Jamais d'URL PDF ici (téléchargement auto mobile)
+                        (documentOrNull.contentType ?? "")
+                          .toLowerCase()
+                          .includes("pdf") ||
+                        (documentOrNull.fileName ?? "")
+                          .toLowerCase()
+                          .endsWith(".pdf")
+                          ? null
+                          : ((documentOrNull as { fileUrl?: string | null })
+                              .fileUrl ??
+                            (documentOrNull as { downloadUrl?: string | null })
+                              .downloadUrl)
+                      }
                       size="lg"
                     />
                   </button>

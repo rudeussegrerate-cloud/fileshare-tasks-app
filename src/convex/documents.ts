@@ -282,14 +282,31 @@ async function collectInboxDocuments(
   );
 }
 
+function isImageDocument(document: Doc<"documents">) {
+  const type = (document.contentType ?? "").toLowerCase();
+  if (type.startsWith("image/")) return true;
+  const name = (document.fileName ?? "").toLowerCase();
+  return /\.(png|jpe?g|gif|webp|bmp|heic|heif)$/i.test(name);
+}
+
+function isPdfDocument(document: Doc<"documents">) {
+  const type = (document.contentType ?? "").toLowerCase();
+  if (type.includes("pdf")) return true;
+  return (document.fileName ?? "").toLowerCase().endsWith(".pdf");
+}
+
 async function decorate(ctx: DbCtx, documents: Doc<"documents">[]) {
   return await Promise.all(
     documents.map(async (document) => {
+      // Ne jamais exposer l'URL des PDF dans les listes : sur mobile Android,
+      // le simple fait d'avoir l'URL (iframe/img/prefetch) déclenche un téléchargement.
       let fileUrl: string | null = null;
-      try {
-        fileUrl = await ctx.storage.getUrl(document.storageId);
-      } catch {
-        fileUrl = null;
+      if (isImageDocument(document) && !isPdfDocument(document)) {
+        try {
+          fileUrl = await ctx.storage.getUrl(document.storageId);
+        } catch {
+          fileUrl = null;
+        }
       }
       return {
         ...document,
@@ -3523,10 +3540,12 @@ export const fileManager = query({
       return await Promise.all(
         page.map(async (d) => {
           let fileUrl: string | null = null;
-          try {
-            fileUrl = await ctx.storage.getUrl(d.storageId);
-          } catch {
-            fileUrl = null;
+          if (isImageDocument(d) && !isPdfDocument(d)) {
+            try {
+              fileUrl = await ctx.storage.getUrl(d.storageId);
+            } catch {
+              fileUrl = null;
+            }
           }
           return {
             _id: d._id,
