@@ -466,7 +466,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       }
       toast.success("Compte créé", {
         description: requestedDepartmentId
-          ? "Compte créé. Le DG validera votre compte ; le chef de département traitera votre demande d'intégration."
+          ? "Compte créé. Le DG validera votre compte ; le chef de direction traitera votre demande d'intégration."
           : "Votre demande a été transmise au DG. Vous serez notifié dès sa validation.",
       });
       navigate(redirect);
@@ -854,7 +854,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="signup-department">Département souhaité</Label>
+                      <Label htmlFor="signup-department">Direction souhaitée</Label>
                       <select
                         id="signup-department"
                         className="auth-dept-select flex h-12 w-full rounded-xl border-2 border-white/55 bg-white px-3 py-2 text-sm font-semibold text-[#1a1238] ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
@@ -863,7 +863,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         disabled={isLoading}
                       >
                         <option value="" className="bg-white text-[#1a1238]">
-                          — Choisir (optionnel) —
+                          — Choisir une direction (optionnel) —
                         </option>
                         {(departments ?? []).map((d) => (
                           <option
@@ -876,7 +876,8 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         ))}
                       </select>
                       <p className="text-[11px] text-muted-foreground">
-                        Le chef de ce département devra accepter votre intégration.
+                        Demande d&apos;intégration à la direction (pas un service).
+                        Le chef de direction acceptera ou refusera.
                       </p>
                     </div>
                   </div>

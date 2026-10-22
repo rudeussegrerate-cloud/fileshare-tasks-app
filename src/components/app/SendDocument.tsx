@@ -852,54 +852,24 @@ export function SendDocument({
                     const selectedSvcCount = services.filter((s) =>
                       destIds.includes(s._id),
                     ).length;
-                    // Destinataires « Autre » : membres de la direction
-                    // + membres des services rattachés, affichés par fonction.
-                    // On exclut uniquement le compte connecté (pas d'auto-envoi)
-                    // et le chef de CETTE direction (case « Chef de direction »).
-                    const myId = me?.user?._id
-                      ? String(me.user._id)
-                      : "";
+                    // « Autre » : membres de la direction uniquement
+                    // (pas de service, pas le chef, pas soi-même)
+                    const myId = me?.user?._id ? String(me.user._id) : "";
                     const dirChiefId = dir.chief?._id
                       ? String(dir.chief._id)
                       : "";
-                    const seenMember = new Set<string>();
-                    const dirMembers: Array<{
-                      _id: (typeof dir.members)[number]["_id"];
-                      name: string;
-                      fonction?: string | null;
-                      departmentRole?: string;
-                      sourceLabel?: string;
-                    }> = [];
-                    const pushMember = (
-                      m: {
-                        _id: (typeof dir.members)[number]["_id"];
-                        name: string;
-                        fonction?: string | null;
-                        departmentRole?: string;
-                      },
-                      sourceLabel?: string,
-                    ) => {
+                    const dirMembers = (dir.members ?? []).filter((m) => {
                       const id = String(m._id);
-                      if (!id || id === myId) return;
-                      if (id === dirChiefId) return;
-                      if (seenMember.has(id)) return;
-                      seenMember.add(id);
-                      dirMembers.push({
-                        _id: m._id,
-                        name: m.name,
-                        fonction: m.fonction ?? null,
-                        departmentRole: m.departmentRole,
-                        sourceLabel,
-                      });
-                    };
-                    for (const m of dir.members ?? []) {
-                      pushMember(m, "Direction");
-                    }
-                    for (const svc of services) {
-                      for (const m of svc.members ?? []) {
-                        pushMember(m, svc.name);
+                      if (!id || id === myId) return false;
+                      if (id === dirChiefId) return false;
+                      if (
+                        (m as { departmentRole?: string }).departmentRole ===
+                        "chef"
+                      ) {
+                        return false;
                       }
-                    }
+                      return true;
+                    });
                     const selectedMemberCount = dirMembers.filter((m) =>
                       memberDestIds.includes(m._id),
                     ).length;
@@ -988,24 +958,20 @@ export function SendDocument({
                           </div>
                         ) : null}
 
-                        {/* Autre : destinataires par fonction (membres de la direction) */}
+                        {/* Autre : membres de la direction hors service */}
                         <div className="mt-3 space-y-1.5">
                           <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Autre — par fonction
+                            Autre
                           </p>
                           {dirMembers.length === 0 ? (
                             <p className="px-1 text-xs text-muted-foreground">
-                              Aucun autre membre visible ici. Vérifiez dans
-                              Structures que la personne est bien rattachée à
-                              cette direction ou à un de ses services (et que ce
-                              n&apos;est pas votre propre compte ni le chef).
+                              Aucun
                             </p>
                           ) : (
                             dirMembers.map((m) => {
                               const active = memberDestIds.includes(m._id);
                               const fonction =
-                                (m.fonction ?? "").trim() ||
-                                "Fonction non renseignée";
+                                (m.fonction ?? "").trim() || m.name;
                               return (
                                 <label
                                   key={String(m._id)}
@@ -1022,16 +988,8 @@ export function SendDocument({
                                     checked={active}
                                     onChange={() => toggleMemberDest(m._id)}
                                   />
-                                  <span className="min-w-0 flex-1 text-sm">
-                                    <span className="font-medium text-foreground">
-                                      {fonction}
-                                    </span>
-                                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                                      {m.name}
-                                      {m.sourceLabel
-                                        ? ` · ${m.sourceLabel}`
-                                        : ""}
-                                    </span>
+                                  <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
+                                    {fonction}
                                   </span>
                                 </label>
                               );
