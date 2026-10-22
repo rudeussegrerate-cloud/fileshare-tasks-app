@@ -15,10 +15,17 @@ const passwordProvider = Password({
     const email = String(params.email ?? "")
       .trim()
       .toLowerCase();
-    const name = typeof params.name === "string" ? params.name.trim() : "";
+    if (!email || !email.includes("@")) {
+      throw new Error("Adresse email invalide.");
+    }
+    const name =
+      typeof params.name === "string" ? params.name.trim().slice(0, 120) : "";
     const fonction =
-      typeof params.fonction === "string" ? params.fonction.trim() : "";
-    const phone = typeof params.phone === "string" ? params.phone.trim() : "";
+      typeof params.fonction === "string"
+        ? params.fonction.trim().slice(0, 120)
+        : "";
+    const phone =
+      typeof params.phone === "string" ? params.phone.trim().slice(0, 40) : "";
 
     return {
       email,

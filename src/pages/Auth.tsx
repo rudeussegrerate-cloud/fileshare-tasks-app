@@ -40,12 +40,8 @@ function resolveRedirectAfterAuth(
   return fallback;
 }
 
-function friendlyError(
-  error: unknown,
-  context: "signIn" | "signUp" | "reset" | "google" | "generic" = "generic",
-) {
+function extractAuthDetail(error: unknown): string {
   const raw = error instanceof Error ? error.message : String(error ?? "");
-  // Convex Auth renvoie parfois un JSON ou un texte serveur opaque
   let message = raw;
   try {
     const parsed = JSON.parse(raw);
@@ -60,18 +56,47 @@ function friendlyError(
   } catch {
     /* pas du JSON */
   }
+  const lines = message
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const uncaught = lines.find((l) => /Uncaught Error:/i.test(l));
+  if (uncaught) {
+    return uncaught.replace(/^.*Uncaught Error:\s*/i, "").trim();
+  }
+  const useful = [...lines]
+    .reverse()
+    .find(
+      (l) =>
+        !l.startsWith("[CONVEX") &&
+        !/^Called by/i.test(l) &&
+        !/^Server Error$/i.test(l) &&
+        l.length > 3,
+    );
+  return useful || message;
+}
+
+function friendlyError(
+  error: unknown,
+  context: "signIn" | "signUp" | "reset" | "google" | "generic" = "generic",
+) {
+  const message = extractAuthDetail(error);
 
   // Ne jamais afficher le message technique brut
-  if (/exists|already|duplicate|taken|Account already/i.test(message)) {
-    return "Un compte existe déjà avec cette adresse email.";
+  if (
+    /exists|already|duplicate|taken|Account already|email.*used|already registered/i.test(
+      message,
+    )
+  ) {
+    return "Un compte existe déjà avec cette adresse email. Connectez-vous ou utilisez « Mot de passe oublié ».";
   }
   if (
-    /invalid.?secret|invalid.?account|invalid.?password|credentials|incorrect|wrong password|mismatch|unauthorized|failed to authenticate|could not verify|Server Error|AUTH|not found|no account|Unknown/i.test(
+    /invalid.?secret|invalid.?account|invalid.?password|credentials|incorrect|wrong password|mismatch|unauthorized|failed to authenticate|could not verify|not found|no account/i.test(
       message,
     )
   ) {
     if (context === "signUp") {
-      return "Impossible de créer le compte. Vérifiez vos informations.";
+      return "Impossible de créer le compte. L'email est peut-être déjà utilisé, ou le mot de passe est refusé.";
     }
     if (context === "reset") {
       return "Code invalide ou expiré, ou compte introuvable.";
@@ -445,15 +470,28 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       return;
     }
 
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const name = String(formData.get("name") ?? "").trim();
+    const fonction = String(formData.get("fonction") ?? "").trim();
+    const phone = String(formData.get("phone") ?? "").trim();
+    if (!name) {
+      setError("Indiquez votre nom complet.");
+      return;
+    }
+    if (!email || !email.includes("@")) {
+      setError("Indiquez une adresse email valide.");
+      return;
+    }
+
     setIsLoading(true);
     try {
       await signIn("password", {
-        email: String(formData.get("email") ?? "").trim().toLowerCase(),
+        email,
         password,
         flow: "signUp",
-        name: String(formData.get("name") ?? "").trim(),
-        fonction: String(formData.get("fonction") ?? "").trim(),
-        phone: String(formData.get("phone") ?? "").trim(),
+        name,
+        ...(fonction ? { fonction } : {}),
+        ...(phone ? { phone } : {}),
       });
       if (requestedDepartmentId) {
         try {
@@ -472,7 +510,15 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       navigate(redirect);
     } catch (signUpError) {
       console.error("Sign up error:", signUpError);
-      setError(friendlyError(signUpError, "signUp"));
+      const detail = extractAuthDetail(signUpError);
+      // Si le compte existe déjà : proposer la connexion
+      if (/exists|already|duplicate|taken/i.test(detail)) {
+        setError(
+          "Un compte existe déjà avec cet email. Utilisez « Se connecter » ou « Mot de passe oublié ».",
+        );
+      } else {
+        setError(friendlyError(signUpError, "signUp"));
+      }
       setIsLoading(false);
     }
   };
