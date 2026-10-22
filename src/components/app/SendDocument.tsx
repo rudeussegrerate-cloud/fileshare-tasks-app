@@ -83,7 +83,6 @@ export function SendDocument({
   onSent,
   onManageDepartments,
   initialPublicRef,
-  replyTo,
   mode = "envoi",
 }: {
   onSent: (documentId?: Id<"documents">) => void;
@@ -92,13 +91,6 @@ export function SendDocument({
   mode?: "envoi" | "transmission";
   /** Préremplir le N° (optionnel). */
   initialPublicRef?: string;
-  /** Mode réponse à un courrier reçu */
-  replyTo?: {
-    documentId: Id<"documents">;
-    publicRef?: string | null;
-    objet: string;
-    senderDepartmentId?: Id<"departments"> | null;
-  } | null;
 }) {
   const me = useQuery(api.workspace.me);
   const departments = useQuery(api.workspace.listDepartments);
@@ -115,9 +107,7 @@ export function SendDocument({
   const [extractedText, setExtractedText] = useState("");
   const [extracting, setExtracting] = useState(false);
   /** Services destinataires (rattachés à une direction) */
-  const [destIds, setDestIds] = useState<Id<"departments">[]>(
-    replyTo?.senderDepartmentId ? [replyTo.senderDepartmentId] : [],
-  );
+  const [destIds, setDestIds] = useState<Id<"departments">[]>([]);
   /** Membres de direction (hors services) cochés comme destinataires */
   const [memberDestIds, setMemberDestIds] = useState<Id<"users">[]>([]);
   /** direction = envoi aux directions ; service = envoi aux services uniquement */
@@ -135,13 +125,9 @@ export function SendDocument({
   const [extraDestIds, setExtraDestIds] = useState<Id<"departments">[]>([]);
 
   // Objet / références du courrier
-  const [objet, setObjet] = useState(
-    replyTo?.objet ? `Réponse à : ${replyTo.objet}` : "",
-  );
+  const [objet, setObjet] = useState("");
   const [observations, setObservations] = useState("");
-  const [referenceText, setReferenceText] = useState(
-    replyTo?.publicRef ? replyTo.publicRef : "",
-  );
+  const [referenceText, setReferenceText] = useState("");
   const [requiresResponse, setRequiresResponse] = useState(false);
   const [arriveeLe, setArriveeLe] = useState("");
   const [duField, setDuField] = useState("");
@@ -620,7 +606,6 @@ export function SendDocument({
           publicRef: isTransmission ? undefined : ref || undefined,
           mailKind: isTransmission ? "transmission" : "envoi",
           stepDeadlineHours: undefined,
-          parentCourrierId: replyTo?.documentId,
           referenceText: referenceText.trim() || undefined,
           requiresResponse: false,
           emittingDepartmentId:
@@ -727,13 +712,6 @@ export function SendDocument({
               event.target.value = "";
             }}
           />
-          {replyTo ? (
-            <p className="rounded-lg border border-brand/30 bg-brand-soft/50 px-4 py-3 text-sm">
-              <strong>Réponse</strong> au courrier
-              {replyTo.publicRef ? ` ${replyTo.publicRef}` : ""}
-            </p>
-          ) : null}
-
           {step === 0 ? (
             <div className="space-y-8">
                             {files.length > 0 ? (

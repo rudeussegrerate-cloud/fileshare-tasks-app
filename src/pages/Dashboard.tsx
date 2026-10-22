@@ -66,12 +66,6 @@ export default function Dashboard() {
   const [openDocumentId, setOpenDocumentId] = useState<Id<"documents"> | null>(
     null,
   );
-  const [replyTo, setReplyTo] = useState<{
-    documentId: import("@/convex/_generated/dataModel").Id<"documents">;
-    publicRef?: string | null;
-    objet: string;
-    senderDepartmentId?: import("@/convex/_generated/dataModel").Id<"departments"> | null;
-  } | null>(null);
   const syncedRef = useRef(false);
   const [meTimedOut, setMeTimedOut] = useState(false);
 
@@ -189,11 +183,9 @@ export default function Dashboard() {
 
       {view === "send" ? (
         <SendDocument
-          key={replyTo ? `reply-${replyTo.documentId}` : "new"}
+          key="new"
           mode="envoi"
-          replyTo={replyTo}
           onSent={() => {
-            setReplyTo(null);
             setView("inbox");
           }}
           onManageDepartments={() => setView("departments")}
@@ -265,11 +257,6 @@ export default function Dashboard() {
           documentId={openDocumentId}
           onOpenChange={(open) => {
             if (!open) setOpenDocumentId(null);
-          }}
-          onReply={(parent) => {
-            setOpenDocumentId(null);
-            setReplyTo(parent);
-            setView("send");
           }}
         />
       </ViewErrorBoundary>

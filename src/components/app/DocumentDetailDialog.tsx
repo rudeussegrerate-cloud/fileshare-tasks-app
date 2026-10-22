@@ -51,17 +51,9 @@ import { Textarea } from "@/components/ui/textarea";
 export function DocumentDetailDialog({
   documentId,
   onOpenChange,
-  onReply,
 }: {
   documentId: Id<"documents"> | null;
   onOpenChange: (open: boolean) => void;
-  /** Ouvre le formulaire d'envoi en mode réponse à ce courrier */
-  onReply?: (parent: {
-    documentId: Id<"documents">;
-    publicRef?: string | null;
-    objet: string;
-    senderDepartmentId?: Id<"departments"> | null;
-  }) => void;
 }) {
   const courrier = useQuery(
     api.documents.get,
@@ -472,29 +464,6 @@ export function DocumentDetailDialog({
                 Une <strong>réponse</strong> est attendue pour ce courrier.
               </p>
             ) : null}
-            {documentOrNull.canReply && onReply ? (
-              <Button
-                type="button"
-                className="w-full gap-2"
-                onClick={() => {
-                  onReply({
-                    documentId: documentOrNull._id,
-                    publicRef: documentOrNull.publicRef,
-                    objet: documentOrNull.objet || documentOrNull.fileName,
-                    senderDepartmentId:
-                      (
-                        documentOrNull as {
-                          senderDepartmentId?: Id<"departments"> | null;
-                        }
-                      ).senderDepartmentId ?? null,
-                  });
-                  onOpenChange(false);
-                }}
-              >
-                <Reply className="size-4" />
-                Répondre à ce courrier
-              </Button>
-            ) : null}
             {documentOrNull.canEdit ? (
               <div className="space-y-3 rounded-sm border border-amber-200 bg-amber-50/80 p-3">
                 {!editing ? (
@@ -898,33 +867,7 @@ export function DocumentDetailDialog({
               </div>
             </section>
 
-                        {documentOrNull.canReply && onReply ? (
-              <div className="rounded-sm border border-brand/30 bg-brand-soft/40 p-3 space-y-2">
-                <p className="text-xs text-muted-foreground">
-                  Répondre au nom de votre structure. Le N° d&apos;origine sera
-                  repris en référence.
-                </p>
-                <Button
-                  type="button"
-                  className="w-full gap-2 sm:w-auto"
-                  onClick={() => {
-                    onReply({
-                      documentId: documentOrNull._id,
-                      publicRef: documentOrNull.publicRef,
-                      objet: documentOrNull.objet || documentOrNull.fileName,
-                      senderDepartmentId:
-                        (documentOrNull as { senderDepartmentId?: Id<"departments"> | null })
-                          .senderDepartmentId ?? null,
-                    });
-                    onOpenChange(false);
-                  }}
-                >
-                  <Reply className="size-4" />
-                  Répondre à ce courrier
-                </Button>
-              </div>
-            ) : null}
-
+                        
             {documentOrNull.canUpdateStatus || documentOrNull.isRecipient ? (
               <section className="space-y-3">
                 {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 0 ? (
