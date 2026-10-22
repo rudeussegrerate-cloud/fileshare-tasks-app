@@ -398,6 +398,8 @@ export function SendDocument({
   const directions = (departments ?? [])
     .filter((d) => {
       if ((d as { active?: boolean }).active === false) return false;
+      // Direction = pas de parent (les services ont un parentId)
+      if (d.parentId) return false;
       const k = (d as { kind?: string | null }).kind;
       return k !== "service";
     })
@@ -838,7 +840,6 @@ export function SendDocument({
                       .filter(
                         (s) =>
                           s.parentId === dir._id &&
-                          (s as { kind?: string | null }).kind === "service" &&
                           (s as { active?: boolean }).active !== false,
                       )
                       .slice()
@@ -851,15 +852,54 @@ export function SendDocument({
                     const selectedSvcCount = services.filter((s) =>
                       destIds.includes(s._id),
                     ).length;
-                    // Membres rattachés à la direction uniquement (pas aux services)
-                    // Membres rattachés à la direction elle-même
-                    // (pas aux services, pas le chef — case dédiée)
-                    const dirMembers = (dir.members ?? []).filter(
-                      (m) =>
-                        m._id !== me?.user._id &&
-                        (m as { departmentRole?: string }).departmentRole !==
-                          "chef",
-                    );
+                    // Destinataires « Autre » : membres de la direction
+                    // + membres des services rattachés, affichés par fonction.
+                    // On exclut uniquement le compte connecté (pas d'auto-envoi)
+                    // et le chef de CETTE direction (case « Chef de direction »).
+                    const myId = me?.user?._id
+                      ? String(me.user._id)
+                      : "";
+                    const dirChiefId = dir.chief?._id
+                      ? String(dir.chief._id)
+                      : "";
+                    const seenMember = new Set<string>();
+                    const dirMembers: Array<{
+                      _id: (typeof dir.members)[number]["_id"];
+                      name: string;
+                      fonction?: string | null;
+                      departmentRole?: string;
+                      sourceLabel?: string;
+                    }> = [];
+                    const pushMember = (
+                      m: {
+                        _id: (typeof dir.members)[number]["_id"];
+                        name: string;
+                        fonction?: string | null;
+                        departmentRole?: string;
+                      },
+                      sourceLabel?: string,
+                    ) => {
+                      const id = String(m._id);
+                      if (!id || id === myId) return;
+                      if (id === dirChiefId) return;
+                      if (seenMember.has(id)) return;
+                      seenMember.add(id);
+                      dirMembers.push({
+                        _id: m._id,
+                        name: m.name,
+                        fonction: m.fonction ?? null,
+                        departmentRole: m.departmentRole,
+                        sourceLabel,
+                      });
+                    };
+                    for (const m of dir.members ?? []) {
+                      pushMember(m, "Direction");
+                    }
+                    for (const svc of services) {
+                      for (const m of svc.members ?? []) {
+                        pushMember(m, svc.name);
+                      }
+                    }
                     const selectedMemberCount = dirMembers.filter((m) =>
                       memberDestIds.includes(m._id),
                     ).length;
@@ -955,21 +995,20 @@ export function SendDocument({
                           </p>
                           {dirMembers.length === 0 ? (
                             <p className="px-1 text-xs text-muted-foreground">
-                              Aucun membre rattaché à cette direction hors
-                              service. Dans Structures → Ajouter un membre →
-                              « Direction entière (sans service) ».
+                              Aucun autre membre visible ici. Vérifiez dans
+                              Structures que la personne est bien rattachée à
+                              cette direction ou à un de ses services (et que ce
+                              n&apos;est pas votre propre compte ni le chef).
                             </p>
                           ) : (
                             dirMembers.map((m) => {
                               const active = memberDestIds.includes(m._id);
                               const fonction =
-                                (
-                                  (m as { fonction?: string | null })
-                                    .fonction ?? ""
-                                ).trim() || "Fonction non renseignée";
+                                (m.fonction ?? "").trim() ||
+                                "Fonction non renseignée";
                               return (
                                 <label
-                                  key={m._id}
+                                  key={String(m._id)}
                                   className={cn(
                                     "flex cursor-pointer items-center gap-3 rounded-md border px-2.5 py-2 transition-colors",
                                     active
@@ -986,6 +1025,12 @@ export function SendDocument({
                                   <span className="min-w-0 flex-1 text-sm">
                                     <span className="font-medium text-foreground">
                                       {fonction}
+                                    </span>
+                                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                                      {m.name}
+                                      {m.sourceLabel
+                                        ? ` · ${m.sourceLabel}`
+                                        : ""}
                                     </span>
                                   </span>
                                 </label>

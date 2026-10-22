@@ -399,7 +399,7 @@ export const listDepartments = query({
         .filter(
           (u) =>
             u.departmentId === department._id &&
-            (u.accountStatus === "valide" || !u.accountStatus),
+            u.accountStatus !== "rejete",
         )
         .map((u) => ({
           _id: u._id,
