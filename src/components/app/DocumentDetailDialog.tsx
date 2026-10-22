@@ -16,6 +16,7 @@ import {
   Archive,
   ArchiveRestore,
   Download,
+  ExternalLink,
   Printer,
   FileText,
   History,
@@ -90,6 +91,53 @@ export function DocumentDetailDialog({
   const [editPublicRef, setEditPublicRef] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [cancelBusy, setCancelBusy] = useState(false);
+
+  const openDocumentViewer = async () => {
+    const url =
+      documentOrNull?.downloadUrl ||
+      (documentOrNull as { fileUrl?: string | null } | null)?.fileUrl;
+    if (!url || !documentOrNull) return;
+    const name = documentOrNull.fileName ?? "document";
+    const type = (documentOrNull.contentType ?? "").toLowerCase();
+    const isPdf =
+      type.includes("pdf") || name.toLowerCase().endsWith(".pdf");
+    const isImage =
+      type.startsWith("image/") ||
+      /\.(png|jpe?g|gif|webp|bmp|svg)$/i.test(name);
+
+    try {
+      // Blob local → le navigateur affiche au lieu de forcer le téléchargement
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("fetch failed");
+      const blob = await res.blob();
+      const mime =
+        blob.type ||
+        documentOrNull.contentType ||
+        (isPdf
+          ? "application/pdf"
+          : isImage
+            ? "image/jpeg"
+            : "application/octet-stream");
+      const viewBlob = new Blob([blob], { type: mime });
+      const objectUrl = URL.createObjectURL(viewBlob);
+      const win = window.open(objectUrl, "_blank", "noopener,noreferrer");
+      if (!win) {
+        // Popup bloquée : onglet via <a> sans attribut download
+        const a = window.document.createElement("a");
+        a.href = objectUrl;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        window.document.body.appendChild(a);
+        a.click();
+        window.document.body.removeChild(a);
+      }
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120_000);
+    } catch {
+      // Repli : ouvrir l'URL Convex sans forcer download
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
+
 
   const printCourrier = () => {
     if (!documentOrNull) return;
@@ -269,16 +317,30 @@ export function DocumentDetailDialog({
             <DialogHeader>
               <div className="flex items-start gap-3">
                 {documentOrNull ? (
-                  <FileThumb
-                    fileName={documentOrNull.fileName}
-                    contentType={documentOrNull.contentType}
-                    fileUrl={(documentOrNull as { fileUrl?: string | null }).fileUrl ?? (documentOrNull as { downloadUrl?: string | null }).downloadUrl}
-                    size="lg"
-                  />
+                  <button
+                    type="button"
+                    className="shrink-0 rounded-md text-left transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    onClick={() => void openDocumentViewer()}
+                    title="Visualiser le document"
+                  >
+                    <FileThumb
+                      fileName={documentOrNull.fileName}
+                      contentType={documentOrNull.contentType}
+                      fileUrl={(documentOrNull as { fileUrl?: string | null }).fileUrl ?? (documentOrNull as { downloadUrl?: string | null }).downloadUrl}
+                      size="lg"
+                    />
+                  </button>
                 ) : null}
                 <div className="min-w-0">
                   <DialogTitle className="truncate text-lg">
-                    {documentOrNull.fileName}
+                    <button
+                      type="button"
+                      className="truncate text-left hover:underline focus-visible:outline-none"
+                      onClick={() => void openDocumentViewer()}
+                      title="Visualiser le document"
+                    >
+                      {documentOrNull.fileName}
+                    </button>
                   </DialogTitle>
                   <DialogDescription className="mt-0.5">
                     {formatBytes(documentOrNull.size)} · {formatDateTime(documentOrNull.createdAt)}
@@ -990,22 +1052,31 @@ export function DocumentDetailDialog({
               </p>
               <div className="flex flex-wrap gap-2">
                 {documentOrNull.downloadUrl ? (
-                  <Button
-                    className="gap-2"
-                    variant="outline"
-                    onClick={() => {
-                      if (!documentOrNull.downloadUrl) return;
-                      const anchor = window.document.createElement("a");
-                      anchor.href = documentOrNull.downloadUrl;
-                      anchor.download = documentOrNull.fileName ?? "";
-                      window.document.body.appendChild(anchor);
-                      anchor.click();
-                      window.document.body.removeChild(anchor);
-                    }}
-                  >
-                    <Download className="size-4" />
-                    Télécharger
-                  </Button>
+                  <>
+                    <Button
+                      className="gap-2"
+                      onClick={() => void openDocumentViewer()}
+                    >
+                      <ExternalLink className="size-4" />
+                      Visualiser
+                    </Button>
+                    <Button
+                      className="gap-2"
+                      variant="outline"
+                      onClick={() => {
+                        if (!documentOrNull.downloadUrl) return;
+                        const anchor = window.document.createElement("a");
+                        anchor.href = documentOrNull.downloadUrl;
+                        anchor.download = documentOrNull.fileName ?? "document";
+                        window.document.body.appendChild(anchor);
+                        anchor.click();
+                        window.document.body.removeChild(anchor);
+                      }}
+                    >
+                      <Download className="size-4" />
+                      Télécharger
+                    </Button>
+                  </>
                 ) : null}
 
                 {documentOrNull.archivedAt ? (
