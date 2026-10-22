@@ -7,19 +7,13 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useAuth } from "@/hooks/use-auth";
-import { api } from "@/convex/_generated/api";
-import { useMutation } from "convex/react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
   Clock3,
   FileText,
   LogOut,
-  RefreshCw,
-  ShieldAlert,
   ShieldX,
 } from "lucide-react";
-import { useState } from "react";
 import { useNavigate } from "react-router";
 
 type BlockedStatus = "en_attente" | "rejete";
@@ -42,9 +36,6 @@ export function AccountStatusScreen({
 }) {
   const { signOut } = useAuth();
   const navigate = useNavigate();
-  const claimRoot = useMutation(api.workspace.claimBootstrapRoot);
-  const [claiming, setClaiming] = useState(false);
-
 
   const pending = status === "en_attente";
   const Icon = pending ? Clock3 : ShieldX;
@@ -122,36 +113,6 @@ export function AccountStatusScreen({
                 </div>
               </dl>
             </div>
-
-            {pending ? (
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full gap-2"
-                disabled={claiming}
-                onClick={() => {
-                  void (async () => {
-                    setClaiming(true);
-                    try {
-                      const res = await claimRoot({});
-                      toast.success(res.message);
-                    } catch (e: unknown) {
-                      toast.error(
-                        e instanceof Error
-                          ? e.message
-                          : "Activation admin impossible.",
-                      );
-                    } finally {
-                      setClaiming(false);
-                    }
-                  })();
-                }}
-              >
-                {claiming
-                  ? "Activation…"
-                  : "Activer les droits admin (si aucun DG)"}
-              </Button>
-            ) : null}
 
             <Button
               type="button"
