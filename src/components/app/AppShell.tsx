@@ -34,7 +34,6 @@ import {
   Settings,
   Upload,
   Forward,
-  PenLine,
   UserCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -54,7 +53,6 @@ export type AppView =
   | "inbox"
   | "sent"
   | "fichiers"
-  | "workspace"
   | "departments"
   | "accounts"
   | "settings";
@@ -88,12 +86,6 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       { key: "inbox", label: "Courriers reçus", icon: Inbox },
       { key: "sent", label: "Courriers envoyés", icon: Send },
       { key: "fichiers", label: "Recherche", icon: FolderOpen },
-    ],
-  },
-  {
-    title: "Espace de travail",
-    items: [
-      { key: "workspace", label: "Éditeur de courrier", icon: PenLine },
     ],
   },
   {
