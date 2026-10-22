@@ -260,6 +260,150 @@ export const syncProfile = mutation({
  * le compte connecté (avec email) devient root + validé.
  * Inutile si un root réel existe déjà.
  */
+
+/** Supprime sessions + refresh tokens + compte auth pour un userId. */
+async function cascadeDeleteAuthForUser(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+) {
+  const sessions = await ctx.db
+    .query("authSessions")
+    .withIndex("userId", (q) => q.eq("userId", userId))
+    .collect();
+  for (const session of sessions) {
+    const tokens = await ctx.db
+      .query("authRefreshTokens")
+      .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+      .collect();
+    for (const token of tokens) {
+      await ctx.db.delete(token._id);
+    }
+    await ctx.db.delete(session._id);
+  }
+  const accounts = (
+    await ctx.db.query("authAccounts").collect()
+  ).filter((a) => a.userId === userId);
+  for (const account of accounts) {
+    await ctx.db.delete(account._id);
+  }
+}
+
+/**
+ * Libère un email dont le profil users a été effacé mais dont les
+ * identifiants auth (authAccounts) existent encore — cas typique après
+ * suppression manuelle des comptes dans le dashboard Convex.
+ * Ne touche PAS un compte dont le document users existe encore.
+ */
+export const releaseOrphanedEmail = mutation({
+  args: { email: v.string() },
+  handler: async (ctx, args) => {
+    const email = args.email.trim().toLowerCase().slice(0, 254);
+    if (!email.includes("@")) {
+      throw new Error("Email invalide.");
+    }
+
+    let released = 0;
+    const accounts = await ctx.db.query("authAccounts").collect();
+    for (const account of accounts) {
+      const providerId = (account.providerAccountId ?? "").toLowerCase();
+      const verified = (account.emailVerified ?? "").toLowerCase();
+      if (providerId !== email && verified !== email) continue;
+
+      const user = await ctx.db.get(account.userId);
+      if (user) {
+        // Compte encore présent : ne pas libérer (évite le vol de compte)
+        continue;
+      }
+
+      // Orphelin : supprimer sessions liées à ce userId fantôme + ce compte auth
+      const sessions = await ctx.db
+        .query("authSessions")
+        .withIndex("userId", (q) => q.eq("userId", account.userId))
+        .collect();
+      for (const session of sessions) {
+        const tokens = await ctx.db
+          .query("authRefreshTokens")
+          .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+          .collect();
+        for (const token of tokens) {
+          await ctx.db.delete(token._id);
+        }
+        await ctx.db.delete(session._id);
+      }
+      await ctx.db.delete(account._id);
+      released += 1;
+    }
+
+    // Codes de vérification OTP éventuellement restants
+    try {
+      const codes = await ctx.db.query("authVerificationCodes").collect();
+      for (const code of codes) {
+        const ident = String(
+          (code as { accountId?: string; provider?: string; code?: string })
+            .accountId ?? "",
+        );
+        // best-effort: delete codes whose providerAccountId-like fields match
+        const raw = JSON.stringify(code).toLowerCase();
+        if (raw.includes(email)) {
+          await ctx.db.delete(code._id);
+        }
+      }
+    } catch {
+      /* table absente ou schéma différent */
+    }
+
+    return { released, email };
+  },
+});
+
+/**
+ * Admin / bootstrap : purge TOUS les enregistrements auth orphelins
+ * (userId qui ne pointe plus vers un users).
+ */
+export const purgeAllOrphanedAuth = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId) {
+      const me = await ctx.db.get(userId);
+      if (me && !isAdminRole(me.role)) {
+        throw new Error("Réservé au DG ou super utilisateur.");
+      }
+    } else {
+      // Sans session : uniquement si aucun admin/root n'existe
+      const users = await ctx.db.query("users").collect();
+      const hasAdmin = users.some((u) => isAdminRole(u.role));
+      if (hasAdmin) {
+        throw new Error("Connectez-vous en tant que DG pour purger.");
+      }
+    }
+
+    let released = 0;
+    const accounts = await ctx.db.query("authAccounts").collect();
+    for (const account of accounts) {
+      const user = await ctx.db.get(account.userId);
+      if (user) continue;
+      const sessions = await ctx.db
+        .query("authSessions")
+        .withIndex("userId", (q) => q.eq("userId", account.userId))
+        .collect();
+      for (const session of sessions) {
+        const tokens = await ctx.db
+          .query("authRefreshTokens")
+          .withIndex("sessionId", (q) => q.eq("sessionId", session._id))
+          .collect();
+        for (const token of tokens) {
+          await ctx.db.delete(token._id);
+        }
+        await ctx.db.delete(session._id);
+      }
+      await ctx.db.delete(account._id);
+      released += 1;
+    }
+    return { released };
+  },
+});
+
 export const claimBootstrapRoot = mutation({
   args: {},
   handler: async (ctx) => {

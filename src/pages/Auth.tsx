@@ -193,6 +193,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   const [requestedDepartmentId, setRequestedDepartmentId] = useState<string>("");
   const departments = useQuery(api.departmentMembership.listDepartmentsPublic);
   const requestJoin = useMutation(api.departmentMembership.requestJoin);
+  const releaseOrphanedEmail = useMutation(api.workspace.releaseOrphanedEmail);
 
   // Afficher les erreurs renvoyées par Google (?error=...)
   useEffect(() => {
@@ -485,6 +486,12 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
 
     setIsLoading(true);
     try {
+      // Libère l'email si un ancien compte auth orphelin bloque l'inscription
+      try {
+        await releaseOrphanedEmail({ email });
+      } catch (freeErr) {
+        console.warn("releaseOrphanedEmail:", freeErr);
+      }
       await signIn("password", {
         email,
         password,
