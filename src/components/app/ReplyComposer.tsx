@@ -265,7 +265,7 @@ export function ReplyComposer({
   const [editorDirty, setEditorDirty] = useState(false);
   const [sending, setSending] = useState(false);
   const [classifying, setClassifying] = useState(false);
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(1.2);
 
   const myName = me?.user?.name?.trim() || me?.user?.email || "";
   const defaultLogoSrc = mndptLogo as string;
@@ -465,7 +465,7 @@ export function ReplyComposer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[min(96vh,940px)] w-[min(1280px,98vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:rounded-xl">
+      <DialogContent className="flex h-[98vh] w-[99vw] max-w-none flex-col gap-0 overflow-hidden p-0 sm:rounded-none md:rounded-xl">
         <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-5">
           <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
             <Reply className="size-4 text-brand" />
@@ -699,7 +699,7 @@ export function ReplyComposer({
                 variant="ghost"
                 className="size-8"
                 onClick={() =>
-                  setZoom((z) => Math.max(0.55, Math.round((z - 0.1) * 10) / 10))
+                  setZoom((z) => Math.max(0.7, Math.round((z - 0.1) * 10) / 10))
                 }
               >
                 <ZoomOut className="size-3.5" />
@@ -713,7 +713,7 @@ export function ReplyComposer({
                 variant="ghost"
                 className="size-8"
                 onClick={() =>
-                  setZoom((z) => Math.min(1.35, Math.round((z + 0.1) * 10) / 10))
+                  setZoom((z) => Math.min(1.75, Math.round((z + 0.1) * 10) / 10))
                 }
               >
                 <ZoomIn className="size-3.5" />
@@ -742,25 +742,34 @@ export function ReplyComposer({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto bg-[#c5cdd8] p-4 sm:p-8">
+            <div className="min-h-0 flex-1 overflow-auto bg-[#9aa6b5] p-3 sm:p-6">
               <div
-                className="mx-auto origin-top transition-transform"
+                className="mx-auto flex justify-center"
                 style={{
-                  width: "210mm",
-                  transform: `scale(${zoom})`,
+                  // réserve la hauteur visuelle après scale pour le scroll
+                  minHeight: `calc(297mm * ${zoom} + 48px)`,
+                  paddingBottom: "32px",
                 }}
               >
                 <div
-                  ref={editorRef}
-                  contentEditable
-                  suppressContentEditableWarning
-                  onInput={() => setEditorDirty(true)}
-                  className="min-h-[297mm] w-[210mm] bg-white px-[18mm] py-[20mm] text-[13px] leading-relaxed text-black shadow-xl outline-none focus:ring-2 focus:ring-brand/40"
+                  className="origin-top transition-transform"
                   style={{
-                    fontFamily: 'Georgia, "Times New Roman", Times, serif',
-                    boxSizing: "border-box",
+                    width: "210mm",
+                    transform: `scale(${zoom})`,
                   }}
-                />
+                >
+                  <div
+                    ref={editorRef}
+                    contentEditable
+                    suppressContentEditableWarning
+                    onInput={() => setEditorDirty(true)}
+                    className="min-h-[297mm] w-[210mm] bg-white px-[20mm] py-[22mm] text-[14.5px] leading-relaxed text-black shadow-2xl outline-none focus:ring-2 focus:ring-brand/40"
+                    style={{
+                      fontFamily: 'Georgia, "Times New Roman", Times, serif',
+                      boxSizing: "border-box",
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
