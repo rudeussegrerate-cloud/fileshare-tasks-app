@@ -2802,6 +2802,63 @@ export const completeStep = mutation({
 
 
 
+
+/** Bref perso pour l'assistant (reçus / retards / urgents). */
+export const assistantMailBrief = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const received = await collectInboxDocuments(ctx, userId, false);
+    const sent = await ctx.db
+      .query("documents")
+      .withIndex("by_sender", (q) => q.eq("senderId", userId))
+      .collect();
+    const activeSent = sent.filter((d) => !d.archivedAt);
+    const now = Date.now();
+    const DAY = 24 * 3600 * 1000;
+    let unread = 0;
+    let overdue = 0;
+    let urgent = 0;
+    let recentNew = 0;
+    const recentItems: Array<{
+      _id: string;
+      objet: string;
+      status: string;
+      urgent: boolean;
+      createdAt: number;
+    }> = [];
+    for (const d of received) {
+      if (d.status === "envoye") unread += 1;
+      if (d.status === "en_retard") overdue += 1;
+      else if (d.status !== "traite") {
+        const due = d.dueAt ?? (d.createdAt ?? d._creationTime) + DAY;
+        if (now > due) overdue += 1;
+      }
+      if (d.urgent && d.status !== "traite") urgent += 1;
+      const age = now - (d.createdAt ?? d._creationTime);
+      if (age < DAY) recentNew += 1;
+      recentItems.push({
+        _id: String(d._id),
+        objet: (d.objet || d.fileName || "Courrier").slice(0, 80),
+        status: d.status,
+        urgent: Boolean(d.urgent) && d.status !== "traite",
+        createdAt: d.createdAt ?? d._creationTime,
+      });
+    }
+    recentItems.sort((a, b) => b.createdAt - a.createdAt);
+    return {
+      received: received.length,
+      sent: activeSent.length,
+      unread,
+      overdue,
+      urgent,
+      recentNew,
+      recent: recentItems.slice(0, 8),
+    };
+  },
+});
+
 export const enterpriseOverview = query({
   args: {},
   handler: async (ctx) => {

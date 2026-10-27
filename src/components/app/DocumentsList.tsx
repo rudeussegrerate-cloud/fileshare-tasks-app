@@ -16,7 +16,7 @@ import {
   Send,
 } from "lucide-react";
 import { MndptLoader } from "@/components/MndptLoader";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   EmptyState,
   STATUS_META,
@@ -33,7 +33,7 @@ import {
 
 type Mode = "inbox" | "sent";
 
-function filtersFor(mode: Mode): Array<{ key: "all" | DocumentStatus; label: string }> {
+function filtersFor(mode: Mode): Array<{ key: "all" | DocumentStatus | "urgent"; label: string }> {
   return [
     { key: "all", label: "Tous" },
     {
@@ -43,6 +43,7 @@ function filtersFor(mode: Mode): Array<{ key: "all" | DocumentStatus; label: str
     { key: "consulte", label: "Lu" },
     { key: "en_cours", label: "En traitement" },
     { key: "en_retard", label: "En retard" },
+    { key: "urgent", label: "Urgent" },
     { key: "traite", label: "Classé" },
   ];
 }
@@ -58,8 +59,63 @@ export function DocumentsList({
 }) {
   const FILTERS = filtersFor(mode);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | DocumentStatus>("all");
+  const [filter, setFilter] = useState<"all" | DocumentStatus | "urgent">("all");
+  const [sortMode, setSortMode] = useState<"recent" | "urgent">("recent");
   const [showArchived, setShowArchived] = useState(false);
+
+  // Préférences pilotées par l'assistant personnel
+  useEffect(() => {
+    const apply = (raw?: string | null) => {
+      try {
+        const prefs = JSON.parse(
+          raw || localStorage.getItem("scandoc-docs-prefs") || "{}",
+        ) as {
+          filter?: string;
+          sort?: string;
+          search?: string;
+          mode?: string;
+        };
+        if (prefs.search != null) setQuery(String(prefs.search));
+        if (prefs.sort === "urgent" || prefs.sort === "recent") {
+          setSortMode(prefs.sort);
+        }
+        if (prefs.filter === "urgent") setFilter("urgent");
+        else if (
+          prefs.filter &&
+          ["all", "envoye", "consulte", "en_cours", "en_retard", "traite"].includes(
+            prefs.filter,
+          )
+        ) {
+          setFilter(prefs.filter as "all" | DocumentStatus);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    apply(null);
+    const onPrefs = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { filter?: string; sort?: string; search?: string }
+        | undefined;
+      if (detail) {
+        try {
+          localStorage.setItem(
+            "scandoc-docs-prefs",
+            JSON.stringify({
+              ...JSON.parse(localStorage.getItem("scandoc-docs-prefs") || "{}"),
+              ...detail,
+            }),
+          );
+        } catch {
+          /* ignore */
+        }
+      }
+      apply(null);
+    };
+    window.addEventListener("scandoc:docs-prefs", onPrefs as EventListener);
+    return () =>
+      window.removeEventListener("scandoc:docs-prefs", onPrefs as EventListener);
+  }, []);
 
   // Liste complète (sans filtre statut) pour compteurs + filtre local fiable
   const result = useQuery(
@@ -79,14 +135,37 @@ export function DocumentsList({
       base[key] =
         allDocuments?.filter((d) => d.status === key).length ?? 0;
     }
+    base.urgent =
+      allDocuments?.filter(
+        (d) =>
+          Boolean((d as { urgent?: boolean }).urgent) && d.status !== "traite",
+      ).length ?? 0;
     return base;
   }, [allDocuments]);
 
   const documents = useMemo(() => {
     if (!allDocuments) return undefined;
-    if (filter === "all") return allDocuments;
-    return allDocuments.filter((d) => d.status === filter);
-  }, [allDocuments, filter]);
+    let list = allDocuments;
+    if (filter === "urgent") {
+      list = list.filter(
+        (d) => Boolean((d as { urgent?: boolean }).urgent) && d.status !== "traite",
+      );
+    } else if (filter !== "all") {
+      list = list.filter((d) => d.status === filter);
+    }
+    const sorted = [...list];
+    if (sortMode === "urgent") {
+      sorted.sort((a, b) => {
+        const ua = a.status !== "traite" && Boolean((a as { urgent?: boolean }).urgent) ? 1 : 0;
+        const ub = b.status !== "traite" && Boolean((b as { urgent?: boolean }).urgent) ? 1 : 0;
+        if (ub !== ua) return ub - ua;
+        return (b.createdAt ?? 0) - (a.createdAt ?? 0);
+      });
+    } else {
+      sorted.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    }
+    return sorted;
+  }, [allDocuments, filter, sortMode]);
 
   const exportCsv = () => {
     if (!documents || documents.length === 0) {
@@ -212,6 +291,30 @@ export function DocumentsList({
       </div>
 
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setSortMode("recent")}
+          className={cn(
+            "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+            sortMode === "recent"
+              ? "border-brand bg-brand text-primary-foreground"
+              : "border-border bg-card text-muted-foreground hover:text-foreground",
+          )}
+        >
+          Plus récents
+        </button>
+        <button
+          type="button"
+          onClick={() => setSortMode("urgent")}
+          className={cn(
+            "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+            sortMode === "urgent"
+              ? "border-brand bg-brand text-primary-foreground"
+              : "border-border bg-card text-muted-foreground hover:text-foreground",
+          )}
+        >
+          Plus urgents
+        </button>
         {FILTERS.map((entry) => (
           <button
             key={entry.key}

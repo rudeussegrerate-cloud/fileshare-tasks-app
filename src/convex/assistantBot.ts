@@ -2,40 +2,29 @@
 
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { action } from "./_generated/server";
 
 const SITE_HELP = `
-Tu es le guide intégré de ScanDoc, application d'échange de courriers internes du MNDPT.
-Tu n'es PAS un robot jouet : tu parles comme un assistant professionnel de secrétariat / courrier.
+Tu es l'assistant personnel de l'utilisateur dans ScanDoc (courriers MNDPT).
+Tu es interactif, proactif et orienté action.
 
 MISSION :
-Aider à envoyer, recevoir, répondre et classer des courriers entre directions et services.
-Quand l'utilisateur cherche une fonction, indique le menu exact et dis que tu l'y emmènes
-(ex. « J'ouvre Courriers reçus pour vous »).
+- Alerter sur courriers en retard, urgents, non lus ou nouveaux
+- Inventaire des courriers (reçus / envoyés)
+- Recherche et filtres (retard, urgent, non lu)
+- Réorganiser l'affichage (plus récents, plus urgents) via des actions
+- Guider vers les menus du site
 
-MENUS :
-- Accueil
-- Nouveau courrier (envoyer)
-- Courriers reçus
-- Courriers envoyés
-- Recherche
-- Structures (directions / services)
-- Paramètres
-- Comptes (DG uniquement)
+MENUS : Accueil, Nouveau courrier, Courriers reçus, Courriers envoyés, Recherche, Structures, Paramètres, Comptes (DG)
 
-VOCABULAIRE :
-- Courrier (pas « document » ou « dossier »)
-- Structure émettrice / destinataire
-- N° de courrier (ex. N°071-2026/MNDPT/SG/DGDN/DTD)
-- Statuts : Non lu, Lu, En traitement, Classé
-- Répondre = nouvel envoi qui référence le courrier d'origine
+STATUTS : Non lu, Lu, En traitement, En retard, Classé
 
 RÈGLES :
-1. Français clair, 2 à 5 phrases.
-2. Pas de jargon technique.
-3. Réponses orientées actions concrètes dans ScanDoc.
-4. Si perdu : proposer Nouveau courrier, Reçus, ou Recherche.
+1. Français clair, 2 à 6 phrases.
+2. Utilise les chiffres fournis dans le CONTEXTE COURRIER (ne les invente pas).
+3. Propose une action concrète (ouvrir reçus, trier, filtrer).
+4. Tu es l'assistant de CET utilisateur, pas un guide générique uniquement.
 `;
 
 type SiteAction =
@@ -52,7 +41,13 @@ type SiteAction =
   | "open_departments"
   | "open_settings"
   | "open_accounts"
-  | "remind_tasks";
+  | "remind_tasks"
+  | "sort_recent"
+  | "sort_urgent"
+  | "filter_overdue"
+  | "filter_urgent"
+  | "filter_unread"
+  | "inventory";
 
 type BotEmotion =
   | "idle"
@@ -125,6 +120,46 @@ function detectSiteAction(text: string): SiteAction {
   ) {
     return "open_home";
   }
+  if (
+    /inventaire|combien de courrier|resume de mes courriers|etat de mes courriers|tableau de bord courrier/.test(
+      q,
+    )
+  ) {
+    return "inventory";
+  }
+  if (
+    /plus recent|trier par date|les derniers|afficher les recents|ordre chronologique/.test(
+      q,
+    )
+  ) {
+    return "sort_recent";
+  }
+  if (
+    /plus urgent|trier par urgence|priorite urgent|afficher les urgents d'abord/.test(
+      q,
+    )
+  ) {
+    return "sort_urgent";
+  }
+  if (
+    /filtrer.*retard|seulement.*en retard|courriers? en retard|voir les retards/.test(
+      q,
+    )
+  ) {
+    return "filter_overdue";
+  }
+  if (
+    /filtrer.*urgent|seulement.*urgent|voir les urgents|courriers? urgents/.test(
+      q,
+    )
+  ) {
+    return "filter_urgent";
+  }
+  if (
+    /non lus?|pas encore lus?|filtrer.*non lu|voir les non lus/.test(q)
+  ) {
+    return "filter_unread";
+  }
   if (/tache|a traiter|rappel|en retard|non fini/.test(q)) {
     return "remind_tasks";
   }
@@ -168,7 +203,13 @@ function guideLine(action: SiteAction): string {
     open_departments: "Je vous emmène dans **Départements & groupes**.",
     open_settings: "Je vous ouvre les **Paramètres**.",
     open_accounts: "Je vous ouvre la gestion des **Comptes** (DG).",
-    remind_tasks: "Je vous montre vos **documents à traiter** (reçus).",
+    remind_tasks: "Je vous montre vos **courriers à traiter** (reçus).",
+    sort_recent: "J'affiche vos courriers **du plus récent au plus ancien**.",
+    sort_urgent: "J'affiche d'abord les courriers **urgents**.",
+    filter_overdue: "Je filtre les courriers **en retard**.",
+    filter_urgent: "Je filtre les courriers **urgents**.",
+    filter_unread: "Je filtre les courriers **non lus**.",
+    inventory: "Voici l'**inventaire** de vos courriers.",
   };
   return lines[action] ?? "";
 }
@@ -282,6 +323,65 @@ export const ask = action({
 
     const emotion = detectEmotion(message, mood);
 
+    type MailBrief = {
+      received: number;
+      sent: number;
+      unread: number;
+      overdue: number;
+      urgent: number;
+      recentNew: number;
+      recent: Array<{
+        objet: string;
+        status: string;
+        urgent: boolean;
+      }>;
+    };
+    let mailBrief: MailBrief | null = null;
+    try {
+      mailBrief = (await ctx.runQuery(
+        api.documents.assistantMailBrief,
+        {},
+      )) as MailBrief | null;
+    } catch {
+      mailBrief = null;
+    }
+
+    const briefText = mailBrief
+      ? `CONTEXTE COURRIER UTILISATEUR :
+- Reçus : ${mailBrief.received} (non lus : ${mailBrief.unread}, en retard : ${mailBrief.overdue}, urgents : ${mailBrief.urgent}, nouveaux <24h : ${mailBrief.recentNew})
+- Envoyés : ${mailBrief.sent}
+- Derniers reçus : ${
+          mailBrief.recent
+            .slice(0, 5)
+            .map(
+              (r) =>
+                `« ${r.objet} » [${r.status}${r.urgent ? ", urgent" : ""}]`,
+            )
+            .join(" ; ") || "aucun"
+        }`
+      : "CONTEXTE COURRIER : indisponible";
+
+    // Réponses directes inventaire / alertes sans IA
+    const actionEarly = detectSiteAction(message);
+    if (actionEarly === "inventory" && mailBrief) {
+      const reply = `${name} — Inventaire :
+• ${mailBrief.received} reçu(s) dont ${mailBrief.unread} non lu(s), ${mailBrief.overdue} en retard, ${mailBrief.urgent} urgent(s)
+• ${mailBrief.recentNew} nouveau(x) sur les dernières 24 h
+• ${mailBrief.sent} envoyé(s)
+${guideLine("inventory")}`;
+      await ctx.runMutation(internal.bot.saveExchange, {
+        userId,
+        userBody: message,
+        assistantBody: reply,
+      });
+      return {
+        reply,
+        action: "inventory",
+        emotion: "look" as BotEmotion,
+        mailBrief,
+      };
+    }
+
     // 1) Apprentissage
     const learn = parseLearnCommand(message);
     if (learn) {
@@ -290,7 +390,7 @@ export const ask = action({
         name: learn.trigger.slice(0, 40),
         trigger: learn.trigger,
         instruction: learn.instruction,
-        action: learn.action,
+        action: learn.action as any,
       });
       const reply = `${name} : J'ai appris « ${learn.trigger} ». Quand vous le direz, j'exécuterai : ${learn.instruction}`;
       await ctx.runMutation(internal.bot.saveExchange, {

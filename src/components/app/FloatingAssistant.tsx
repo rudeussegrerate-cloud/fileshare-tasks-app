@@ -439,12 +439,14 @@ export function FloatingAssistant() {
   const setAvatar = useMutation(api.bot.setAvatar);
   const clearAvatar = useMutation(api.bot.clearAvatar);
   const ask = useAction(api.assistantBot.ask);
+  const mailBrief = useQuery(api.documents.assistantMailBrief);
   const skills = useQuery(api.bot.listMySkills);
   const saveSkill = useMutation(api.bot.saveSkill);
   const deleteSkill = useMutation(api.bot.deleteSkill);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [open, setOpen] = useState(false);
+  const [proactiveBanner, setProactiveBanner] = useState<string | null>(null);
   const [settings, setSettings] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -480,6 +482,25 @@ export function FloatingAssistant() {
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<{ stop?: () => void } | null>(null);
   const botFloatRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    if (!open || !mailBrief) return;
+    const parts: string[] = [];
+    if (mailBrief.overdue > 0) parts.push(`${mailBrief.overdue} en retard`);
+    if (mailBrief.urgent > 0) parts.push(`${mailBrief.urgent} urgent(s)`);
+    if (mailBrief.unread > 0) parts.push(`${mailBrief.unread} non lu(s)`);
+    if (mailBrief.recentNew > 0)
+      parts.push(`${mailBrief.recentNew} nouveau(x) (24 h)`);
+    if (parts.length === 0) {
+      setProactiveBanner(null);
+      return;
+    }
+    setProactiveBanner(
+      "Point courrier : " +
+        parts.join(", ") +
+        ". Dites « inventaire », « voir les retards » ou « plus urgents ».",
+    );
+  }, [open, mailBrief]);
 
   useEffect(() => {
     try {
@@ -789,6 +810,11 @@ export function FloatingAssistant() {
           </div>
 
           <div className="flex-1 space-y-2 overflow-y-auto px-3 py-2">
+            {proactiveBanner ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+                {proactiveBanner}
+              </div>
+            ) : null}
             {(history?.length ?? 0) === 0 ? (
               <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                 <p className="font-medium text-foreground">
@@ -798,9 +824,10 @@ export function FloatingAssistant() {
                   Posez-moi une question si vous êtes perdu, par exemple :
                 </p>
                 <ul className="mt-1 list-inside list-disc">
-                  <li>Comment envoyer un document ?</li>
-                  <li>Apprends : quand je dis mes reçus, ouvre les documents reçus</li>
-                  <li>Où sont mes messages ?</li>
+                  <li>Inventaire de mes courriers</li>
+                  <li>Voir les retards / les urgents</li>
+                  <li>Afficher les plus récents</li>
+                  <li>Comment envoyer un courrier ?</li>
                 </ul>
               </div>
             ) : (
@@ -878,7 +905,49 @@ export function FloatingAssistant() {
                     open_settings: "settings",
                     open_accounts: "accounts",
                     remind_tasks: "inbox",
+                    sort_recent: "inbox",
+                    sort_urgent: "inbox",
+                    filter_overdue: "inbox",
+                    filter_urgent: "inbox",
+                    filter_unread: "inbox",
+                    inventory: "inbox",
                   };
+                  // Préférences liste (tri / filtre) pour l'assistant
+                  if (
+                    action === "sort_recent" ||
+                    action === "sort_urgent" ||
+                    action === "filter_overdue" ||
+                    action === "filter_urgent" ||
+                    action === "filter_unread" ||
+                    action === "inventory"
+                  ) {
+                    const prefs: Record<string, string> = {};
+                    if (action === "sort_recent") prefs.sort = "recent";
+                    if (action === "sort_urgent") prefs.sort = "urgent";
+                    if (action === "filter_overdue") prefs.filter = "en_retard";
+                    if (action === "filter_urgent") prefs.filter = "urgent";
+                    if (action === "filter_unread") prefs.filter = "envoye";
+                    if (action === "inventory") {
+                      prefs.filter = "all";
+                      prefs.sort = "recent";
+                    }
+                    try {
+                      localStorage.setItem(
+                        "scandoc-docs-prefs",
+                        JSON.stringify({
+                          ...JSON.parse(
+                            localStorage.getItem("scandoc-docs-prefs") || "{}",
+                          ),
+                          ...prefs,
+                        }),
+                      );
+                    } catch {
+                      /* ignore */
+                    }
+                    window.dispatchEvent(
+                      new CustomEvent("scandoc:docs-prefs", { detail: prefs }),
+                    );
+                  }
                   const view = map[action];
                   if (view) {
                     setOpen(false);
