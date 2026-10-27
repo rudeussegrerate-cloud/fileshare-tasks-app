@@ -57,29 +57,51 @@ function esc(s: string) {
     .replace(/"/g, "&quot;");
 }
 
+const CORE_FIELD_IDS = [
+  "hierarchie",
+  "lieuDate",
+  "emetteurQualite",
+  "destinataire",
+  "numero",
+  "objet",
+  "reference",
+  "piecesJointes",
+  "corps",
+  "signature",
+] as const;
+
 function buildLetterHtml(fields: Field[]): string {
   const get = (id: string) =>
     fields.find((f) => f.id === id)?.value.trim() ?? "";
+  const hierarchie = get("hierarchie");
   const lieuDate = get("lieuDate");
+  const emetteurQualite = get("emetteurQualite");
   const destinataire = get("destinataire");
+  const numero = get("numero");
   const objet = get("objet");
   const reference = get("reference");
+  const pieces = get("piecesJointes");
   const corps = get("corps");
   const signature = get("signature");
-  const custom = fields.filter(
-    (f) =>
-      !["lieuDate", "destinataire", "objet", "reference", "corps", "signature"].includes(
-        f.id,
-      ),
-  );
+  const custom = fields.filter((f) => !CORE_FIELD_IDS.includes(f.id as (typeof CORE_FIELD_IDS)[number]));
+
+  const hierLines = hierarchie
+    ? hierarchie
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map(
+          (l) =>
+            `<div style="font-size:10px;letter-spacing:0.04em;text-transform:uppercase;margin:2px 0">${esc(l)}</div>
+             <div style="border-top:1px solid #333;width:72%;margin:2px 0 6px"></div>`,
+        )
+        .join("")
+    : "";
 
   const corpsHtml = corps
     ? corps
         .split(/\n{2,}/)
-        .map(
-          (p) =>
-            `<p>${esc(p).replace(/\n/g, "<br/>")}</p>`,
-        )
+        .map((p) => `<p style="text-align:justify;margin:0 0 0.7em">${esc(p).replace(/\n/g, "<br/>")}</p>`)
         .join("")
     : `<p><br/></p>`;
 
@@ -87,66 +109,116 @@ function buildLetterHtml(fields: Field[]): string {
     .filter((f) => f.label.trim() || f.value.trim())
     .map(
       (f) =>
-        `<p><strong>${esc(f.label || "Champ")} :</strong> ${esc(f.value).replace(/\n/g, "<br/>")}</p>`,
+        `<p style="margin:0 0 0.35em"><strong>${esc(f.label || "Champ")} :</strong> ${esc(f.value).replace(/\n/g, "<br/>")}</p>`,
     )
     .join("\n");
 
   return `
-<p style="text-align:center;font-weight:700;margin:0 0 4px">REPOBLIKAN'I MADAGASIKARA</p>
-<p style="text-align:center;font-size:12px;margin:0 0 8px"><em>Fitiavana – Tanindrazana – Fandrosoana</em></p>
-<p style="text-align:center;font-weight:700;font-size:12px;margin:0 0 16px">MINISTÈRE DU DÉVELOPPEMENT NUMÉRIQUE, DES POSTES ET DES TÉLÉCOMMUNICATIONS</p>
-<hr style="border:none;border-top:1px solid #999;margin:12px 0"/>
-<p style="text-align:right">${esc(lieuDate) || "…"}</p>
-<p><br/></p>
-<p>${esc(destinataire).replace(/\n/g, "<br/>") || "Destinataire"}</p>
-<p><br/></p>
-${reference ? `<p><strong>Réf. :</strong> ${esc(reference)}</p>` : ""}
-<p><strong>Objet :</strong> ${esc(objet) || "…"}</p>
+<div style="text-align:center;margin:0 0 10px">
+  <div style="font-size:11px;font-weight:700;letter-spacing:0.06em">REPOBLIKAN'I MADAGASIKARA</div>
+  <div style="font-size:10px;font-style:italic;margin-top:2px">Fitiavana – Tanindrazana – Fandrosoana</div>
+</div>
+
+<table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+  <tr>
+    <td style="width:42%;vertical-align:top;padding-right:10px">
+      <div style="font-size:22px;font-weight:800;letter-spacing:0.08em;line-height:1">MNDPT</div>
+      <div style="font-size:8px;text-transform:uppercase;margin-top:2px;line-height:1.25;max-width:180px">
+        Ministère du Développement Numérique, des Postes et des Télécommunications
+      </div>
+      <div style="margin-top:12px">${hierLines}</div>
+    </td>
+    <td style="width:58%;vertical-align:top;text-align:right">
+      <p style="margin:0 0 16px">${esc(lieuDate) || "Antananarivo, le …"}</p>
+      <p style="margin:0 0 6px;font-weight:600">${esc(emetteurQualite) || "Le Directeur de …"}</p>
+      <p style="margin:0 0 6px">à</p>
+      <p style="margin:0;text-align:right;line-height:1.45">${esc(destinataire).replace(/\n/g, "<br/>") || "Destinataire"}</p>
+    </td>
+  </tr>
+</table>
+
+${numero ? `<p style="margin:14px 0 8px"><strong>N°</strong>${esc(numero)}</p>` : ""}
+<p style="margin:0 0 4px"><strong>Objet :</strong> ${esc(objet) || "…"}</p>
+${reference ? `<p style="margin:0 0 4px"><strong>Réf :</strong> ${esc(reference)}</p>` : ""}
+${pieces ? `<p style="margin:0 0 4px"><strong>Pièces jointes :</strong> ${esc(pieces)}</p>` : ""}
 ${customHtml}
-<p><br/></p>
+<p style="margin:16px 0 0"></p>
 ${corpsHtml}
-<p><br/></p>
-<p style="text-align:right">${esc(signature).replace(/\n/g, "<br/>") || ""}</p>
+<p style="margin:28px 0 0;text-align:right;line-height:1.5">${esc(signature).replace(/\n/g, "<br/>") || ""}</p>
 `.trim();
 }
 
-function defaultFields(parent: ParentInfo, myName: string): Field[] {
+function defaultFields(
+  parent: ParentInfo,
+  myName: string,
+  myFonction?: string | null,
+  myDept?: string | null,
+): Field[] {
   const today = format(new Date(), "d MMMM yyyy", { locale: fr });
+  const year = new Date().getFullYear();
+  const emetteur =
+    myFonction?.trim() ||
+    (myDept ? `Le responsable — ${myDept}` : "Le Directeur de la Transformation Digitale");
   return [
+    {
+      id: "hierarchie",
+      label: "Hiérarchie (une ligne = un niveau)",
+      value: "SECRÉTARIAT GÉNÉRAL\nDIRECTION GÉNÉRALE DU DÉVELOPPEMENT NUMÉRIQUE\nDIRECTION DE LA TRANSFORMATION DIGITALE",
+      multiline: true,
+    },
     {
       id: "lieuDate",
       label: "Lieu et date",
       value: `Antananarivo, le ${today}`,
     },
     {
+      id: "emetteurQualite",
+      label: "Qualité de l'émetteur (ex. Le Directeur de …)",
+      value: emetteur,
+    },
+    {
       id: "destinataire",
-      label: "Destinataire",
-      value: parent.senderName?.trim() || "—",
+      label: "Destinataire (bloc adresse)",
+      value: parent.senderName?.trim()
+        ? `${parent.senderName.trim()}\n`
+        : "Monsieur / Madame …\n…\nANTANANARIVO",
       multiline: true,
+    },
+    {
+      id: "numero",
+      label: "N° du courrier de réponse",
+      value: `…-${year}/MNDPT/SG/DGDN/DTD`,
     },
     {
       id: "objet",
       label: "Objet",
       value: parent.objet?.trim()
         ? `Réponse à : ${parent.objet.trim()}`
-        : "Réponse",
+        : "Réponse à votre correspondance",
     },
     {
       id: "reference",
-      label: "Référence du courrier d'origine",
-      value: parent.publicRef?.trim() || "",
+      label: "Réf.",
+      value: parent.publicRef?.trim()
+        ? `Votre correspondance ${parent.publicRef.trim()}`
+        : "",
+    },
+    {
+      id: "piecesJointes",
+      label: "Pièces jointes",
+      value: "",
     },
     {
       id: "corps",
       label: "Corps du message",
       value:
-        "Madame, Monsieur,\n\nSuite à votre courrier, je vous informe que…\n\nJe vous prie d'agréer, Madame, Monsieur, l'expression de ma considération distinguée.",
+        "Madame, Monsieur,\n\nJ'ai l'honneur de vous informer que…\n\nJe vous prie d'agréer, Madame, Monsieur, l'expression de ma considération distinguée.",
       multiline: true,
     },
     {
       id: "signature",
-      label: "Signature",
-      value: myName || "",
+      label: "Signature (qualité + nom)",
+      value: `${emetteur}\n\n${myName || "[Nom]"}`,
       multiline: true,
     },
   ];
@@ -177,10 +249,17 @@ export function ReplyComposer({
 
   useEffect(() => {
     if (!open || !parent) return;
-    setFields(defaultFields(parent, myName));
+    setFields(
+      defaultFields(
+        parent,
+        myName,
+        me?.user?.fonction ?? null,
+        me?.department?.name ?? null,
+      ),
+    );
     setEditorDirty(false);
     setActiveTab("fields");
-  }, [open, parent?.documentId, myName]);
+  }, [open, parent?.documentId, myName, me?.user?.fonction, me?.department?.name]);
 
   const letterTitle = useMemo(() => {
     const o = fields.find((f) => f.id === "objet")?.value?.trim();
@@ -226,9 +305,7 @@ export function ReplyComposer({
 
   const removeField = (id: string) => {
     if (
-      ["lieuDate", "destinataire", "objet", "reference", "corps", "signature"].includes(
-        id,
-      )
+      CORE_FIELD_IDS.includes(id as (typeof CORE_FIELD_IDS)[number])
     ) {
       toast.error("Ce champ fait partie du modèle de base.");
       return;
@@ -392,9 +469,7 @@ export function ReplyComposer({
                     className="h-8 text-xs font-medium"
                     aria-label="Libellé du champ"
                   />
-                  {!["lieuDate", "destinataire", "objet", "reference", "corps", "signature"].includes(
-                    f.id,
-                  ) ? (
+                  {!CORE_FIELD_IDS.includes(f.id as (typeof CORE_FIELD_IDS)[number]) ? (
                     <Button
                       type="button"
                       size="icon"
