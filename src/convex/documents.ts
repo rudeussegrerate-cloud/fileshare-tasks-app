@@ -779,10 +779,16 @@ export const send = mutation({
             : ed.name;
         }
       }
-      // Structure émettrice suffit pour l'envoi interne
-      if (!args.emittingDepartmentId && !onBehalfOfUserId) {
+      // Personne → personne : pas d'obligation de structure émettrice
+      // Sinon structure ou identité d'émetteur requise
+      if (
+        !args.recipientId &&
+        !args.emittingDepartmentId &&
+        !sender.departmentId &&
+        !args.onBehalfOfUserId
+      ) {
         throw new Error(
-          "Choisissez la structure qui émet le courrier (étape Émetteur).",
+          "Choisissez la structure qui émet le courrier, ou rattachez votre compte à une structure.",
         );
       }
     } else {
@@ -862,11 +868,11 @@ export const send = mutation({
       senderName: displayName(sender),
       senderDepartmentId: emittingDeptId ?? sender.departmentId,
       recipientId: recipient?._id,
-      recipientName: recipientDept
-        ? `${recipientDept.code ? recipientDept.code + " — " : ""}${recipientDept.name}`
-        : recipient
-          ? displayName(recipient)
-          : "Structure",
+      recipientName: recipient
+        ? displayName(recipient)
+        : recipientDept
+          ? `${recipientDept.code ? recipientDept.code + " — " : ""}${recipientDept.name}`
+          : "Destinataire",
       recipientDepartmentId:
         recipientDeptId ?? recipient?.departmentId ?? undefined,
       status: "envoye",
@@ -1029,10 +1035,27 @@ export const send = mutation({
       console.error("[send] notif structure échouée:", e);
     }
 
-// Notifications relatives pour chaque intervenant du circuit
+    // Destinataire nommé (même hors circuit / hors structure)
+    try {
+      if (recipient && recipient._id !== userId) {
+        await pushNotification(ctx, {
+          userId: recipient._id,
+          type: "document.received",
+          title: args.urgent === true ? "Courrier urgent reçu" : "Nouveau courrier reçu",
+          body: `${displayName(sender)} vous a envoyé « ${objet} »`,
+          documentId,
+        });
+      }
+    } catch (e) {
+      console.error("[send] notif destinataire échouée:", e);
+    }
+
+    // Notifications relatives pour chaque intervenant du circuit
     try {
       for (let i = 0; i < circuitUsers.length; i++) {
         const u = circuitUsers[i]!;
+        // déjà notifié comme destinataire principal
+        if (recipient && u._id === recipient._id && i === 0) continue;
         const fromName =
           i === 0
             ? displayName(sender)
@@ -1466,6 +1489,7 @@ export const get = query({
       mailKind: document.mailKind ?? "envoi",
       referenceText: document.referenceText ?? null,
       requiresResponse: Boolean(document.requiresResponse),
+      urgent: Boolean(document.urgent),
       parentCourrierId: document.parentCourrierId ?? null,
       revisionCount: document.revisionCount ?? 0,
       lastRevisedAt: document.lastRevisedAt ?? null,
