@@ -1,3 +1,4 @@
+import mndptLogo from "@/assets/mndpt-logo.jpg";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -6,15 +7,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import {
-  exportAsPdf,
-  exportAsWord,
-  wrapLetterHtml,
-} from "@/lib/letterEditor";
+import { exportAsPdf, exportAsWord } from "@/lib/letterEditor";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import { format } from "date-fns";
@@ -23,14 +19,15 @@ import {
   AlignCenter,
   AlignLeft,
   AlignRight,
+  ArrowLeft,
+  ArrowRight,
   Bold,
+  CheckCircle2,
   Download,
   Italic,
   List,
   ListOrdered,
   Loader2,
-  PanelLeft,
-  Plus,
   Printer,
   Reply,
   Send,
@@ -47,7 +44,6 @@ type Field = {
   label: string;
   value: string;
   multiline?: boolean;
-  locked?: boolean;
 };
 
 type ParentInfo = {
@@ -59,15 +55,8 @@ type ParentInfo = {
   senderName?: string | null;
 };
 
-function esc(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
 const CORE_FIELD_IDS = [
+  "logoUrl",
   "hierarchie",
   "lieuDate",
   "emetteurQualite",
@@ -80,9 +69,18 @@ const CORE_FIELD_IDS = [
   "signature",
 ] as const;
 
-function buildLetterHtml(fields: Field[]): string {
+function esc(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildLetterHtml(fields: Field[], defaultLogoSrc: string): string {
   const get = (id: string) =>
     fields.find((f) => f.id === id)?.value.trim() ?? "";
+  const logoUrl = get("logoUrl") || defaultLogoSrc;
   const hierarchie = get("hierarchie");
   const lieuDate = get("lieuDate");
   const emetteurQualite = get("emetteurQualite");
@@ -93,7 +91,9 @@ function buildLetterHtml(fields: Field[]): string {
   const pieces = get("piecesJointes");
   const corps = get("corps");
   const signature = get("signature");
-  const custom = fields.filter((f) => !CORE_FIELD_IDS.includes(f.id as (typeof CORE_FIELD_IDS)[number]));
+  const custom = fields.filter(
+    (f) => !CORE_FIELD_IDS.includes(f.id as (typeof CORE_FIELD_IDS)[number]),
+  );
 
   const hierLines = hierarchie
     ? hierarchie
@@ -102,8 +102,8 @@ function buildLetterHtml(fields: Field[]): string {
         .filter(Boolean)
         .map(
           (l) =>
-            `<div style="font-size:10px;letter-spacing:0.04em;text-transform:uppercase;margin:2px 0">${esc(l)}</div>
-             <div style="border-top:1px solid #333;width:72%;margin:2px 0 6px"></div>`,
+            `<div style="font-size:9.5px;letter-spacing:0.05em;text-transform:uppercase;margin:3px 0 1px;font-weight:600">${esc(l)}</div>
+             <div style="border-top:1px solid #222;width:78%;margin:0 0 5px"></div>`,
         )
         .join("")
     : "";
@@ -111,7 +111,10 @@ function buildLetterHtml(fields: Field[]): string {
   const corpsHtml = corps
     ? corps
         .split(/\n{2,}/)
-        .map((p) => `<p style="text-align:justify;margin:0 0 0.7em">${esc(p).replace(/\n/g, "<br/>")}</p>`)
+        .map(
+          (p) =>
+            `<p style="text-align:justify;margin:0 0 0.75em">${esc(p).replace(/\n/g, "<br/>")}</p>`,
+        )
         .join("")
     : `<p><br/></p>`;
 
@@ -124,37 +127,36 @@ function buildLetterHtml(fields: Field[]): string {
     .join("\n");
 
   return `
-<div style="text-align:center;margin:0 0 10px">
-  <div style="font-size:11px;font-weight:700;letter-spacing:0.06em">REPOBLIKAN'I MADAGASIKARA</div>
+<div style="text-align:center;margin:0 0 12px">
+  <div style="font-size:11px;font-weight:700;letter-spacing:0.08em">REPOBLIKAN'I MADAGASIKARA</div>
   <div style="font-size:10px;font-style:italic;margin-top:2px">Fitiavana – Tanindrazana – Fandrosoana</div>
 </div>
 
-<table style="width:100%;border-collapse:collapse;margin-bottom:14px">
+<table style="width:100%;border-collapse:collapse;margin-bottom:16px">
   <tr>
-    <td style="width:42%;vertical-align:top;padding-right:10px">
-      <div style="font-size:22px;font-weight:800;letter-spacing:0.08em;line-height:1">MNDPT</div>
-      <div style="font-size:8px;text-transform:uppercase;margin-top:2px;line-height:1.25;max-width:180px">
+    <td style="width:44%;vertical-align:top;padding-right:12px">
+      <img src="${esc(logoUrl)}" alt="MNDPT" style="height:52px;width:auto;object-fit:contain;display:block;margin-bottom:6px" />
+      <div style="font-size:7.5px;text-transform:uppercase;line-height:1.3;max-width:200px;color:#333">
         Ministère du Développement Numérique, des Postes et des Télécommunications
       </div>
-      <div style="margin-top:12px">${hierLines}</div>
+      <div style="margin-top:14px">${hierLines}</div>
     </td>
-    <td style="width:58%;vertical-align:top;text-align:right">
-      <p style="margin:0 0 16px">${esc(lieuDate) || "Antananarivo, le …"}</p>
-      <p style="margin:0 0 6px;font-weight:600">${esc(emetteurQualite) || "Le Directeur de …"}</p>
-      <p style="margin:0 0 6px">à</p>
-      <p style="margin:0;text-align:right;line-height:1.45">${esc(destinataire).replace(/\n/g, "<br/>") || "Destinataire"}</p>
+    <td style="width:56%;vertical-align:top;text-align:right">
+      <p style="margin:0 0 18px">${esc(lieuDate) || "Antananarivo, le …"}</p>
+      <p style="margin:0 0 8px;font-weight:700">${esc(emetteurQualite) || "Le Directeur de …"}</p>
+      <p style="margin:0 0 8px">à</p>
+      <p style="margin:0;line-height:1.45">${esc(destinataire).replace(/\n/g, "<br/>") || "Destinataire"}</p>
     </td>
   </tr>
 </table>
 
-${numero ? `<p style="margin:14px 0 8px"><strong>N°</strong>${esc(numero)}</p>` : ""}
+${numero ? `<p style="margin:12px 0 8px"><strong>N°</strong>${esc(numero)}</p>` : ""}
 <p style="margin:0 0 4px"><strong>Objet :</strong> ${esc(objet) || "…"}</p>
 ${reference ? `<p style="margin:0 0 4px"><strong>Réf :</strong> ${esc(reference)}</p>` : ""}
 ${pieces ? `<p style="margin:0 0 4px"><strong>Pièces jointes :</strong> ${esc(pieces)}</p>` : ""}
 ${customHtml}
-<p style="margin:16px 0 0"></p>
-${corpsHtml}
-<p style="margin:28px 0 0;text-align:right;line-height:1.5">${esc(signature).replace(/\n/g, "<br/>") || ""}</p>
+<div style="margin-top:18px">${corpsHtml}</div>
+<p style="margin:32px 0 0;text-align:right;line-height:1.55">${esc(signature).replace(/\n/g, "<br/>") || ""}</p>
 `.trim();
 }
 
@@ -163,6 +165,7 @@ function defaultFields(
   myName: string,
   myFonction?: string | null,
   myDept?: string | null,
+  defaultLogoSrc?: string,
 ): Field[] {
   const today = format(new Date(), "d MMMM yyyy", { locale: fr });
   const year = new Date().getFullYear();
@@ -171,9 +174,15 @@ function defaultFields(
     (myDept ? `Le responsable — ${myDept}` : "Le Directeur de la Transformation Digitale");
   return [
     {
+      id: "logoUrl",
+      label: "Logo (URL ou laisser le logo MNDPT par défaut)",
+      value: defaultLogoSrc || "",
+    },
+    {
       id: "hierarchie",
       label: "Hiérarchie (une ligne = un niveau)",
-      value: "SECRÉTARIAT GÉNÉRAL\nDIRECTION GÉNÉRALE DU DÉVELOPPEMENT NUMÉRIQUE\nDIRECTION DE LA TRANSFORMATION DIGITALE",
+      value:
+        "SECRÉTARIAT GÉNÉRAL\nDIRECTION GÉNÉRALE DU DÉVELOPPEMENT NUMÉRIQUE\nDIRECTION DE LA TRANSFORMATION DIGITALE",
       multiline: true,
     },
     {
@@ -183,14 +192,14 @@ function defaultFields(
     },
     {
       id: "emetteurQualite",
-      label: "Qualité de l'émetteur (ex. Le Directeur de …)",
+      label: "Qualité de l'émetteur",
       value: emetteur,
     },
     {
       id: "destinataire",
       label: "Destinataire (bloc adresse)",
       value: parent.senderName?.trim()
-        ? `${parent.senderName.trim()}\n`
+        ? parent.senderName.trim()
         : "Monsieur / Madame …\n…\nANTANANARIVO",
       multiline: true,
     },
@@ -248,91 +257,89 @@ export function ReplyComposer({
   const me = useQuery(api.workspace.me);
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const sendDocument = useMutation(api.documents.send);
+  const setStatus = useMutation(api.documents.setStatus);
 
   const editorRef = useRef<HTMLDivElement>(null);
+  const [step, setStep] = useState<1 | 2>(1);
   const [fields, setFields] = useState<Field[]>([]);
   const [editorDirty, setEditorDirty] = useState(false);
   const [sending, setSending] = useState(false);
-  const [activeTab, setActiveTab] = useState<"fields" | "preview">("preview");
-  const [showFields, setShowFields] = useState(false);
+  const [classifying, setClassifying] = useState(false);
   const [zoom, setZoom] = useState(1);
 
   const myName = me?.user?.name?.trim() || me?.user?.email || "";
+  const defaultLogoSrc = mndptLogo as string;
 
   useEffect(() => {
     if (!open || !parent) return;
+    setStep(1);
+    setEditorDirty(false);
+    setZoom(1);
     setFields(
       defaultFields(
         parent,
         myName,
         me?.user?.fonction ?? null,
         me?.department?.name ?? null,
+        defaultLogoSrc,
       ),
     );
-    setEditorDirty(false);
-    setActiveTab("fields");
-  }, [open, parent?.documentId, myName, me?.user?.fonction, me?.department?.name]);
+  }, [
+    open,
+    parent?.documentId,
+    myName,
+    me?.user?.fonction,
+    me?.department?.name,
+    defaultLogoSrc,
+  ]);
 
   const letterTitle = useMemo(() => {
     const o = fields.find((f) => f.id === "objet")?.value?.trim();
     return o || "Réponse";
   }, [fields]);
 
-  const syncEditorFromFields = useCallback(() => {
+  const applyFieldsToEditor = useCallback(() => {
     if (!editorRef.current) return;
-    editorRef.current.innerHTML = buildLetterHtml(fields);
+    editorRef.current.innerHTML = buildLetterHtml(fields, defaultLogoSrc);
     setEditorDirty(false);
-  }, [fields]);
+  }, [fields, defaultLogoSrc]);
 
-  useEffect(() => {
-    if (!open) return;
-    if (editorDirty) return;
-    // slight delay so dialog mounts the editor
-    const t = window.setTimeout(() => syncEditorFromFields(), 50);
-    return () => window.clearTimeout(t);
-  }, [open, fields, editorDirty, syncEditorFromFields]);
-
-  const updateField = (id: string, value: string) => {
-    setFields((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, value } : f)),
-    );
-    setEditorDirty(false);
+  const goToEditor = () => {
+    setStep(2);
+    window.setTimeout(() => applyFieldsToEditor(), 60);
   };
-
-  const updateFieldLabel = (id: string, label: string) => {
-    setFields((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, label } : f)),
-    );
-    setEditorDirty(false);
-  };
-
-  const addField = () => {
-    const id = `custom_${Date.now()}`;
-    setFields((prev) => [
-      ...prev,
-      { id, label: "Nouveau champ", value: "", multiline: false },
-    ]);
-    setEditorDirty(false);
-  };
-
-  const removeField = (id: string) => {
-    if (
-      CORE_FIELD_IDS.includes(id as (typeof CORE_FIELD_IDS)[number])
-    ) {
-      toast.error("Ce champ fait partie du modèle de base.");
-      return;
-    }
-    setFields((prev) => prev.filter((f) => f.id !== id));
-    setEditorDirty(false);
-  };
-
-  const getBodyHtml = () => editorRef.current?.innerHTML ?? buildLetterHtml(fields);
 
   const exec = useCallback((command: string, value?: string) => {
     editorRef.current?.focus();
     document.execCommand(command, false, value);
     setEditorDirty(true);
   }, []);
+
+  const getBodyHtml = () =>
+    editorRef.current?.innerHTML ?? buildLetterHtml(fields, defaultLogoSrc);
+
+  const updateField = (id: string, value: string) => {
+    setFields((prev) => prev.map((f) => (f.id === id ? { ...f, value } : f)));
+  };
+
+  const updateFieldLabel = (id: string, label: string) => {
+    setFields((prev) => prev.map((f) => (f.id === id ? { ...f, label } : f)));
+  };
+
+  const addField = () => {
+    setFields((prev) => [
+      ...prev,
+      { id: `custom_${Date.now()}`, label: "Nouveau champ", value: "" },
+    ]);
+  };
+
+  const removeField = (id: string) => {
+    if (CORE_FIELD_IDS.includes(id as (typeof CORE_FIELD_IDS)[number])) {
+      toast.error("Ce champ fait partie du modèle de base.");
+      return;
+    }
+    setFields((prev) => prev.filter((f) => f.id !== id));
+  };
 
   const handlePrint = () => {
     try {
@@ -351,19 +358,15 @@ export function ReplyComposer({
     }
   };
 
-  const handleSend = async () => {
+  const uploadAndSend = async () => {
     if (!parent?.senderId) {
-      toast.error("Expéditeur d'origine introuvable — envoi impossible.");
-      return;
+      throw new Error("Expéditeur d'origine introuvable — envoi impossible.");
     }
     const html = getBodyHtml();
     if (!html.replace(/<[^>]+>/g, "").trim()) {
-      toast.error("Le document de réponse est vide.");
-      return;
+      throw new Error("Le document de réponse est vide.");
     }
-    setSending(true);
-    try {
-      const wordHtml = `<!DOCTYPE html>
+    const wordHtml = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office"
  xmlns:w="urn:schemas-microsoft-com:office:word"
  xmlns="http://www.w3.org/TR/REC-html40">
@@ -371,60 +374,90 @@ export function ReplyComposer({
 <style>
   body{font-family:Georgia,"Times New Roman",serif;font-size:12pt;line-height:1.5}
   p{margin:0 0 8pt}
+  img{max-width:100%}
   @page{size:A4;margin:2cm}
 </style>
 </head><body>${html}</body></html>`;
-      const blob = new Blob(["\ufeff", wordHtml], {
-        type: "application/msword;charset=utf-8",
-      });
-      const safeName =
-        letterTitle
-          .replace(/[^\w\s\-àâäéèêëïîôùûüç]/gi, "")
-          .trim()
-          .slice(0, 40) || "Reponse";
-      const file = new File([blob], `${safeName}.doc`, {
-        type: "application/msword",
-      });
+    const blob = new Blob(["\ufeff", wordHtml], {
+      type: "application/msword;charset=utf-8",
+    });
+    const safeName =
+      letterTitle
+        .replace(/[^\w\s\-àâäéèêëïîôùûüç]/gi, "")
+        .trim()
+        .slice(0, 40) || "Reponse";
+    const file = new File([blob], `${safeName}.doc`, {
+      type: "application/msword",
+    });
+    const uploadUrl = await generateUploadUrl({});
+    const res = await fetch(uploadUrl, {
+      method: "POST",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!res.ok) throw new Error("Échec de l'envoi du fichier.");
+    const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+    await sendDocument({
+      storageId,
+      fileName: file.name,
+      contentType: file.type,
+      size: file.size,
+      objet: letterTitle,
+      tasks: ["Prise de connaissance"],
+      recipientId: parent.senderId,
+      parentCourrierId: parent.documentId,
+      referenceText:
+        parent.publicRef ||
+        fields.find((f) => f.id === "reference")?.value ||
+        undefined,
+      mailKind: "envoi",
+      onBehalfOfType: "internal",
+      requiresResponse: false,
+    });
+  };
 
-      const uploadUrl = await generateUploadUrl({});
-      const res = await fetch(uploadUrl, {
-        method: "POST",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!res.ok) throw new Error("Échec de l'envoi du fichier.");
-      const { storageId } = (await res.json()) as {
-        storageId: Id<"_storage">;
-      };
-
-      await sendDocument({
-        storageId,
-        fileName: file.name,
-        contentType: file.type,
-        size: file.size,
-        objet: letterTitle,
-        observations: undefined,
-        tasks: ["Prise de connaissance"],
-        recipientId: parent.senderId,
-        parentCourrierId: parent.documentId,
-        referenceText:
-          parent.publicRef ||
-          fields.find((f) => f.id === "reference")?.value ||
-          undefined,
-        mailKind: "envoi",
-        onBehalfOfType: "internal",
-        requiresResponse: false,
-      });
-
+  const handleSend = async () => {
+    setSending(true);
+    try {
+      await uploadAndSend();
       toast.success("Réponse envoyée à l'expéditeur d'origine.");
-      onOpenChange(false);
       onSent?.();
+      onOpenChange(false);
     } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Envoi de la réponse impossible.",
-      );
+      toast.error(e instanceof Error ? e.message : "Envoi impossible.");
     } finally {
       setSending(false);
+    }
+  };
+
+  /** Envoyer la réponse puis classer le courrier d'origine */
+  const handleSendAndClassify = async () => {
+    if (!parent?.documentId) return;
+    setClassifying(true);
+    try {
+      await uploadAndSend();
+      try {
+        await setStatus({
+          documentId: parent.documentId,
+          status: "traite",
+        });
+      } catch (e) {
+        toast.error(
+          e instanceof Error
+            ? `Réponse envoyée, mais classement impossible : ${e.message}`
+            : "Réponse envoyée, classement impossible.",
+        );
+        onSent?.();
+        onOpenChange(false);
+        return;
+      }
+      toast.success("Réponse envoyée et courrier classé.");
+      onSent?.();
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Opération impossible.");
+    } finally {
+      setClassifying(false);
     }
   };
 
@@ -432,201 +465,42 @@ export function ReplyComposer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="flex h-[min(96vh,920px)] w-[min(1280px,98vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:rounded-xl"
-      >
+      <DialogContent className="flex h-[min(96vh,940px)] w-[min(1280px,98vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:rounded-xl">
         <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-5">
-          <DialogTitle className="flex items-center gap-2 text-base">
+          <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
             <Reply className="size-4 text-brand" />
             Rédiger une réponse
+            <span className="ml-1 text-xs font-normal text-muted-foreground">
+              Étape {step} / 2 —{" "}
+              {step === 1
+                ? "Remplir les champs"
+                : "Éditer le document généré"}
+            </span>
           </DialogTitle>
-          <p className="text-xs text-muted-foreground">
-            Éditez le document comme dans un traitement de texte. Les champs à
-            gauche préremplissent le modèle si besoin.
-          </p>
         </DialogHeader>
 
-        {/* Barre d'outils type Word */}
-        <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border bg-muted/40 px-2 py-1.5">
-          <Button
-            type="button"
-            size="sm"
-            variant={showFields ? "secondary" : "ghost"}
-            className="gap-1.5"
-            onClick={() => setShowFields((v) => !v)}
-          >
-            <PanelLeft className="size-3.5" />
-            Champs
-          </Button>
-          <span className="mx-1 h-5 w-px bg-border" />
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Gras"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("bold")}
-          >
-            <Bold className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Italique"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("italic")}
-          >
-            <Italic className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Souligné"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("underline")}
-          >
-            <Underline className="size-3.5" />
-          </Button>
-          <span className="mx-1 h-5 w-px bg-border" />
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Aligner à gauche"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("justifyLeft")}
-          >
-            <AlignLeft className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Centrer"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("justifyCenter")}
-          >
-            <AlignCenter className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Aligner à droite"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("justifyRight")}
-          >
-            <AlignRight className="size-3.5" />
-          </Button>
-          <span className="mx-1 h-5 w-px bg-border" />
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Liste"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("insertUnorderedList")}
-          >
-            <List className="size-3.5" />
-          </Button>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Liste numérotée"
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => exec("insertOrderedList")}
-          >
-            <ListOrdered className="size-3.5" />
-          </Button>
-          <span className="mx-1 h-5 w-px bg-border" />
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Zoom −"
-            onClick={() => setZoom((z) => Math.max(0.6, Math.round((z - 0.1) * 10) / 10))}
-          >
-            <ZoomOut className="size-3.5" />
-          </Button>
-          <span className="min-w-[3rem] text-center text-xs tabular-nums text-muted-foreground">
-            {Math.round(zoom * 100)}%
-          </span>
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="size-8"
-            title="Zoom +"
-            onClick={() => setZoom((z) => Math.min(1.4, Math.round((z + 0.1) * 10) / 10))}
-          >
-            <ZoomIn className="size-3.5" />
-          </Button>
-          <div className="ml-auto flex flex-wrap gap-1.5">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={handlePrint}
-            >
-              <Printer className="size-3.5" />
-              Imprimer / PDF
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={handleDownloadWord}
-            >
-              <Download className="size-3.5" />
-              Word
-            </Button>
-          </div>
-        </div>
-
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          {/* Panneau champs (optionnel) */}
-          {showFields ? (
-            <div className="flex w-full max-w-[320px] shrink-0 flex-col border-r border-border bg-card sm:max-w-[360px]">
-              <div className="flex items-center justify-between border-b border-border px-3 py-2">
-                <p className="text-xs font-semibold">Champs du modèle</p>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="secondary"
-                  className="h-7 text-[11px]"
-                  onClick={() => {
-                    setEditorDirty(false);
-                    window.setTimeout(() => syncEditorFromFields(), 10);
-                  }}
-                >
-                  Appliquer au document
-                </Button>
-              </div>
-              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+        {/* ——— Étape 1 : champs ——— */}
+        {step === 1 ? (
+          <>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+              <p className="mb-4 text-sm text-muted-foreground">
+                Renseignez les informations ci-dessous. Elles seront placées
+                automatiquement dans le courrier officiel (logo MNDPT inclus).
+                Vous pourrez encore tout corriger à l&apos;étape suivante.
+              </p>
+              <div className="mx-auto grid max-w-3xl gap-3">
                 {fields.map((f) => (
                   <div
                     key={f.id}
-                    className="space-y-1 rounded-lg border border-border/80 p-2"
+                    className="space-y-1.5 rounded-xl border border-border bg-card p-3"
                   >
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-2">
                       <Input
                         value={f.label}
-                        onChange={(e) => updateFieldLabel(f.id, e.target.value)}
-                        className="h-7 text-[11px] font-medium"
+                        onChange={(e) =>
+                          updateFieldLabel(f.id, e.target.value)
+                        }
+                        className="h-8 text-xs font-medium"
                       />
                       {!CORE_FIELD_IDS.includes(
                         f.id as (typeof CORE_FIELD_IDS)[number],
@@ -635,25 +509,39 @@ export function ReplyComposer({
                           type="button"
                           size="icon"
                           variant="ghost"
-                          className="size-7 shrink-0 text-destructive"
+                          className="size-8 shrink-0 text-destructive"
                           onClick={() => removeField(f.id)}
                         >
-                          <Trash2 className="size-3" />
+                          <Trash2 className="size-3.5" />
                         </Button>
                       ) : null}
                     </div>
-                    {f.multiline ? (
+                    {f.id === "logoUrl" ? (
+                      <div className="flex flex-wrap items-center gap-3">
+                        <img
+                          src={f.value || defaultLogoSrc}
+                          alt="Logo"
+                          className="h-12 w-auto rounded border border-border bg-white object-contain p-1"
+                        />
+                        <Input
+                          value={f.value}
+                          onChange={(e) => updateField(f.id, e.target.value)}
+                          placeholder="URL du logo (vide = logo MNDPT)"
+                          className="min-w-[200px] flex-1 text-sm"
+                        />
+                      </div>
+                    ) : f.multiline ? (
                       <Textarea
-                        rows={f.id === "corps" ? 4 : 2}
+                        rows={f.id === "corps" ? 5 : 2}
                         value={f.value}
                         onChange={(e) => updateField(f.id, e.target.value)}
-                        className="resize-y text-xs"
+                        className="resize-y text-sm"
                       />
                     ) : (
                       <Input
                         value={f.value}
                         onChange={(e) => updateField(f.id, e.target.value)}
-                        className="h-8 text-xs"
+                        className="text-sm"
                       />
                     )}
                   </div>
@@ -662,73 +550,269 @@ export function ReplyComposer({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="w-full gap-1.5"
+                  className="w-fit gap-1.5"
                   onClick={addField}
                 >
-                  <Plus className="size-3.5" />
                   Ajouter un champ
                 </Button>
               </div>
             </div>
-          ) : null}
-
-          {/* Zone document — éditeur principal */}
-          <div className="min-h-0 flex-1 overflow-auto bg-[#c5cdd8] p-4 sm:p-6">
-            <div
-              className="mx-auto origin-top transition-transform"
-              style={{
-                width: "210mm",
-                transform: `scale(${zoom})`,
-                marginBottom: zoom < 1 ? undefined : `${(zoom - 1) * 40}mm`,
-              }}
-            >
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={() => setEditorDirty(true)}
-                className="min-h-[297mm] w-[210mm] bg-white px-[18mm] py-[20mm] text-[13px] leading-relaxed text-black shadow-xl outline-none focus:ring-2 focus:ring-brand/40"
-                style={{
-                  fontFamily: 'Georgia, "Times New Roman", Times, serif',
-                  boxSizing: "border-box",
-                }}
-              />
+            <div className="flex shrink-0 justify-between gap-2 border-t border-border px-4 py-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => onOpenChange(false)}
+              >
+                Annuler
+              </Button>
+              <Button type="button" className="gap-2" onClick={goToEditor}>
+                Continuer
+                <ArrowRight className="size-4" />
+              </Button>
             </div>
-          </div>
-        </div>
+          </>
+        ) : null}
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-4 py-3">
-          <p className="text-[11px] text-muted-foreground">
-            {editorDirty
-              ? "Document modifié manuellement"
-              : "Document généré depuis le modèle — cliquez pour écrire"}
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={sending}
-              onClick={() => onOpenChange(false)}
-            >
-              Fermer
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              className="gap-1.5"
-              disabled={sending || !parent.senderId}
-              onClick={() => void handleSend()}
-            >
-              {sending ? (
-                <Loader2 className="size-3.5 animate-spin" />
-              ) : (
-                <Send className="size-3.5" />
-              )}
-              Envoyer la réponse
-            </Button>
-          </div>
-        </div>
+        {/* ——— Étape 2 : éditeur ——— */}
+        {step === 2 ? (
+          <>
+            <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border bg-muted/40 px-2 py-1.5">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                className="gap-1.5"
+                onClick={() => setStep(1)}
+              >
+                <ArrowLeft className="size-3.5" />
+                Champs
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="gap-1.5"
+                onClick={() => {
+                  if (
+                    editorDirty &&
+                    !window.confirm(
+                      "Réappliquer les champs effacera les modifications manuelles dans l'éditeur. Continuer ?",
+                    )
+                  ) {
+                    return;
+                  }
+                  applyFieldsToEditor();
+                }}
+              >
+                Régénérer depuis les champs
+              </Button>
+              <span className="mx-1 h-5 w-px bg-border" />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                title="Gras"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec("bold")}
+              >
+                <Bold className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                title="Italique"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec("italic")}
+              >
+                <Italic className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                title="Souligné"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec("underline")}
+              >
+                <Underline className="size-3.5" />
+              </Button>
+              <span className="mx-1 h-5 w-px bg-border" />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec("justifyLeft")}
+              >
+                <AlignLeft className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec("justifyCenter")}
+              >
+                <AlignCenter className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec("justifyRight")}
+              >
+                <AlignRight className="size-3.5" />
+              </Button>
+              <span className="mx-1 h-5 w-px bg-border" />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec("insertUnorderedList")}
+              >
+                <List className="size-3.5" />
+              </Button>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => exec("insertOrderedList")}
+              >
+                <ListOrdered className="size-3.5" />
+              </Button>
+              <span className="mx-1 h-5 w-px bg-border" />
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                onClick={() =>
+                  setZoom((z) => Math.max(0.55, Math.round((z - 0.1) * 10) / 10))
+                }
+              >
+                <ZoomOut className="size-3.5" />
+              </Button>
+              <span className="min-w-[3rem] text-center text-xs tabular-nums text-muted-foreground">
+                {Math.round(zoom * 100)}%
+              </span>
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                className="size-8"
+                onClick={() =>
+                  setZoom((z) => Math.min(1.35, Math.round((z + 0.1) * 10) / 10))
+                }
+              >
+                <ZoomIn className="size-3.5" />
+              </Button>
+              <div className="ml-auto flex flex-wrap gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={handlePrint}
+                >
+                  <Printer className="size-3.5" />
+                  Imprimer / PDF
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  onClick={handleDownloadWord}
+                >
+                  <Download className="size-3.5" />
+                  Word
+                </Button>
+              </div>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-auto bg-[#c5cdd8] p-4 sm:p-8">
+              <div
+                className="mx-auto origin-top transition-transform"
+                style={{
+                  width: "210mm",
+                  transform: `scale(${zoom})`,
+                }}
+              >
+                <div
+                  ref={editorRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={() => setEditorDirty(true)}
+                  className="min-h-[297mm] w-[210mm] bg-white px-[18mm] py-[20mm] text-[13px] leading-relaxed text-black shadow-xl outline-none focus:ring-2 focus:ring-brand/40"
+                  style={{
+                    fontFamily: 'Georgia, "Times New Roman", Times, serif',
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-4 py-3">
+              <p className="text-[11px] text-muted-foreground">
+                {editorDirty
+                  ? "Document corrigé manuellement"
+                  : "Document généré — cliquez pour corriger les incohérences"}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={sending || classifying}
+                  onClick={() => onOpenChange(false)}
+                >
+                  Fermer
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="gap-1.5"
+                  disabled={sending || classifying || !parent.senderId}
+                  onClick={() => void handleSend()}
+                >
+                  {sending ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <Send className="size-3.5" />
+                  )}
+                  Envoyer
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  className="gap-1.5"
+                  disabled={sending || classifying || !parent.senderId}
+                  onClick={() => void handleSendAndClassify()}
+                >
+                  {classifying ? (
+                    <Loader2 className="size-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="size-3.5" />
+                  )}
+                  Envoyer et classer
+                </Button>
+              </div>
+            </div>
+          </>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
