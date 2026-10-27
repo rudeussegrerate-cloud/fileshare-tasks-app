@@ -200,10 +200,10 @@ function validateFile(args: {
 
 
 /**
- * Documents visibles en « reçus » :
- * - destinataire nommé
- * - intervenant du circuit
- * - membre de la structure destinataire (direction/service) ou d'un service enfant
+ * Documents visibles en « reçus » (jamais les envois de soi-même) :
+ * - destinataire nommé (personne → personne)
+ * - intervenant du circuit (assignee)
+ * - envoi purement structurel (sans destinataire nommé) pour les membres de la structure
  */
 async function collectInboxDocuments(
   ctx: DbCtx,
@@ -211,30 +211,38 @@ async function collectInboxDocuments(
   includeArchived: boolean,
 ) {
   const me = await ctx.db.get(userId);
+  const uid = String(userId);
+  const map = new Map<string, Doc<"documents">>();
+
+  const accept = (d: Doc<"documents"> | null | undefined) => {
+    if (!d) return;
+    // L'émetteur ne voit jamais son propre envoi dans « reçus »
+    if (String(d.senderId) === uid) return;
+    if (!includeArchived && d.archivedAt) return;
+    map.set(String(d._id), d);
+  };
+
   const byRecipient = await ctx.db
     .query("documents")
     .withIndex("by_recipient", (q) => q.eq("recipientId", userId))
     .collect();
-  const map = new Map<string, Doc<"documents">>();
-  for (const d of byRecipient) {
-    map.set(String(d._id), d);
-  }
+  for (const d of byRecipient) accept(d);
+
   try {
     const steps = await ctx.db
       .query("documentSteps")
       .withIndex("by_assignee", (q) => q.eq("assigneeId", userId))
       .collect();
     for (const s of steps) {
-      const key = String(s.documentId);
-      if (map.has(key)) continue;
-      const d = await ctx.db.get(s.documentId);
-      if (d) map.set(key, d);
+      if (map.has(String(s.documentId))) continue;
+      accept(await ctx.db.get(s.documentId));
     }
   } catch {
     /* table absente ou index : ignorer */
   }
 
-  // Envoi structurel + transmissions multi-destinataires
+  // Structure uniquement si le courrier n'a PAS de destinataire nommé
+  // (sinon mode personne → personne : seul le destinataire / étape compte)
   if (me?.departmentId) {
     const myDeptId = String(me.departmentId);
     const allDepts = await ctx.db.query("departments").collect();
@@ -255,7 +263,11 @@ async function collectInboxDocuments(
             q.eq("recipientDepartmentId", rid as Id<"departments">),
           )
           .collect();
-        for (const d of structural) map.set(String(d._id), d);
+        for (const d of structural) {
+          // Personne → personne : ne pas élargir à toute la structure
+          if (d.recipientId) continue;
+          accept(d);
+        }
       } catch {
         /* ignore */
       }
@@ -269,7 +281,9 @@ async function collectInboxDocuments(
         for (const tx of txs) {
           if (map.has(String(tx.documentId))) continue;
           const d = await ctx.db.get(tx.documentId);
-          if (d) map.set(String(d._id), d);
+          if (!d) continue;
+          if (d.recipientId) continue;
+          accept(d);
         }
       } catch {
         /* table absente */
@@ -277,9 +291,7 @@ async function collectInboxDocuments(
     }
   }
 
-  return [...map.values()].filter((d) =>
-    includeArchived ? true : !d.archivedAt,
-  );
+  return [...map.values()];
 }
 
 function isImageDocument(document: Doc<"documents">) {
