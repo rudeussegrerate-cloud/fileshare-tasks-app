@@ -419,107 +419,66 @@ export function SendDocument({
 
   const allDestOptions: DestPick[] = (() => {
     const out: DestPick[] = [];
+    const seen = new Set<string>();
     const myId = me?.user?._id ? String(me.user._id) : "";
-    for (const dir of directions) {
-      const dirCode = (dir.code ?? "").trim();
-      const chiefName = dir.chief?.name?.trim() ?? "";
-      out.push({
-        key: `dept:${dir._id}`,
-        kind: "dept",
-        id: dir._id,
-        title: dir.name,
-        subtitle: chiefName
-          ? `Chef de direction · ${chiefName}`
-          : "Direction",
-        initial: (dir.name || "D").charAt(0).toUpperCase(),
-        searchHaystack: fold(
-          [dir.name, dirCode, "direction", "chef", chiefName].filter(Boolean).join(" "),
-        ),
-      });
-      const services = (departments ?? [])
-        .filter(
-          (s) =>
-            s.parentId === dir._id &&
-            (s as { active?: boolean }).active !== false,
-        )
-        .slice()
-        .sort((a, b) =>
-          (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
-        );
-      for (const svc of services) {
-        const svcCode = (svc.code ?? "").trim();
-        out.push({
-          key: `dept:${svc._id}`,
-          kind: "dept",
-          id: svc._id,
-          title: svc.name,
-          subtitle: dir.name,
-          initial: (svc.name || "S").charAt(0).toUpperCase(),
-          searchHaystack: fold(
-            [svc.name, svcCode, dir.name, dirCode, "service"].filter(Boolean).join(" "),
-          ),
-        });
-      }
-      const dirChiefId = dir.chief?._id ? String(dir.chief._id) : "";
-      for (const m of dir.members ?? []) {
-        const id = String(m._id);
-        if (!id || id === myId) continue;
-        if (id === dirChiefId) continue;
-        if ((m as { departmentRole?: string }).departmentRole === "chef") continue;
-        const fonction = (m.fonction ?? "").trim();
-        const title = fonction || m.name;
-        out.push({
-          key: `member:${m._id}`,
-          kind: "member",
-          id: m._id as Id<"users">,
-          title,
-          subtitle: m.name !== title ? `${m.name} · ${dir.name}` : dir.name,
-          initial: (title || "?").charAt(0).toUpperCase(),
-          searchHaystack: fold(
-            [m.name, fonction, dir.name, dirCode].filter(Boolean).join(" "),
-          ),
-        });
-      }
-    }
     for (const d of departments ?? []) {
-      if (!d.parentId) continue;
       if ((d as { active?: boolean }).active === false) continue;
-      const parent = directions.find((x) => x._id === d.parentId);
+      const parent = d.parentId
+        ? (departments ?? []).find((x) => x._id === d.parentId)
+        : null;
+      const structureLabel = parent
+        ? `${d.name} · ${parent.name}`
+        : d.name;
       for (const m of d.members ?? []) {
         const id = String(m._id);
-        if (!id || id === myId) continue;
-        if (out.some((o) => o.kind === "member" && String(o.id) === id)) continue;
+        if (!id || id === myId || seen.has(id)) continue;
+        // uniquement comptes validés si le champ existe
+        const st = (m as { accountStatus?: string }).accountStatus;
+        if (st && st !== "valide" && (m as { role?: string }).role !== "admin" && (m as { role?: string }).role !== "root") {
+          continue;
+        }
+        seen.add(id);
         const fonction = (m.fonction ?? "").trim();
-        const title = fonction || m.name;
+        const title = m.name?.trim() || fonction || "Sans nom";
+        const subtitle = [fonction, structureLabel].filter(Boolean).join(" · ");
         out.push({
           key: `member:${m._id}`,
           kind: "member",
           id: m._id as Id<"users">,
           title,
-          subtitle: parent ? `${d.name} · ${parent.name}` : d.name,
+          subtitle: subtitle || "Personne",
           initial: (title || "?").charAt(0).toUpperCase(),
           searchHaystack: fold(
-            [
-              m.name,
-              fonction,
-              d.name,
-              d.code ?? "",
-              parent?.name ?? "",
-              parent?.code ?? "",
-            ]
+            [m.name, fonction, d.name, d.code ?? "", parent?.name ?? "", parent?.code ?? ""]
               .filter(Boolean)
               .join(" "),
           ),
         });
       }
+      // chef de direction s'il n'est pas déjà dans members
+      const chief = d.chief;
+      if (chief && !seen.has(String(chief._id)) && String(chief._id) !== myId) {
+        seen.add(String(chief._id));
+        const title = chief.name?.trim() || "Chef";
+        out.push({
+          key: `member:${chief._id}`,
+          kind: "member",
+          id: chief._id as Id<"users">,
+          title,
+          subtitle: `Chef · ${d.name}`,
+          initial: (title || "C").charAt(0).toUpperCase(),
+          searchHaystack: fold(
+            [chief.name, "chef", d.name, d.code ?? ""].filter(Boolean).join(" "),
+          ),
+        });
+      }
     }
+    out.sort((a, b) => a.title.localeCompare(b.title, "fr"));
     return out;
   })();
 
   const selectedDestPicks: DestPick[] = allDestOptions.filter((o) =>
-    o.kind === "dept"
-      ? destIds.includes(o.id as Id<"departments">)
-      : memberDestIds.includes(o.id as Id<"users">),
+    memberDestIds.includes(o.id as Id<"users">),
   );
 
   /** Suggestions type e-mail : uniquement si du texte est saisi, classées par pertinence */
@@ -529,8 +488,7 @@ export function SendDocument({
     const tokens = q.split(" ").filter(Boolean);
     const scored: Array<{ o: DestPick; score: number }> = [];
     for (const o of allDestOptions) {
-      if (o.kind === "dept" && destIds.includes(o.id as Id<"departments">)) continue;
-      if (o.kind === "member" && memberDestIds.includes(o.id as Id<"users">)) continue;
+      if (memberDestIds.includes(o.id as Id<"users">)) continue;
       const hay = o.searchHaystack;
       if (!tokens.every((tok) => hay.includes(tok))) continue;
       const titleF = fold(o.title);
@@ -552,26 +510,17 @@ export function SendDocument({
   })();
 
   const pickDest = (o: DestPick) => {
-    if (o.kind === "dept") {
-      const id = o.id as Id<"departments">;
-      setDestIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    } else {
-      const id = o.id as Id<"users">;
-      setMemberDestIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
-    }
+    const id = o.id as Id<"users">;
+    setMemberDestIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    setDestIds([]); // plus d'envoi structurel
     setDestQuery("");
     setDestSuggestOpen(false);
     destInputRef.current?.focus();
   };
 
   const removeDestPick = (o: DestPick) => {
-    if (o.kind === "dept") {
-      const id = o.id as Id<"departments">;
-      setDestIds((prev) => prev.filter((x) => x !== id));
-    } else {
-      const id = o.id as Id<"users">;
-      setMemberDestIds((prev) => prev.filter((x) => x !== id));
-    }
+    const id = o.id as Id<"users">;
+    setMemberDestIds((prev) => prev.filter((x) => x !== id));
   };
 
   const emitServicesOfParent = (departments ?? [])
@@ -633,7 +582,7 @@ export function SendDocument({
     step === 0
       ? files.length > 0
       : step === 1
-        ? destIds.length > 0 || memberDestIds.length > 0
+        ? memberDestIds.length > 0
         : (() => {
               // Étape détails (index 3) — fichier obligatoire (envoi et transmission)
               if (files.length === 0) return false;
@@ -722,97 +671,79 @@ export function SendDocument({
       let lastId: Id<"documents"> | undefined;
       let count = 0;
 
-      // Destinations structurelles : services + directions (chef) + directions des membres cochés
-      const mergedDest = new Set(destIds.map(String));
-      for (const uid of memberDestIds) {
-        for (const d of departments ?? []) {
-          if ((d.members ?? []).some((m) => m._id === uid)) {
-            mergedDest.add(String(d._id));
+      // Envoi personne → personne (un dossier par destinataire et par fichier)
+      if (isTransmission && !referenceText.trim()) {
+        toast.error("Indiquez la Réf. du courrier papier.");
+        setSending(false);
+        return;
+      }
+
+      const metaFields = [
+        arriveeLe.trim()
+          ? { label: "Arrivée le", value: arriveeLe.trim(), source: "manual" as const }
+          : null,
+        duField.trim()
+          ? { label: "Émetteur", value: duField.trim(), source: "manual" as const }
+          : null,
+        dateCourrier.trim()
+          ? { label: "Date", value: dateCourrier.trim(), source: "manual" as const }
+          : null,
+      ].filter(Boolean) as Array<{
+        label: string;
+        value: string;
+        source?: "manual" | "courrier" | "structure";
+      }>;
+      const mergedFields = [...metaFields].slice(0, 8);
+
+      let combo = 0;
+      for (let pi = 0; pi < memberDestIds.length; pi++) {
+        const personId = memberDestIds[pi]!;
+        for (let fi = 0; fi < uploaded.length; fi++) {
+          const up = uploaded[fi]!;
+          let refBase: string | undefined = publicRef.trim() || undefined;
+          const parts: string[] = [];
+          if (refBase) {
+            if (memberDestIds.length > 1) parts.push(`p${pi + 1}`);
+            if (uploaded.length > 1) parts.push(`f${fi + 1}`);
+            refBase = parts.length ? `${refBase}#${parts.join("-")}` : refBase;
           }
+          lastId = await sendDocument({
+            storageId: up.storageId,
+            fileName: up.fileName,
+            contentType: up.contentType,
+            size: up.size,
+            objet: objet.trim(),
+            observations: observations.trim() || undefined,
+            tasks: effectiveTasks,
+            extractedText:
+              pi === 0 && fi === 0 ? extractedText || undefined : undefined,
+            recipientId: personId,
+            publicRef: isTransmission ? undefined : refBase,
+            mailKind: isTransmission ? "transmission" : "envoi",
+            stepDeadlineHours: undefined,
+            referenceText: referenceText.trim() || undefined,
+            requiresResponse: false,
+            urgent: isUrgent || undefined,
+            emittingDepartmentId:
+              (me?.user?.departmentId as Id<"departments"> | undefined) ??
+              onBehalfDepartmentId ??
+              undefined,
+            onBehalfOfType: "internal",
+            onBehalfOfUserId: me?.user?._id ?? undefined,
+            onBehalfOfName: me?.user?.name?.trim() || undefined,
+            onBehalfOfFunction: me?.user?.fonction?.trim() || undefined,
+            onBehalfOfDepartment: me?.department?.name?.trim() || undefined,
+            customFields: mergedFields.length ? mergedFields : undefined,
+          });
+          combo += 1;
         }
       }
-      const recipientTargets = [...mergedDest].map((departmentId) => ({
-        departmentId: departmentId as Id<"departments">,
-        kind: "traitement" as const,
-      }));
-      const primaryRecipientId =
-        memberDestIds[0] ?? recipientId ?? undefined;
-
-      for (let fi = 0; fi < uploaded.length; fi++) {
-        const up = uploaded[fi]!;
-        // N° complet = N°{séquence}-{année}/{hiérarchie émetteur}
-        let refBase: string | undefined;
-        if (publicRef.trim()) {
-          refBase = publicRef.trim();
-        } else {
-          refBase = undefined;
-        }
-        const ref =
-          refBase && uploaded.length === 1
-            ? refBase
-            : refBase
-              ? `${refBase}#${fi + 1}`
-              : undefined;
-        const metaFields = [
-          arriveeLe.trim()
-            ? { label: "Arrivée le", value: arriveeLe.trim(), source: "manual" as const }
-            : null,
-          duField.trim()
-            ? { label: "Émetteur", value: duField.trim(), source: "manual" as const }
-            : null,
-          dateCourrier.trim()
-            ? { label: "Date", value: dateCourrier.trim(), source: "manual" as const }
-            : null,
-        ].filter(Boolean) as Array<{
-          label: string;
-          value: string;
-          source?: "manual" | "courrier" | "structure";
-        }>;
-        const mergedFields = [...metaFields].slice(0, 8);
-
-        if (isTransmission && !referenceText.trim()) {
-          toast.error("Indiquez la Réf. du courrier papier.");
-          setSending(false);
-          return;
-        }
-        lastId = await sendDocument({
-          storageId: up.storageId,
-          fileName: up.fileName,
-          contentType: up.contentType,
-          size: up.size,
-          objet: objet.trim(),
-          observations: observations.trim() || undefined,
-          tasks: effectiveTasks,
-          extractedText: fi === 0 ? extractedText || undefined : undefined,
-          recipientDepartmentId: (recipientTargets[0]?.departmentId ?? destIds[0]) as Id<"departments">,
-          recipientTargets,
-          recipientId: fi === 0 ? primaryRecipientId : undefined,
-          publicRef: isTransmission ? undefined : ref || undefined,
-          mailKind: isTransmission ? "transmission" : "envoi",
-          stepDeadlineHours: undefined,
-          referenceText: referenceText.trim() || undefined,
-          requiresResponse: false,
-          urgent: isUrgent || undefined,
-          emittingDepartmentId:
-            (me?.user?.departmentId as Id<"departments"> | undefined) ??
-            onBehalfDepartmentId ??
-            undefined,
-          onBehalfOfType: "internal",
-          onBehalfOfUserId: me?.user?._id ?? undefined,
-          onBehalfOfName: me?.user?.name?.trim() || undefined,
-          onBehalfOfFunction: me?.user?.fonction?.trim() || undefined,
-          onBehalfOfDepartment: me?.department?.name?.trim() || undefined,
-          customFields: mergedFields.length ? mergedFields : undefined,
-        });
-        count += 1;
-      }
+      count = combo;
 
       toast.success(
         count === 1
-          ? destIds.length > 1
-            ? `Courrier transmis à ${destIds.length} structures.`
-            : "Courrier transmis."
-          : `${count} courrier(s) créé(s).`,
+          ? "Courrier envoyé."
+          : `${count} envoi(s) effectué(s) à ${memberDestIds.length} personne(s).`,
       );
       reset();
       onSent(lastId);
@@ -989,10 +920,10 @@ export function SendDocument({
                 <div className="flex justify-center py-8">
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : directions.length === 0 ? (
+              ) : allDestOptions.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Aucune direction disponible. Demandez au DG d&apos;initialiser
-                  l&apos;arbre organisationnel.
+                  Aucune personne disponible. Les comptes doivent être validés et
+                  rattachés à une structure.
                 </p>
               ) : (
                 <div className="relative">
@@ -1064,7 +995,7 @@ export function SendDocument({
                       }}
                       placeholder={
                         selectedDestPicks.length === 0
-                          ? "Rechercher une direction, un service ou une personne…"
+                          ? "Rechercher une personne (nom ou fonction)…"
                           : ""
                       }
                       className="min-w-[140px] flex-1 border-0 bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
@@ -1600,29 +1531,15 @@ export function SendDocument({
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">Qui reçoit</dt>
                     <dd className="max-w-[65%] text-right font-medium">
-                      {[
-                        ...destIds.map((id) => {
-                          const d = departments?.find((x) => x._id === id);
-                          if (!d) return null;
-                          const isSvc =
-                            (d as { kind?: string | null }).kind === "service";
-                          return isSvc
-                            ? `Service : ${d.name}`
-                            : `Chef de direction : ${d.name}`;
-                        }),
-                        ...memberDestIds.map((uid) => {
-                          const m = departments
-                            ?.flatMap((d) => d.members ?? [])
-                            .find((x) => x._id === uid);
-                          if (!m) return null;
-                          const fn = (m.fonction ?? "").trim();
-                          return fn
-                            ? `Fonction : ${fn}`
-                            : `Membre : ${m.name}`;
-                        }),
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || "—"}
+                      {selectedDestPicks.length > 0
+                        ? selectedDestPicks
+                            .map((o) =>
+                              o.subtitle && o.subtitle !== "Personne"
+                                ? `${o.title} (${o.subtitle})`
+                                : o.title,
+                            )
+                            .join(" · ")
+                        : "—"}
                     </dd>
                   </div>
 

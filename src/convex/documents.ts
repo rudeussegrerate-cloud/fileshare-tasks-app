@@ -681,7 +681,7 @@ export const send = mutation({
       recipient = chef ?? members[0] ?? null;
     } else {
       throw new Error(
-        "Choisissez une direction ou un service destinataire (ou une personne).",
+        "Choisissez une personne destinataire.",
       );
     }
 
