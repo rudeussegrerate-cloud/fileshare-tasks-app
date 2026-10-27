@@ -83,7 +83,6 @@ export function SendDocument({
   onSent,
   onManageDepartments,
   initialPublicRef,
-  replyTo,
   mode = "envoi",
 }: {
   onSent: (documentId?: Id<"documents">) => void;
@@ -92,15 +91,6 @@ export function SendDocument({
   mode?: "envoi" | "transmission";
   /** Préremplir le N° (optionnel). */
   initialPublicRef?: string;
-  /** Mode réponse à un courrier reçu (identique au projet d'origine) */
-  replyTo?: {
-    documentId: Id<"documents">;
-    publicRef?: string | null;
-    objet: string;
-    senderId?: Id<"users"> | null;
-    senderName?: string | null;
-    senderDepartmentId?: Id<"departments"> | null;
-  } | null;
 }) {
   const me = useQuery(api.workspace.me);
   const departments = useQuery(api.workspace.listDepartments);
@@ -110,18 +100,8 @@ export function SendDocument({
   const isTransmission = mode === "transmission";
   const [step, setStep] = useState(0);
   // L'étape « Qui envoie » (index 2) est sautée : émetteur = profil connecté
-  const goNext = () =>
-    setStep((s) => {
-      if (s === 0 && replyTo?.senderId) return 3; // réponse : destinataire déjà fixé
-      if (s === 1) return 3;
-      return Math.min(3, s + 1);
-    });
-  const goBack = () =>
-    setStep((s) => {
-      if (s === 3 && replyTo?.senderId) return 0;
-      if (s === 3) return 1;
-      return Math.max(0, s - 1);
-    });
+  const goNext = () => setStep((s) => (s === 1 ? 3 : Math.min(3, s + 1)));
+  const goBack = () => setStep((s) => (s === 3 ? 1 : Math.max(0, s - 1)));
 
   const [files, setFiles] = useState<File[]>([]);
   const [extractedText, setExtractedText] = useState("");
@@ -129,9 +109,7 @@ export function SendDocument({
   /** Services destinataires (rattachés à une direction) */
   const [destIds, setDestIds] = useState<Id<"departments">[]>([]);
   /** Membres de direction (hors services) cochés comme destinataires */
-  const [memberDestIds, setMemberDestIds] = useState<Id<"users">[]>(
-    replyTo?.senderId ? [replyTo.senderId] : [],
-  );
+  const [memberDestIds, setMemberDestIds] = useState<Id<"users">[]>([]);
   const [destQuery, setDestQuery] = useState("");
   const [destSuggestOpen, setDestSuggestOpen] = useState(false);
   const destInputRef = useRef<HTMLInputElement>(null);
@@ -150,13 +128,9 @@ export function SendDocument({
   const [extraDestIds, setExtraDestIds] = useState<Id<"departments">[]>([]);
 
   // Objet / références du courrier
-  const [objet, setObjet] = useState(
-    replyTo?.objet ? `Réponse à : ${replyTo.objet}` : "",
-  );
+  const [objet, setObjet] = useState("");
   const [observations, setObservations] = useState("");
-  const [referenceText, setReferenceText] = useState(
-    replyTo?.publicRef ? String(replyTo.publicRef) : "",
-  );
+  const [referenceText, setReferenceText] = useState("");
   const [requiresResponse, setRequiresResponse] = useState(false);
   const [isUrgent, setIsUrgent] = useState(false);
   const [arriveeLe, setArriveeLe] = useState("");
@@ -747,7 +721,6 @@ export function SendDocument({
             publicRef: isTransmission ? undefined : refBase,
             mailKind: isTransmission ? "transmission" : "envoi",
             stepDeadlineHours: undefined,
-            parentCourrierId: replyTo?.documentId,
             referenceText: referenceText.trim() || undefined,
             requiresResponse: false,
             urgent: isUrgent || undefined,
@@ -818,43 +791,16 @@ export function SendDocument({
     <div className="space-y-8">
       <div className="space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">
-          {replyTo
-            ? "Répondre au courrier"
-            : isTransmission
-              ? "Transmission de courrier"
-              : "Nouveau courrier"}
+          {isTransmission
+            ? "Transmission de courrier"
+            : "Nouveau courrier"}
         </h2>
         <p className="text-sm text-muted-foreground">
-          {replyTo
-            ? "Réponse liée au courrier d'origine. Le destinataire et la référence sont repris automatiquement."
-            : isTransmission
-              ? "Numérisez le courrier reçu et transmettez-le au service compétent."
-              : "Joignez le fichier, choisissez les destinataires, puis validez."}
+          {isTransmission
+            ? "Numérisez le courrier reçu et transmettez-le au service compétent."
+            : "Joignez le fichier, choisissez les destinataires, puis validez."}
         </p>
       </div>
-
-      {replyTo ? (
-        <div className="rounded-lg border border-brand/30 bg-brand-soft/40 px-4 py-3 text-sm">
-          <strong>Réponse</strong> au courrier
-          {replyTo.publicRef ? (
-            <span className="font-mono"> {replyTo.publicRef}</span>
-          ) : null}
-          {replyTo.objet ? (
-            <span className="text-muted-foreground">
-              {" "}
-              — « {replyTo.objet} »
-            </span>
-          ) : null}
-          {replyTo.senderName ? (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Destinataire :{" "}
-              <span className="font-medium text-foreground">
-                {replyTo.senderName}
-              </span>
-            </p>
-          ) : null}
-        </div>
-      ) : null}
 
       <Card className="border-border/80 shadow-sm">
         <CardContent className="space-y-8 px-5 py-8 sm:px-8">
