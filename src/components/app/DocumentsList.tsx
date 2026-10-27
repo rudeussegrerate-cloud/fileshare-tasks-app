@@ -292,6 +292,14 @@ export function DocumentsList({
                             (document as { mailKind?: string }).mailKind
                           }
                         />
+                        {(document as { urgent?: boolean }).urgent ? (
+                          <Badge
+                            variant="outline"
+                            className="border-red-500/50 bg-red-500/10 text-red-700"
+                          >
+                            Urgent
+                          </Badge>
+                        ) : null}
                         <StatusBadge
                           status={
                             (["envoye", "consulte", "en_cours", "traite"].includes(

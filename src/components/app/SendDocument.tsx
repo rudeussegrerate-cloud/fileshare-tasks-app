@@ -132,6 +132,7 @@ export function SendDocument({
   const [observations, setObservations] = useState("");
   const [referenceText, setReferenceText] = useState("");
   const [requiresResponse, setRequiresResponse] = useState(false);
+  const [isUrgent, setIsUrgent] = useState(false);
   const [arriveeLe, setArriveeLe] = useState("");
   const [duField, setDuField] = useState("");
   const [dateCourrier, setDateCourrier] = useState("");
@@ -569,6 +570,7 @@ export function SendDocument({
     // destIds cleared above
     setRecipientId(null);
     setObjet("");
+    setIsUrgent(false);
     setObservations("");
     setPublicRef("");
     setSelectedTasks([]);
@@ -746,6 +748,7 @@ export function SendDocument({
           stepDeadlineHours: undefined,
           referenceText: referenceText.trim() || undefined,
           requiresResponse: false,
+          urgent: isUrgent || undefined,
           emittingDepartmentId:
             (me?.user?.departmentId as Id<"departments"> | undefined) ??
             onBehalfDepartmentId ??
@@ -1477,6 +1480,18 @@ export function SendDocument({
                 />
               </div>
 
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border bg-card px-3 py-2.5">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-border accent-red-600"
+                  checked={isUrgent}
+                  onChange={(e) => setIsUrgent(e.target.checked)}
+                />
+                <span className="text-sm font-medium text-foreground">
+                  Courrier urgent
+                </span>
+              </label>
+
               
               <div className="space-y-3">
                 <Label>
@@ -1617,6 +1632,14 @@ export function SendDocument({
                       {objet.trim() || "—"}
                     </dd>
                   </div>
+                  {isUrgent ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="shrink-0 text-muted-foreground">Priorité</dt>
+                      <dd className="text-right font-semibold text-red-600">
+                        Urgent
+                      </dd>
+                    </div>
+                  ) : null}
                   <div className="flex justify-between gap-4">
                     <dt className="shrink-0 text-muted-foreground">
                       Observations

@@ -542,6 +542,8 @@ export const send = mutation({
     parentCourrierId: v.optional(v.id("documents")),
     referenceText: v.optional(v.string()),
     requiresResponse: v.optional(v.boolean()),
+    /** Courrier urgent */
+    urgent: v.optional(v.boolean()),
     /** Structure qui émet le courrier (pour le N° hiérarchique) */
     emittingDepartmentId: v.optional(v.id("departments")),
     /** envoi (défaut) ou transmission de courrier papier */
@@ -873,6 +875,7 @@ export const send = mutation({
       parentCourrierId: parentCourrierId,
       referenceText,
       requiresResponse: args.requiresResponse === true,
+      urgent: args.urgent === true ? true : undefined,
       hasCircuit: circuitUsers.length > 1,
       currentStepIndex: 0,
       circuitTotalSteps: circuitUsers.length,

@@ -229,6 +229,8 @@ const schema = defineSchema(
       referenceText: v.optional(v.string()),
       /** Une réponse est attendue de la structure destinataire */
       requiresResponse: v.optional(v.boolean()),
+      /** Courrier marqué urgent par l'émetteur */
+      urgent: v.optional(v.boolean()),
       revisionCount: v.optional(v.number()),
       lastRevisedAt: v.optional(v.number()),
       lastRevisedByName: v.optional(v.string()),
