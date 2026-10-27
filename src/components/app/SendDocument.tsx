@@ -110,6 +110,9 @@ export function SendDocument({
   const [destIds, setDestIds] = useState<Id<"departments">[]>([]);
   /** Membres de direction (hors services) cochés comme destinataires */
   const [memberDestIds, setMemberDestIds] = useState<Id<"users">[]>([]);
+  const [destQuery, setDestQuery] = useState("");
+  const [destSuggestOpen, setDestSuggestOpen] = useState(false);
+  const destInputRef = useRef<HTMLInputElement>(null);
   /** direction = envoi aux directions ; service = envoi aux services uniquement */
   const [destMode, setDestMode] = useState<"direction" | "service">("direction");
   const [selectedDirectionId, setSelectedDirectionId] = useState<
@@ -393,6 +396,139 @@ export function SendDocument({
     .sort((a, b) =>
       (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
     );
+
+  type DestPick =
+    | {
+        key: string;
+        kind: "dept";
+        id: Id<"departments">;
+        title: string;
+        subtitle: string;
+        initial: string;
+      }
+    | {
+        key: string;
+        kind: "member";
+        id: Id<"users">;
+        title: string;
+        subtitle: string;
+        initial: string;
+      };
+
+  const allDestOptions: DestPick[] = (() => {
+    const out: DestPick[] = [];
+    const myId = me?.user?._id ? String(me.user._id) : "";
+    for (const dir of directions) {
+      out.push({
+        key: `dept:${dir._id}`,
+        kind: "dept",
+        id: dir._id,
+        title: dir.name,
+        subtitle: dir.chief?.name
+          ? `Chef de direction · ${dir.chief.name}`
+          : "Direction",
+        initial: (dir.name || "D").charAt(0).toUpperCase(),
+      });
+      const services = (departments ?? [])
+        .filter(
+          (s) =>
+            s.parentId === dir._id &&
+            (s as { active?: boolean }).active !== false,
+        )
+        .slice()
+        .sort((a, b) =>
+          (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
+        );
+      for (const svc of services) {
+        out.push({
+          key: `dept:${svc._id}`,
+          kind: "dept",
+          id: svc._id,
+          title: svc.name,
+          subtitle: dir.name,
+          initial: (svc.name || "S").charAt(0).toUpperCase(),
+        });
+      }
+      const dirChiefId = dir.chief?._id ? String(dir.chief._id) : "";
+      for (const m of dir.members ?? []) {
+        const id = String(m._id);
+        if (!id || id === myId) continue;
+        if (id === dirChiefId) continue;
+        if ((m as { departmentRole?: string }).departmentRole === "chef") continue;
+        const title = (m.fonction ?? "").trim() || m.name;
+        out.push({
+          key: `member:${m._id}`,
+          kind: "member",
+          id: m._id as Id<"users">,
+          title,
+          subtitle: m.name !== title ? `${m.name} · ${dir.name}` : dir.name,
+          initial: (title || "?").charAt(0).toUpperCase(),
+        });
+      }
+    }
+    // membres des services aussi
+    for (const d of departments ?? []) {
+      if (!d.parentId) continue;
+      if ((d as { active?: boolean }).active === false) continue;
+      const parent = directions.find((x) => x._id === d.parentId);
+      for (const m of d.members ?? []) {
+        const id = String(m._id);
+        if (!id || id === myId) continue;
+        if (out.some((o) => o.kind === "member" && String(o.id) === id)) continue;
+        const title = (m.fonction ?? "").trim() || m.name;
+        out.push({
+          key: `member:${m._id}`,
+          kind: "member",
+          id: m._id as Id<"users">,
+          title,
+          subtitle: parent ? `${d.name} · ${parent.name}` : d.name,
+          initial: (title || "?").charAt(0).toUpperCase(),
+        });
+      }
+    }
+    return out;
+  })();
+
+  const selectedDestPicks: DestPick[] = allDestOptions.filter((o) =>
+    o.kind === "dept"
+      ? destIds.includes(o.id)
+      : memberDestIds.includes(o.id),
+  );
+
+  const qNorm = destQuery.trim().toLowerCase();
+  const destSuggestions = allDestOptions
+    .filter((o) => {
+      if (o.kind === "dept" && destIds.includes(o.id)) return false;
+      if (o.kind === "member" && memberDestIds.includes(o.id)) return false;
+      if (!qNorm) return true;
+      return (
+        o.title.toLowerCase().includes(qNorm) ||
+        o.subtitle.toLowerCase().includes(qNorm)
+      );
+    })
+    .slice(0, 12);
+
+  const pickDest = (o: DestPick) => {
+    if (o.kind === "dept") {
+      setDestIds((prev) => (prev.includes(o.id) ? prev : [...prev, o.id]));
+    } else {
+      setMemberDestIds((prev) =>
+        prev.includes(o.id) ? prev : [...prev, o.id],
+      );
+    }
+    setDestQuery("");
+    setDestSuggestOpen(true);
+    destInputRef.current?.focus();
+  };
+
+  const removeDestPick = (o: DestPick) => {
+    if (o.kind === "dept") {
+      setDestIds((prev) => prev.filter((x) => x !== o.id));
+    } else {
+      setMemberDestIds((prev) => prev.filter((x) => x !== o.id));
+    }
+  };
+
   const emitServicesOfParent = (departments ?? [])
     .filter(
       (d) =>
@@ -425,6 +561,8 @@ export function SendDocument({
     setFiles([]);
     setDestIds([]);
     setMemberDestIds([]);
+    setDestQuery("");
+    setDestSuggestOpen(false);
     setDestMode("direction");
     setSelectedDirectionId(null);
     setExtractedText("");
@@ -799,8 +937,7 @@ export function SendDocument({
           ) : null}
 
           {step === 1 ? (
-            <div className="space-y-6" data-scandoc-tour="send-destination">
-
+            <div className="space-y-3" data-scandoc-tour="send-destination">
               {departments === undefined ? (
                 <div className="flex justify-center py-8">
                   <Loader2 className="size-5 animate-spin text-muted-foreground" />
@@ -811,176 +948,118 @@ export function SendDocument({
                   l&apos;arbre organisationnel.
                 </p>
               ) : (
-                <div className="max-h-[28rem] space-y-3 overflow-y-auto pr-1">
-                  {directions.map((dir) => {
-                    const chefActive = destIds.includes(dir._id);
-                    const services = (departments ?? [])
-                      .filter(
-                        (s) =>
-                          s.parentId === dir._id &&
-                          (s as { active?: boolean }).active !== false,
-                      )
-                      .slice()
-                      .sort((a, b) =>
-                        (a.code ?? a.name).localeCompare(
-                          b.code ?? b.name,
-                          "fr",
-                        ),
-                      );
-                    const selectedSvcCount = services.filter((s) =>
-                      destIds.includes(s._id),
-                    ).length;
-                    // « Autre » : membres de la direction uniquement
-                    // (pas de service, pas le chef, pas soi-même)
-                    const myId = me?.user?._id ? String(me.user._id) : "";
-                    const dirChiefId = dir.chief?._id
-                      ? String(dir.chief._id)
-                      : "";
-                    const dirMembers = (dir.members ?? []).filter((m) => {
-                      const id = String(m._id);
-                      if (!id || id === myId) return false;
-                      if (id === dirChiefId) return false;
-                      if (
-                        (m as { departmentRole?: string }).departmentRole ===
-                        "chef"
-                      ) {
-                        return false;
-                      }
-                      return true;
-                    });
-                    const selectedMemberCount = dirMembers.filter((m) =>
-                      memberDestIds.includes(m._id),
-                    ).length;
-                    const cardActive =
-                      chefActive ||
-                      selectedSvcCount > 0 ||
-                      selectedMemberCount > 0;
-                    return (
-                      <div
-                        key={dir._id}
-                        className={cn(
-                          "rounded-lg border p-3 transition-colors",
-                          cardActive
-                            ? "border-brand/40 bg-brand-soft/40"
-                            : "border-border bg-card",
-                        )}
+                <div className="relative">
+                  <div
+                    className="flex min-h-[48px] flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20"
+                    onClick={() => {
+                      destInputRef.current?.focus();
+                      setDestSuggestOpen(true);
+                    }}
+                  >
+                    <span className="mr-1 shrink-0 text-sm font-medium text-muted-foreground">
+                      À
+                    </span>
+                    {selectedDestPicks.map((o) => (
+                      <span
+                        key={o.key}
+                        className="inline-flex max-w-[220px] items-center gap-1 rounded-full border border-border bg-muted/60 py-0.5 pl-1 pr-1.5 text-xs font-medium text-foreground"
                       >
-                        {/* En-tête direction — sans case à cocher */}
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold text-foreground">
-                            {dir.name}
-                          </span>
-                          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                            Direction
-                          </span>
-                        </div>
+                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-white">
+                          {o.initial}
+                        </span>
+                        <span className="truncate">{o.title}</span>
+                        <button
+                          type="button"
+                          className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeDestPick(o);
+                          }}
+                          aria-label={`Retirer ${o.title}`}
+                        >
+                          <X className="size-3" />
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      ref={destInputRef}
+                      type="text"
+                      value={destQuery}
+                      onChange={(e) => {
+                        setDestQuery(e.target.value);
+                        setDestSuggestOpen(true);
+                      }}
+                      onFocus={() => setDestSuggestOpen(true)}
+                      onKeyDown={(e) => {
+                        if (
+                          e.key === "Backspace" &&
+                          !destQuery &&
+                          selectedDestPicks.length > 0
+                        ) {
+                          removeDestPick(
+                            selectedDestPicks[selectedDestPicks.length - 1]!,
+                          );
+                        }
+                        if (e.key === "Escape") setDestSuggestOpen(false);
+                        if (
+                          e.key === "Enter" &&
+                          destSuggestions[0]
+                        ) {
+                          e.preventDefault();
+                          pickDest(destSuggestions[0]);
+                        }
+                      }}
+                      onBlur={() => {
+                        window.setTimeout(
+                          () => setDestSuggestOpen(false),
+                          180,
+                        );
+                      }}
+                      placeholder={
+                        selectedDestPicks.length === 0
+                          ? "Rechercher une direction, un service ou une personne…"
+                          : ""
+                      }
+                      className="min-w-[140px] flex-1 border-0 bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
+                    />
+                  </div>
 
-                        {/* Chef de direction (en haut) */}
-                        <div className="mt-3 space-y-1.5">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Direction
-                          </p>
-                          <label
-                            className={cn(
-                              "flex cursor-pointer items-center gap-3 rounded-md border px-2.5 py-2 transition-colors",
-                              chefActive
-                                ? "border-brand bg-card shadow-sm"
-                                : "border-transparent hover:bg-muted/40",
-                            )}
+                  {destSuggestOpen && destSuggestions.length > 0 ? (
+                    <ul className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg">
+                      {destSuggestions.map((o) => (
+                        <li key={o.key}>
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/70"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => pickDest(o)}
                           >
-                            <input
-                              type="checkbox"
-                              className="size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
-                              checked={chefActive}
-                              onChange={() => toggleDest(dir._id)}
-                            />
-                            <span className="text-sm font-medium text-foreground">
-                              Chef de direction
-                              {dir.chief?.name
-                                ? ` · ${dir.chief.name}`
-                                : ""}
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand">
+                              {o.initial}
                             </span>
-                          </label>
-                        </div>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-foreground">
+                                {o.title}
+                              </span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {o.subtitle}
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
 
-                        {/* Services */}
-                        {services.length > 0 ? (
-                          <div className="mt-3 space-y-1.5">
-                            <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                              Services
-                            </p>
-                            {services.map((svc) => {
-                              const svcActive = destIds.includes(svc._id);
-                              return (
-                                <label
-                                  key={svc._id}
-                                  className={cn(
-                                    "flex cursor-pointer items-center gap-3 rounded-md border px-2.5 py-2 transition-colors",
-                                    svcActive
-                                      ? "border-brand bg-card shadow-sm"
-                                      : "border-transparent hover:bg-muted/40",
-                                  )}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    className="size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
-                                    checked={svcActive}
-                                    onChange={() => toggleDest(svc._id)}
-                                  />
-                                  <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
-                                    {svc.name}
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </div>
-                        ) : null}
-
-                        {/* Autre : membres de la direction hors service */}
-                        <div className="mt-3 space-y-1.5">
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            Autre
-                          </p>
-                          {dirMembers.length === 0 ? (
-                            <p className="px-1 text-xs text-muted-foreground">
-                              Aucun
-                            </p>
-                          ) : (
-                            dirMembers.map((m) => {
-                              const active = memberDestIds.includes(m._id);
-                              const fonction =
-                                (m.fonction ?? "").trim() || m.name;
-                              return (
-                                <label
-                                  key={String(m._id)}
-                                  className={cn(
-                                    "flex cursor-pointer items-center gap-3 rounded-md border px-2.5 py-2 transition-colors",
-                                    active
-                                      ? "border-brand bg-card shadow-sm"
-                                      : "border-transparent hover:bg-muted/40",
-                                  )}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    className="size-4 shrink-0 rounded border-border accent-[var(--brand,#5b4cdb)]"
-                                    checked={active}
-                                    onChange={() => toggleMemberDest(m._id)}
-                                  />
-                                  <span className="min-w-0 flex-1 text-sm font-medium text-foreground">
-                                    {fonction}
-                                  </span>
-                                </label>
-                              );
-                            })
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  {destSuggestOpen &&
+                  destQuery.trim() &&
+                  destSuggestions.length === 0 ? (
+                    <div className="absolute left-0 right-0 z-30 mt-1 rounded-lg border border-border bg-card px-3 py-3 text-sm text-muted-foreground shadow-lg">
+                      Aucun résultat pour « {destQuery.trim()} »
+                    </div>
+                  ) : null}
                 </div>
               )}
-
-
             </div>
           ) : null}
 
