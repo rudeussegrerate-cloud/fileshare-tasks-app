@@ -692,7 +692,7 @@ function EnterprisePanel({
           </Button>
         </div>
         <p className="mb-2 text-[11px] text-muted-foreground">
-          Courriers non classés ou en retard (>24 h) par direction. Toucher une ligne pour le détail.
+          Courriers non classés ou en retard (plus de 24 h) par direction. Toucher une ligne pour le détail.
         </p>
         {overview.departmentStats.length === 0 ? (
           <p className="text-xs text-muted-foreground">
