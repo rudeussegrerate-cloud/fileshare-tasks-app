@@ -28,6 +28,7 @@ import {
   structureRecipient,
   structureSender,
   type DocumentStatus,
+  UrgentBadge,
 } from "./shared";
 
 type Mode = "inbox" | "sent";
@@ -301,6 +302,7 @@ export function DocumentsList({
                           </Badge>
                         ) : null}
                         <StatusBadge
+                          asRecipient={mode === "inbox"}
                           status={
                             (["envoye", "consulte", "en_cours", "traite"].includes(
                               String(document.status),
@@ -339,12 +341,11 @@ export function DocumentsList({
                           {document.publicRef}
                         </p>
                       ) : null}
-                      {document.objet ? (
-                        <p className="mt-2 line-clamp-1 text-xs leading-relaxed text-foreground/80">
-                          <span className="font-medium text-brand-sky">
-                            Objet :{" "}
-                          </span>
-                          {document.objet}
+                      {document.fileName &&
+                      document.objet &&
+                      document.fileName !== document.objet ? (
+                        <p className="mt-1 truncate text-[11px] text-muted-foreground">
+                          Fichier : {document.fileName}
                         </p>
                       ) : null}
                       {mode === "sent" && document.hasCircuit ? (

@@ -90,12 +90,17 @@ export function MailKindBadge({
 export function StatusBadge({
   status,
   className,
+  asRecipient = false,
 }: {
   status: DocumentStatus;
   className?: string;
+  /** Libellés côté destinataire (ex. Non lu au lieu d'Envoyé) */
+  asRecipient?: boolean;
 }) {
   const meta = STATUS_META[status] ?? STATUS_META.envoye;
   const Icon = meta.icon;
+  const label =
+    asRecipient && meta.labelRecipient ? meta.labelRecipient : meta.label;
   return (
     <Badge
       variant="outline"
@@ -108,7 +113,22 @@ export function StatusBadge({
     >
       <span className="status-dot" aria-hidden />
       <Icon className="size-3 opacity-80" />
-      {meta.label}
+      {label}
+    </Badge>
+  );
+}
+
+export function UrgentBadge({ className }: { className?: string }) {
+  return (
+    <Badge
+      variant="outline"
+      title="Courrier signalé comme urgent"
+      className={cn(
+        "rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700",
+        className,
+      )}
+    >
+      Urgent
     </Badge>
   );
 }

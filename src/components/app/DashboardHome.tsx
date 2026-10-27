@@ -29,8 +29,10 @@ import {
   FileThumb,
   formatDateTime,
   initialsOf,
+  structureRecipient,
+  structureSender,
+  UrgentBadge,
 } from "./shared";
-import { structureRecipient, structureSender } from "./shared";
 
 const ONLINE_MS = 2 * 60 * 1000;
 
@@ -248,6 +250,15 @@ export function DashboardHome({
         ) : (
           <ul className="divide-y divide-[#ebe7f5] overflow-hidden rounded-xl border border-[#e4dff2] bg-white">
             {recent.map((courrier) => {
+              const objet =
+                (courrier.objet && String(courrier.objet).trim()) ||
+                courrier.fileName;
+              const sender =
+                (courrier as { senderName?: string }).senderName?.trim() ||
+                structureSender(courrier);
+              const isUrgent = Boolean(
+                (courrier as { urgent?: boolean }).urgent,
+              );
               return (
                 <li key={courrier._id}>
                   <button
@@ -262,16 +273,31 @@ export function DashboardHome({
                       size="sm"
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">
-                        {courrier.objet || courrier.fileName}
+                      <span className="block truncate text-sm font-semibold text-foreground">
+                        {objet}
                       </span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {structureSender(courrier)} ·{" "}
+                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        De {sender}
+                        {(courrier as { senderDepartmentName?: string | null })
+                          .senderDepartmentName
+                          ? ` · ${(courrier as { senderDepartmentName?: string }).senderDepartmentName}`
+                          : ""}
+                        {" · "}
                         {formatDateTime(courrier.createdAt)}
                       </span>
                     </span>
-                    <MailKindBadge kind={(courrier as { mailKind?: string }).mailKind} />
-                    <StatusBadge status={courrier.status} />
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      {isUrgent ? <UrgentBadge /> : null}
+                      <span className="flex items-center gap-1">
+                        <MailKindBadge
+                          kind={(courrier as { mailKind?: string }).mailKind}
+                        />
+                        <StatusBadge
+                          status={courrier.status}
+                          asRecipient
+                        />
+                      </span>
+                    </span>
                   </button>
                 </li>
               );
