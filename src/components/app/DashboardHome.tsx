@@ -217,7 +217,7 @@ export function DashboardHome({
         subtitle={
           isManager
             ? "Activité courrier liée à votre rôle"
-            : "Courriers de votre structure"
+            : "Vos courriers reçus et à traiter"
         }
       >
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">

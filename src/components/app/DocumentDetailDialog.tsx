@@ -690,7 +690,7 @@ export function DocumentDetailDialog({
                   </p>
                 ) : (
                   <p className="text-muted-foreground">
-                    Vous êtes la dernière étape : votre validation clôture le circuit.
+                    Votre validation classe le courrier.
                   </p>
                 )}
                 <p className="mt-2 text-xs">
@@ -700,7 +700,7 @@ export function DocumentDetailDialog({
                       ? "En attente de la personne précédente."
                       : documentOrNull.relativeTracking.myStatus === "done"
                         ? "Vous avez déjà validé votre étape."
-                        : "En attente dans le circuit."}
+                        : "En attente de traitement."}
                 </p>
               </section>
             ) : null}
@@ -875,7 +875,7 @@ export function DocumentDetailDialog({
                         
             {documentOrNull.canUpdateStatus || documentOrNull.isRecipient ? (
               <section className="space-y-3">
-                {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 0 ? (
+                {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 1 ? (
                   <div className="rounded-lg border border-border bg-muted/20 p-3">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                       Circuit de traitement ({(documentOrNull.currentStepIndex ?? 0) + 1}/

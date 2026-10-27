@@ -600,8 +600,8 @@ export function SendDocument({
       toast.error("Joignez au moins un document pour envoyer ou transmettre.");
       return;
     }
-    if (destIds.length === 0 && memberDestIds.length === 0) {
-      toast.error("Choisissez au moins un destinataire (service, chef ou membre).");
+    if (memberDestIds.length === 0) {
+      toast.error("Choisissez au moins une personne destinataire.");
       return;
     }
     if (!arriveeLe.trim()) {
@@ -769,7 +769,7 @@ export function SendDocument({
     return (
       <EmptyState
         icon={Building2}
-        title="Aucune structure pour l'instant"
+        title="Organisation non prête"
         description={
           me?.isAdmin
             ? "Installez d'abord l'arbre MNDPT (menu Départements) ou créez les structures, puis nommez les chefs."

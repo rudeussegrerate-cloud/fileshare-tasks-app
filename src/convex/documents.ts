@@ -1024,8 +1024,8 @@ export const send = mutation({
             await pushNotification(ctx, {
               userId: m._id,
               type: "document.received",
-              title: "Nouveau document pour votre structure",
-              body: `${displayName(sender)} → ${recipientDept?.code ?? recipientDept?.name ?? "structure"} — « ${objet} »`,
+              title: "Nouveau courrier reçu",
+              body: `${displayName(sender)} — « ${objet} »`,
               documentId,
             });
           }
@@ -2483,7 +2483,7 @@ export const documentHistory = query({
       at: document.updatedAt ?? document.createdAt ?? document._creationTime,
       structure: recipientDep
         ? `${recipientDep.code ? recipientDep.code + " — " : ""}${recipientDep.name}`
-        : document.recipientName || "Structure destinataire",
+        : document.recipientName || "Destinataire",
       status: document.status,
       note: "État actuel",
       kind: "statut",

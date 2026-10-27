@@ -351,10 +351,8 @@ export function DocumentsList({
                       {mode === "sent" && document.hasCircuit ? (
                         <p className="mt-1 text-xs font-medium text-amber-900">
                           {document.status === "traite"
-                            ? "Circuit terminé"
-                            : `📍 Chez ${structureRecipient(document)} · étape ${(document.currentStepIndex ?? 0) + 1}/${
-                                document.circuitTotalSteps ?? "?"
-                              }`}
+                            ? "Traitement terminé"
+                            : `En cours chez ${structureRecipient(document)}`}
                         </p>
                       ) : null}
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground/80">

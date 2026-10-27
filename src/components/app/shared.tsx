@@ -239,7 +239,7 @@ export function formatBytes(bytes?: number | null) {
   return `${value.toFixed(value >= 10 || unit === 0 ? 0 : 1)} ${units[unit]}`;
 }
 
-/** Libellé structure (direction/service) — règle métier : pas de nom de personne. */
+/** Champs utiles pour afficher expéditeur / destinataire (personne → personne). */
 export type StructureDocFields = {
   senderName?: string | null;
   recipientName?: string | null;
@@ -253,20 +253,29 @@ export function structureFrom(
 ): string {
   const s = structureName?.trim();
   if (s) return s;
-  // recipientName peut déjà être un libellé de structure (envoi structurel)
   const f = fallbackPersonOrLabel?.trim();
-  if (f && (f.includes("—") || f.includes(" - ") || /^[A-Z]{2,}/.test(f))) {
-    return f;
-  }
-  return f ? "Structure" : "—";
+  if (f) return f;
+  return "—";
 }
 
+/** Expéditeur : nom de la personne, puis structure si connue. */
 export function structureSender(doc: StructureDocFields): string {
-  return structureFrom(doc.senderDepartmentName, doc.senderName);
+  const person = doc.senderName?.trim();
+  const dept = doc.senderDepartmentName?.trim();
+  if (person && dept) return `${person} · ${dept}`;
+  if (person) return person;
+  if (dept) return dept;
+  return "—";
 }
 
+/** Destinataire : nom de la personne, puis structure si connue. */
 export function structureRecipient(doc: StructureDocFields): string {
-  return structureFrom(doc.recipientDepartmentName, doc.recipientName);
+  const person = doc.recipientName?.trim();
+  const dept = doc.recipientDepartmentName?.trim();
+  if (person && dept) return `${person} · ${dept}`;
+  if (person) return person;
+  if (dept) return dept;
+  return "—";
 }
 
 export function formatDateTime(timestamp?: number | null) {
