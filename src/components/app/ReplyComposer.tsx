@@ -20,14 +20,24 @@ import { useMutation, useQuery } from "convex/react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  Bold,
   Download,
-  FileText,
+  Italic,
+  List,
+  ListOrdered,
   Loader2,
+  PanelLeft,
   Plus,
   Printer,
   Reply,
   Send,
   Trash2,
+  Underline,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -243,7 +253,9 @@ export function ReplyComposer({
   const [fields, setFields] = useState<Field[]>([]);
   const [editorDirty, setEditorDirty] = useState(false);
   const [sending, setSending] = useState(false);
-  const [activeTab, setActiveTab] = useState<"fields" | "preview">("fields");
+  const [activeTab, setActiveTab] = useState<"fields" | "preview">("preview");
+  const [showFields, setShowFields] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   const myName = me?.user?.name?.trim() || me?.user?.email || "";
 
@@ -315,6 +327,12 @@ export function ReplyComposer({
   };
 
   const getBodyHtml = () => editorRef.current?.innerHTML ?? buildLetterHtml(fields);
+
+  const exec = useCallback((command: string, value?: string) => {
+    editorRef.current?.focus();
+    document.execCommand(command, false, value);
+    setEditorDirty(true);
+  }, []);
 
   const handlePrint = () => {
     try {
@@ -414,150 +432,152 @@ export function ReplyComposer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[92vh] w-[min(1100px,96vw)] max-w-none flex-col gap-0 overflow-hidden p-0">
-        <DialogHeader className="shrink-0 border-b border-border px-5 py-4">
+      <DialogContent
+        className="flex h-[min(96vh,920px)] w-[min(1280px,98vw)] max-w-none flex-col gap-0 overflow-hidden p-0 sm:rounded-xl"
+      >
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-5">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Reply className="size-4 text-brand" />
             Rédiger une réponse
           </DialogTitle>
           <p className="text-xs text-muted-foreground">
-            Document généré automatiquement — modifiez les champs ou le texte
-            directement dans l&apos;aperçu, puis imprimez, téléchargez ou
-            envoyez.
+            Éditez le document comme dans un traitement de texte. Les champs à
+            gauche préremplissent le modèle si besoin.
           </p>
         </DialogHeader>
 
-        <div className="flex shrink-0 gap-1 border-b border-border px-4 py-2 sm:hidden">
+        {/* Barre d'outils type Word */}
+        <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-border bg-muted/40 px-2 py-1.5">
           <Button
             type="button"
             size="sm"
-            variant={activeTab === "fields" ? "default" : "ghost"}
-            onClick={() => setActiveTab("fields")}
+            variant={showFields ? "secondary" : "ghost"}
+            className="gap-1.5"
+            onClick={() => setShowFields((v) => !v)}
           >
+            <PanelLeft className="size-3.5" />
             Champs
           </Button>
+          <span className="mx-1 h-5 w-px bg-border" />
           <Button
             type="button"
-            size="sm"
-            variant={activeTab === "preview" ? "default" : "ghost"}
-            onClick={() => {
-              setActiveTab("preview");
-              window.setTimeout(() => syncEditorFromFields(), 30);
-            }}
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Gras"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("bold")}
           >
-            Aperçu
+            <Bold className="size-3.5" />
           </Button>
-        </div>
-
-        <div className="grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-2">
-          {/* Champs */}
-          <div
-            className={cn(
-              "min-h-0 space-y-3 overflow-y-auto border-border p-4 lg:border-r",
-              activeTab !== "fields" && "hidden lg:block",
-            )}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Italique"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("italic")}
           >
-            <p className="text-xs font-medium text-muted-foreground">
-              Champs du formulaire (modifiables · vous pouvez en ajouter)
-            </p>
-            {fields.map((f) => (
-              <div key={f.id} className="space-y-1.5 rounded-lg border border-border/80 bg-card p-3">
-                <div className="flex items-center gap-2">
-                  <Input
-                    value={f.label}
-                    onChange={(e) => updateFieldLabel(f.id, e.target.value)}
-                    className="h-8 text-xs font-medium"
-                    aria-label="Libellé du champ"
-                  />
-                  {!CORE_FIELD_IDS.includes(f.id as (typeof CORE_FIELD_IDS)[number]) ? (
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className="size-8 shrink-0 text-destructive"
-                      onClick={() => removeField(f.id)}
-                    >
-                      <Trash2 className="size-3.5" />
-                    </Button>
-                  ) : null}
-                </div>
-                {f.multiline ? (
-                  <Textarea
-                    rows={f.id === "corps" ? 5 : 2}
-                    value={f.value}
-                    onChange={(e) => updateField(f.id, e.target.value)}
-                    className="resize-y text-sm"
-                  />
-                ) : (
-                  <Input
-                    value={f.value}
-                    onChange={(e) => updateField(f.id, e.target.value)}
-                    className="text-sm"
-                  />
-                )}
-              </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={addField}
-            >
-              <Plus className="size-3.5" />
-              Ajouter un champ
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="ml-2 gap-1.5"
-              onClick={() => {
-                setEditorDirty(false);
-                window.setTimeout(() => syncEditorFromFields(), 10);
-                setActiveTab("preview");
-              }}
-            >
-              Mettre à jour l&apos;aperçu
-            </Button>
-          </div>
-
-          {/* Aperçu éditable */}
-          <div
-            className={cn(
-              "flex min-h-0 flex-col overflow-hidden bg-[#e8edf3] p-3",
-              activeTab !== "preview" && "hidden lg:flex",
-            )}
+            <Italic className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Souligné"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("underline")}
           >
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <p className="text-xs font-medium text-muted-foreground">
-                Aperçu A4 — cliquez dans le document pour écrire / modifier
-              </p>
-              {editorDirty ? (
-                <span className="text-[10px] text-amber-700">
-                  Édité manuellement
-                </span>
-              ) : null}
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto">
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={() => setEditorDirty(true)}
-                className="mx-auto min-h-[297mm] w-full max-w-[210mm] bg-white px-[14mm] py-[16mm] text-[13px] leading-relaxed shadow-md outline-none focus:ring-2 focus:ring-brand/30"
-                style={{ fontFamily: 'Georgia, "Times New Roman", serif' }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-4 py-3">
-          <div className="flex flex-wrap gap-2">
+            <Underline className="size-3.5" />
+          </Button>
+          <span className="mx-1 h-5 w-px bg-border" />
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Aligner à gauche"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("justifyLeft")}
+          >
+            <AlignLeft className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Centrer"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("justifyCenter")}
+          >
+            <AlignCenter className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Aligner à droite"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("justifyRight")}
+          >
+            <AlignRight className="size-3.5" />
+          </Button>
+          <span className="mx-1 h-5 w-px bg-border" />
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Liste"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("insertUnorderedList")}
+          >
+            <List className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Liste numérotée"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => exec("insertOrderedList")}
+          >
+            <ListOrdered className="size-3.5" />
+          </Button>
+          <span className="mx-1 h-5 w-px bg-border" />
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Zoom −"
+            onClick={() => setZoom((z) => Math.max(0.6, Math.round((z - 0.1) * 10) / 10))}
+          >
+            <ZoomOut className="size-3.5" />
+          </Button>
+          <span className="min-w-[3rem] text-center text-xs tabular-nums text-muted-foreground">
+            {Math.round(zoom * 100)}%
+          </span>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="size-8"
+            title="Zoom +"
+            onClick={() => setZoom((z) => Math.min(1.4, Math.round((z + 0.1) * 10) / 10))}
+          >
+            <ZoomIn className="size-3.5" />
+          </Button>
+          <div className="ml-auto flex flex-wrap gap-1.5">
             <Button
               type="button"
-              variant="outline"
               size="sm"
+              variant="outline"
               className="gap-1.5"
               onClick={handlePrint}
             >
@@ -566,15 +586,123 @@ export function ReplyComposer({
             </Button>
             <Button
               type="button"
-              variant="outline"
               size="sm"
+              variant="outline"
               className="gap-1.5"
               onClick={handleDownloadWord}
             >
               <Download className="size-3.5" />
-              Télécharger Word
+              Word
             </Button>
           </div>
+        </div>
+
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* Panneau champs (optionnel) */}
+          {showFields ? (
+            <div className="flex w-full max-w-[320px] shrink-0 flex-col border-r border-border bg-card sm:max-w-[360px]">
+              <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                <p className="text-xs font-semibold">Champs du modèle</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 text-[11px]"
+                  onClick={() => {
+                    setEditorDirty(false);
+                    window.setTimeout(() => syncEditorFromFields(), 10);
+                  }}
+                >
+                  Appliquer au document
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+                {fields.map((f) => (
+                  <div
+                    key={f.id}
+                    className="space-y-1 rounded-lg border border-border/80 p-2"
+                  >
+                    <div className="flex items-center gap-1">
+                      <Input
+                        value={f.label}
+                        onChange={(e) => updateFieldLabel(f.id, e.target.value)}
+                        className="h-7 text-[11px] font-medium"
+                      />
+                      {!CORE_FIELD_IDS.includes(
+                        f.id as (typeof CORE_FIELD_IDS)[number],
+                      ) ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="size-7 shrink-0 text-destructive"
+                          onClick={() => removeField(f.id)}
+                        >
+                          <Trash2 className="size-3" />
+                        </Button>
+                      ) : null}
+                    </div>
+                    {f.multiline ? (
+                      <Textarea
+                        rows={f.id === "corps" ? 4 : 2}
+                        value={f.value}
+                        onChange={(e) => updateField(f.id, e.target.value)}
+                        className="resize-y text-xs"
+                      />
+                    ) : (
+                      <Input
+                        value={f.value}
+                        onChange={(e) => updateField(f.id, e.target.value)}
+                        className="h-8 text-xs"
+                      />
+                    )}
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-1.5"
+                  onClick={addField}
+                >
+                  <Plus className="size-3.5" />
+                  Ajouter un champ
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          {/* Zone document — éditeur principal */}
+          <div className="min-h-0 flex-1 overflow-auto bg-[#c5cdd8] p-4 sm:p-6">
+            <div
+              className="mx-auto origin-top transition-transform"
+              style={{
+                width: "210mm",
+                transform: `scale(${zoom})`,
+                marginBottom: zoom < 1 ? undefined : `${(zoom - 1) * 40}mm`,
+              }}
+            >
+              <div
+                ref={editorRef}
+                contentEditable
+                suppressContentEditableWarning
+                onInput={() => setEditorDirty(true)}
+                className="min-h-[297mm] w-[210mm] bg-white px-[18mm] py-[20mm] text-[13px] leading-relaxed text-black shadow-xl outline-none focus:ring-2 focus:ring-brand/40"
+                style={{
+                  fontFamily: 'Georgia, "Times New Roman", Times, serif',
+                  boxSizing: "border-box",
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-t border-border bg-card px-4 py-3">
+          <p className="text-[11px] text-muted-foreground">
+            {editorDirty
+              ? "Document modifié manuellement"
+              : "Document généré depuis le modèle — cliquez pour écrire"}
+          </p>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
