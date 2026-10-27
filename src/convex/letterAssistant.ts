@@ -303,3 +303,81 @@ export const generateDraft = action({
     };
   },
 });
+
+/** Corps de réponse (texte) à partir du courrier d'origine — pour le formulaire de réponse. */
+export const draftReplyBody = action({
+  args: {
+    sourceText: v.string(),
+    objet: v.optional(v.string()),
+    publicRef: v.optional(v.string()),
+    senderName: v.optional(v.string()),
+    intent: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("Connexion requise.");
+
+    const source = args.sourceText.trim().slice(0, 16000);
+    if (source.length < 8 && !(args.objet ?? "").trim()) {
+      throw new Error(
+        "Pas assez d'informations sur le courrier d'origine pour générer une réponse.",
+      );
+    }
+
+    const intent =
+      args.intent?.trim() ||
+      "Rédiger une réponse administrative polie et professionnelle au courrier reçu.";
+
+    const system = `Tu es un rédacteur de courriers administratifs pour le MNDPT (Madagascar).
+Rédige UNIQUEMENT le corps de la lettre de réponse en français (sans en-tête, sans N°, sans objet, sans signature).
+Structure typique :
+- Formule d'appel (Madame, Monsieur, / Monsieur le Directeur, …)
+- 1 à 3 paragraphes qui répondent au fond du courrier reçu
+- Formule de politesse de clôture
+
+Règles :
+- Ne pas inventer de numéros, montants, dates ou décisions non présents dans le document source.
+- Si l'information manque, utiliser une formulation neutre ou « [À compléter] ».
+- Ton administratif, clair, courtois.
+- Réponds uniquement avec le texte du corps, sans guillemets ni markdown.`;
+
+    const user = JSON.stringify(
+      {
+        intention: intent,
+        objet_courrier: args.objet ?? "",
+        reference: args.publicRef ?? "",
+        expediteur: args.senderName ?? "",
+        contenu_ou_resume_du_courrier: source || args.objet || "",
+      },
+      null,
+      2,
+    );
+
+    const ai = await groqChat({
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      temperature: 0.35,
+      maxTokens: 1200,
+    });
+
+    if (ai && ai.trim().length > 20) {
+      return { source: "ia" as const, body: ai.trim() };
+    }
+
+    // Repli local
+    const dest = args.senderName?.trim() || "Madame, Monsieur";
+    const obj = args.objet?.trim() || "votre correspondance";
+    const body = `Madame, Monsieur,
+
+J'ai l'honneur d'accuser réception de votre courrier concernant « ${obj} »${
+      args.publicRef?.trim() ? ` (réf. ${args.publicRef.trim()})` : ""
+    }.
+
+Après examen des éléments dont nous disposons, [À compléter : suite à donner / position de l'administration].
+
+Je vous prie d'agréer, Madame, Monsieur, l'expression de ma considération distinguée.`;
+    return { source: "local" as const, body };
+  },
+});

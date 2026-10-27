@@ -1054,6 +1054,9 @@ export function DocumentDetailDialog({
                 fileName: documentOrNull.fileName,
                 senderId: (documentOrNull as { senderId?: import("@/convex/_generated/dataModel").Id<"users"> }).senderId ?? null,
                 senderName: (documentOrNull as { senderName?: string }).senderName ?? null,
+                summary: (documentOrNull as { summary?: string | null }).summary ?? null,
+                extractedText: (documentOrNull as { extractedText?: string | null }).extractedText ?? null,
+                observations: (documentOrNull as { observations?: string | null }).observations ?? null,
               }
             : null
         }

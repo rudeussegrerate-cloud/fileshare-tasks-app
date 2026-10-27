@@ -13,7 +13,7 @@ import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { exportAsPdf, exportAsWord } from "@/lib/letterEditor";
 import { cn } from "@/lib/utils";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import {
@@ -32,6 +32,7 @@ import {
   Printer,
   Reply,
   Send,
+  Sparkles,
   Trash2,
   Underline,
   ZoomIn,
@@ -54,6 +55,9 @@ type ParentInfo = {
   fileName?: string | null;
   senderId?: Id<"users"> | null;
   senderName?: string | null;
+  summary?: string | null;
+  extractedText?: string | null;
+  observations?: string | null;
 };
 
 const CORE_FIELD_IDS = [
@@ -272,8 +276,10 @@ export function ReplyComposer({
   const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
   const sendDocument = useMutation(api.documents.send);
   const setStatus = useMutation(api.documents.setStatus);
+  const draftReplyBody = useAction(api.letterAssistant.draftReplyBody);
 
   const editorRef = useRef<HTMLDivElement>(null);
+  const [generating, setGenerating] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [fields, setFields] = useState<Field[]>([]);
   const [editorDirty, setEditorDirty] = useState(false);
@@ -342,6 +348,45 @@ export function ReplyComposer({
 
   const updateField = (id: string, value: string) => {
     setFields((prev) => prev.map((f) => (f.id === id ? { ...f, value } : f)));
+  };
+
+  const handleGenerateBody = async () => {
+    if (!parent) return;
+    setGenerating(true);
+    try {
+      const source = [
+        parent.summary,
+        parent.extractedText,
+        parent.observations,
+        parent.objet,
+      ]
+        .filter((x) => x && String(x).trim())
+        .join("\n\n");
+      const res = await draftReplyBody({
+        sourceText: source || parent.objet || parent.fileName || "",
+        objet: parent.objet ?? undefined,
+        publicRef: parent.publicRef ?? undefined,
+        senderName: parent.senderName ?? undefined,
+        intent:
+          "Rédiger le corps d'une réponse administrative au courrier reçu, en lien avec son contenu.",
+      });
+      if (res?.body) {
+        updateField("corps", res.body);
+        toast.success(
+          res.source === "ia"
+            ? "Brouillon généré par le bot — vous pouvez le modifier."
+            : "Brouillon proposé — complétez les parties [À compléter].",
+        );
+      } else {
+        toast.error("Le bot n'a pas pu générer de texte.");
+      }
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Génération impossible.",
+      );
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const updateFieldLabel = (id: string, label: string) => {
@@ -563,12 +608,38 @@ export function ReplyComposer({
                         />
                       </div>
                     ) : f.multiline ? (
-                      <Textarea
-                        rows={f.id === "corps" ? 5 : 2}
-                        value={f.value}
-                        onChange={(e) => updateField(f.id, e.target.value)}
-                        className="resize-y text-sm"
-                      />
+                      <div className="space-y-2">
+                        {f.id === "corps" ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="secondary"
+                            className="gap-1.5"
+                            disabled={generating}
+                            onClick={() => void handleGenerateBody()}
+                          >
+                            {generating ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              <Sparkles className="size-3.5" />
+                            )}
+                            {generating
+                              ? "Génération…"
+                              : "Générer avec le bot"}
+                          </Button>
+                        ) : null}
+                        <Textarea
+                          rows={f.id === "corps" ? 8 : 2}
+                          value={f.value}
+                          onChange={(e) => updateField(f.id, e.target.value)}
+                          className="resize-y text-sm"
+                          placeholder={
+                            f.id === "corps"
+                              ? "Rédigez le corps ou générez-le avec le bot à partir du courrier reçu…"
+                              : undefined
+                          }
+                        />
+                      </div>
                     ) : (
                       <Input
                         value={f.value}
