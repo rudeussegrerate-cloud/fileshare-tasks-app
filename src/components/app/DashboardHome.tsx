@@ -257,7 +257,8 @@ export function DashboardHome({
                 (courrier as { senderName?: string }).senderName?.trim() ||
                 structureSender(courrier);
               const isUrgent = Boolean(
-                (courrier as { urgent?: boolean }).urgent,
+                (courrier as { urgent?: boolean }).urgent &&
+                  courrier.status !== "traite",
               );
               return (
                 <li key={courrier._id}>

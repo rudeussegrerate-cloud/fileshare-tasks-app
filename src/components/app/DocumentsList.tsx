@@ -293,7 +293,7 @@ export function DocumentsList({
                             (document as { mailKind?: string }).mailKind
                           }
                         />
-                        {(document as { urgent?: boolean }).urgent ? (
+                        {(document as { urgent?: boolean }).urgent && document.status !== "traite" ? (
                           <Badge
                             variant="outline"
                             className="border-red-500/50 bg-red-500/10 text-red-700"

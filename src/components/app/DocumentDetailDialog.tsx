@@ -372,7 +372,7 @@ export function DocumentDetailDialog({
                   </DialogTitle>
                   <DialogDescription className="mt-0.5">
                     {formatBytes(documentOrNull.size)} · {formatDateTime(documentOrNull.createdAt)}
-                    {(documentOrNull as { urgent?: boolean }).urgent ? (
+                    {(documentOrNull as { urgent?: boolean }).urgent && documentOrNull.status !== "traite" ? (
                       <span className="ml-2 inline-flex rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">
                         Urgent
                       </span>

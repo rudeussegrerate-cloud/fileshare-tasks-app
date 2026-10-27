@@ -1895,6 +1895,7 @@ export const setStatus = mutation({
       if (allDone) {
         await ctx.db.patch(args.documentId, {
           status: "traite",
+          urgent: false,
           updatedAt: now,
           viewedAt: document.viewedAt ?? now,
         });
@@ -2003,6 +2004,7 @@ export const setStatus = mutation({
       if (!next) {
         await ctx.db.patch(args.documentId, {
           status: "traite",
+          urgent: false,
           currentStepIndex: myStep.stepIndex,
           updatedAt: now,
           viewedAt: document.viewedAt ?? now,
@@ -2097,6 +2099,7 @@ export const setStatus = mutation({
     // ——— Consulté / En cours (ou Traité sans circuit) ———
     await ctx.db.patch(args.documentId, {
       status: args.status,
+      ...(args.status === "traite" ? { urgent: false } : {}),
       updatedAt: now,
       viewedAt: document.viewedAt ?? now,
     });
@@ -2718,6 +2721,7 @@ export const completeStep = mutation({
     if (!next) {
       await ctx.db.patch(args.documentId, {
         status: "traite",
+        urgent: false,
         currentStepIndex: myStep.stepIndex,
         updatedAt: now,
       });
