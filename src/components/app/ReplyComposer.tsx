@@ -1,4 +1,5 @@
 import mndptLogo from "@/assets/mndpt-logo.jpg";
+import republicSeal from "@/assets/republic-seal.webp";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -56,6 +57,7 @@ type ParentInfo = {
 };
 
 const CORE_FIELD_IDS = [
+  "sealUrl",
   "logoUrl",
   "hierarchie",
   "lieuDate",
@@ -77,9 +79,14 @@ function esc(s: string) {
     .replace(/"/g, "&quot;");
 }
 
-function buildLetterHtml(fields: Field[], defaultLogoSrc: string): string {
+function buildLetterHtml(
+  fields: Field[],
+  defaultLogoSrc: string,
+  defaultSealSrc: string,
+): string {
   const get = (id: string) =>
     fields.find((f) => f.id === id)?.value.trim() ?? "";
+  const sealUrl = get("sealUrl") || defaultSealSrc;
   const logoUrl = get("logoUrl") || defaultLogoSrc;
   const hierarchie = get("hierarchie");
   const lieuDate = get("lieuDate");
@@ -127,9 +134,10 @@ function buildLetterHtml(fields: Field[], defaultLogoSrc: string): string {
     .join("\n");
 
   return `
-<div style="text-align:center;margin:0 0 12px">
-  <div style="font-size:11px;font-weight:700;letter-spacing:0.08em">REPOBLIKAN'I MADAGASIKARA</div>
-  <div style="font-size:10px;font-style:italic;margin-top:2px">Fitiavana – Tanindrazana – Fandrosoana</div>
+<div style="text-align:center;margin:0 0 14px">
+  <img src="${esc(sealUrl)}" alt="Sceau de la République" style="height:72px;width:auto;object-fit:contain;display:block;margin:0 auto 6px" />
+  <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;color:#5c4a1e">REPOBLIKAN'I MADAGASIKARA</div>
+  <div style="font-size:10px;font-style:italic;margin-top:2px;color:#5c4a1e">Fitiavana – Tanindrazana – Fandrosoana</div>
 </div>
 
 <table style="width:100%;border-collapse:collapse;margin-bottom:16px">
@@ -166,6 +174,7 @@ function defaultFields(
   myFonction?: string | null,
   myDept?: string | null,
   defaultLogoSrc?: string,
+  defaultSealSrc?: string,
 ): Field[] {
   const today = format(new Date(), "d MMMM yyyy", { locale: fr });
   const year = new Date().getFullYear();
@@ -174,8 +183,13 @@ function defaultFields(
     (myDept ? `Le responsable — ${myDept}` : "Le Directeur de la Transformation Digitale");
   return [
     {
+      id: "sealUrl",
+      label: "Sceau / drapeau national (URL — défaut : sceau officiel)",
+      value: defaultSealSrc || "",
+    },
+    {
       id: "logoUrl",
-      label: "Logo (URL ou laisser le logo MNDPT par défaut)",
+      label: "Logo MNDPT (URL ou laisser le logo par défaut)",
       value: defaultLogoSrc || "",
     },
     {
@@ -269,6 +283,7 @@ export function ReplyComposer({
 
   const myName = me?.user?.name?.trim() || me?.user?.email || "";
   const defaultLogoSrc = mndptLogo as string;
+  const defaultSealSrc = republicSeal as string;
 
   useEffect(() => {
     if (!open || !parent) return;
@@ -282,6 +297,7 @@ export function ReplyComposer({
         me?.user?.fonction ?? null,
         me?.department?.name ?? null,
         defaultLogoSrc,
+        defaultSealSrc,
       ),
     );
   }, [
@@ -291,6 +307,7 @@ export function ReplyComposer({
     me?.user?.fonction,
     me?.department?.name,
     defaultLogoSrc,
+    defaultSealSrc,
   ]);
 
   const letterTitle = useMemo(() => {
@@ -300,9 +317,13 @@ export function ReplyComposer({
 
   const applyFieldsToEditor = useCallback(() => {
     if (!editorRef.current) return;
-    editorRef.current.innerHTML = buildLetterHtml(fields, defaultLogoSrc);
+    editorRef.current.innerHTML = buildLetterHtml(
+      fields,
+      defaultLogoSrc,
+      defaultSealSrc,
+    );
     setEditorDirty(false);
-  }, [fields, defaultLogoSrc]);
+  }, [fields, defaultLogoSrc, defaultSealSrc]);
 
   const goToEditor = () => {
     setStep(2);
@@ -316,7 +337,8 @@ export function ReplyComposer({
   }, []);
 
   const getBodyHtml = () =>
-    editorRef.current?.innerHTML ?? buildLetterHtml(fields, defaultLogoSrc);
+    editorRef.current?.innerHTML ??
+    buildLetterHtml(fields, defaultLogoSrc, defaultSealSrc);
 
   const updateField = (id: string, value: string) => {
     setFields((prev) => prev.map((f) => (f.id === id ? { ...f, value } : f)));
@@ -516,17 +538,24 @@ export function ReplyComposer({
                         </Button>
                       ) : null}
                     </div>
-                    {f.id === "logoUrl" ? (
+                    {f.id === "logoUrl" || f.id === "sealUrl" ? (
                       <div className="flex flex-wrap items-center gap-3">
                         <img
-                          src={f.value || defaultLogoSrc}
-                          alt="Logo"
-                          className="h-12 w-auto rounded border border-border bg-white object-contain p-1"
+                          src={
+                            f.value ||
+                            (f.id === "sealUrl" ? defaultSealSrc : defaultLogoSrc)
+                          }
+                          alt={f.id === "sealUrl" ? "Sceau" : "Logo"}
+                          className="h-14 w-auto rounded border border-border bg-white object-contain p-1"
                         />
                         <Input
                           value={f.value}
                           onChange={(e) => updateField(f.id, e.target.value)}
-                          placeholder="URL du logo (vide = logo MNDPT)"
+                          placeholder={
+                            f.id === "sealUrl"
+                              ? "URL du sceau (vide = sceau national)"
+                              : "URL du logo (vide = logo MNDPT)"
+                          }
                           className="min-w-[200px] flex-1 text-sm"
                         />
                       </div>
