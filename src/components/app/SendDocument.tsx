@@ -1463,7 +1463,7 @@ export function SendDocument({
                   onChange={(e) => setIsUrgent(e.target.checked)}
                 />
                 <span className="text-sm font-medium text-foreground">
-                  Courrier urgent
+                  Signaler comme urgent
                 </span>
               </label>
 
