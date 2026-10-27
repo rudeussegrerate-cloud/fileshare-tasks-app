@@ -901,15 +901,8 @@ export const send = mutation({
         168,
         Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
       ),
-      dueAt:
-        now +
-        Math.max(1, circuitUsers.length || 1) *
-          Math.min(
-            168,
-            Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
-          ) *
-          3600 *
-          1000,
+      // Délai standard : 24 h pour traiter un courrier reçu
+      dueAt: now + 24 * 3600 * 1000,
       createdAt: now,
       updatedAt: now,
     });
@@ -3501,6 +3494,84 @@ export const runDeadlineAlerts = internalMutation({
  * Gestionnaire de fichiers : recherche (identifiant, objet, nom), filtres.
  * Chacun voit ses documents (envoyé/reçu/circuit) ; le DG voit tout.
  */
+/** Courriers non classés après 24 h → statut en_retard + notif au détenteur */
+export const runReceivedOverdue = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+    const LIMIT_MS = 24 * 3600 * 1000;
+    const COOLDOWN = 24 * 3600 * 1000;
+    const openStatuses = new Set(["envoye", "consulte", "en_cours", "en_retard"]);
+    const docs = await ctx.db.query("documents").collect();
+    let marked = 0;
+    let notified = 0;
+
+    for (const doc of docs) {
+      if (doc.archivedAt) continue;
+      if (doc.status === "traite") continue;
+      if (!openStatuses.has(doc.status)) continue;
+
+      const start = doc.createdAt ?? doc._creationTime;
+      const due = doc.dueAt ?? start + LIMIT_MS;
+      if (now < due) continue;
+
+      // Passer en retard si pas déjà
+      if (doc.status !== "en_retard") {
+        await ctx.db.patch(doc._id, {
+          status: "en_retard",
+          updatedAt: now,
+        });
+        marked += 1;
+      }
+
+      // Anti-spam notif
+      const last = doc.lastAutoAlertAt ?? 0;
+      if (doc.lastAutoAlertKind === "overdue" && now - last < COOLDOWN) {
+        continue;
+      }
+
+      const holderId =
+        doc.recipientId ??
+        (
+          await (async () => {
+            try {
+              const steps = await ctx.db
+                .query("documentSteps")
+                .withIndex("by_document", (q) => q.eq("documentId", doc._id))
+                .collect();
+              const active = steps.find((s) => s.status === "active");
+              return active?.assigneeId;
+            } catch {
+              return undefined;
+            }
+          })()
+        );
+
+      if (!holderId) continue;
+
+      try {
+        await pushNotification(ctx, {
+          userId: holderId,
+          type: "document.deadline_overdue",
+          title: "Courrier en retard",
+          body: `« ${doc.objet} » — le délai de 24 h est dépassé. Merci de traiter ce courrier.`,
+          documentId: doc._id,
+        });
+        await ctx.db.patch(doc._id, {
+          lastAutoAlertAt: now,
+          lastAutoAlertKind: "overdue",
+        });
+        notified += 1;
+      } catch (e) {
+        console.error("[runReceivedOverdue] notif", e);
+      }
+    }
+
+    return { marked, notified };
+  },
+});
+
+
 export const fileManager = query({
   args: {
     search: v.optional(v.string()),

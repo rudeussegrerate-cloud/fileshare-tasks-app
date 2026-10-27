@@ -16,7 +16,12 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 
-export type DocumentStatus = "envoye" | "consulte" | "en_cours" | "traite";
+export type DocumentStatus =
+  | "envoye"
+  | "consulte"
+  | "en_cours"
+  | "en_retard"
+  | "traite";
 
 /** Statuts orientés gestion de courrier (pas dossier technique). */
 export const STATUS_META: Record<
@@ -50,6 +55,12 @@ export const STATUS_META: Record<
     icon: Loader2,
     hint: "Le courrier est en cours de traitement ou de réponse.",
   },
+  en_retard: {
+    label: "En retard",
+    className: "border-red-300 bg-red-50 text-red-700",
+    icon: Clock3,
+    hint: "Délai de 24 h dépassé — traitement attendu.",
+  },
   traite: {
     label: "Classé",
     className: "border-emerald-200 bg-emerald-50 text-emerald-700",
@@ -62,6 +73,7 @@ export const STATUS_ORDER: DocumentStatus[] = [
   "envoye",
   "consulte",
   "en_cours",
+  "en_retard",
   "traite",
 ];
 

@@ -185,7 +185,7 @@ export default function Dashboard() {
           key="new"
           mode="envoi"
           onSent={() => {
-            setView("inbox");
+            setView("sent");
           }}
           onManageDepartments={() => setView("departments")}
         />
@@ -195,7 +195,7 @@ export default function Dashboard() {
         <SendDocument
           key="transmit"
           mode="transmission"
-          onSent={() => setView("inbox")}
+          onSent={() => setView("sent")}
           onManageDepartments={() => setView("departments")}
         />
       ) : null}

@@ -34,6 +34,7 @@ export const documentStatusValidator = v.union(
   v.literal("envoye"),
   v.literal("consulte"),
   v.literal("en_cours"),
+  v.literal("en_retard"),
   v.literal("traite"),
 );
 export type DocumentStatus = Infer<typeof documentStatusValidator>;

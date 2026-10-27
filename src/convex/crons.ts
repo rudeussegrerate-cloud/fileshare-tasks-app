@@ -15,4 +15,12 @@ crons.interval(
   {},
 );
 
+// Toutes les heures : courriers non traités après 24 h → en_retard + notif
+crons.interval(
+  "received-overdue-24h",
+  { hours: 1 },
+  internal.documents.runReceivedOverdue,
+  {},
+);
+
 export default crons;

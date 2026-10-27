@@ -455,7 +455,7 @@ export function DocumentDetailDialog({
               </p>
               <StatusBadge
                 status={
-                  (["envoye", "consulte", "en_cours", "traite"].includes(
+                  (["envoye", "consulte", "en_cours", "en_retard", "traite"].includes(
                     documentOrNull.status,
                   )
                     ? documentOrNull.status

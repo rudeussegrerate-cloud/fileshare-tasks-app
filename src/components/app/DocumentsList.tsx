@@ -42,6 +42,7 @@ function filtersFor(mode: Mode): Array<{ key: "all" | DocumentStatus; label: str
     },
     { key: "consulte", label: "Lu" },
     { key: "en_cours", label: "En traitement" },
+    { key: "en_retard", label: "En retard" },
     { key: "traite", label: "Classé" },
   ];
 }
@@ -304,11 +305,11 @@ export function DocumentsList({
                         <StatusBadge
                           asRecipient={mode === "inbox"}
                           status={
-                            (["envoye", "consulte", "en_cours", "traite"].includes(
+                            (["envoye", "consulte", "en_cours", "en_retard", "traite"].includes(
                               String(document.status),
                             )
                               ? document.status
-                              : "envoye") as "envoye" | "consulte" | "en_cours" | "traite"
+                              : "envoye") as "envoye" | "consulte" | "en_cours" | "en_retard" | "traite"
                           }
                         />
                         {document.archivedAt ? (
