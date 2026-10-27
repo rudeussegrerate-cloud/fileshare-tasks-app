@@ -398,37 +398,43 @@ export function SendDocument({
       (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
     );
 
-  type DestPick =
-    | {
-        key: string;
-        kind: "dept";
-        id: Id<"departments">;
-        title: string;
-        subtitle: string;
-        initial: string;
-      }
-    | {
-        key: string;
-        kind: "member";
-        id: Id<"users">;
-        title: string;
-        subtitle: string;
-        initial: string;
-      };
+  type DestPick = {
+    key: string;
+    kind: "dept" | "member";
+    id: Id<"departments"> | Id<"users">;
+    title: string;
+    subtitle: string;
+    initial: string;
+    /** Texte indexé pour la recherche (noms, codes, fonctions) */
+    searchHaystack: string;
+  };
+
+  const fold = (s: string) =>
+    s
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
 
   const allDestOptions: DestPick[] = (() => {
     const out: DestPick[] = [];
     const myId = me?.user?._id ? String(me.user._id) : "";
     for (const dir of directions) {
+      const dirCode = (dir.code ?? "").trim();
+      const chiefName = dir.chief?.name?.trim() ?? "";
       out.push({
         key: `dept:${dir._id}`,
         kind: "dept",
         id: dir._id,
         title: dir.name,
-        subtitle: dir.chief?.name
-          ? `Chef de direction · ${dir.chief.name}`
+        subtitle: chiefName
+          ? `Chef de direction · ${chiefName}`
           : "Direction",
         initial: (dir.name || "D").charAt(0).toUpperCase(),
+        searchHaystack: fold(
+          [dir.name, dirCode, "direction", "chef", chiefName].filter(Boolean).join(" "),
+        ),
       });
       const services = (departments ?? [])
         .filter(
@@ -441,6 +447,7 @@ export function SendDocument({
           (a.code ?? a.name).localeCompare(b.code ?? b.name, "fr"),
         );
       for (const svc of services) {
+        const svcCode = (svc.code ?? "").trim();
         out.push({
           key: `dept:${svc._id}`,
           kind: "dept",
@@ -448,6 +455,9 @@ export function SendDocument({
           title: svc.name,
           subtitle: dir.name,
           initial: (svc.name || "S").charAt(0).toUpperCase(),
+          searchHaystack: fold(
+            [svc.name, svcCode, dir.name, dirCode, "service"].filter(Boolean).join(" "),
+          ),
         });
       }
       const dirChiefId = dir.chief?._id ? String(dir.chief._id) : "";
@@ -456,7 +466,8 @@ export function SendDocument({
         if (!id || id === myId) continue;
         if (id === dirChiefId) continue;
         if ((m as { departmentRole?: string }).departmentRole === "chef") continue;
-        const title = (m.fonction ?? "").trim() || m.name;
+        const fonction = (m.fonction ?? "").trim();
+        const title = fonction || m.name;
         out.push({
           key: `member:${m._id}`,
           kind: "member",
@@ -464,10 +475,12 @@ export function SendDocument({
           title,
           subtitle: m.name !== title ? `${m.name} · ${dir.name}` : dir.name,
           initial: (title || "?").charAt(0).toUpperCase(),
+          searchHaystack: fold(
+            [m.name, fonction, dir.name, dirCode].filter(Boolean).join(" "),
+          ),
         });
       }
     }
-    // membres des services aussi
     for (const d of departments ?? []) {
       if (!d.parentId) continue;
       if ((d as { active?: boolean }).active === false) continue;
@@ -476,7 +489,8 @@ export function SendDocument({
         const id = String(m._id);
         if (!id || id === myId) continue;
         if (out.some((o) => o.kind === "member" && String(o.id) === id)) continue;
-        const title = (m.fonction ?? "").trim() || m.name;
+        const fonction = (m.fonction ?? "").trim();
+        const title = fonction || m.name;
         out.push({
           key: `member:${m._id}`,
           kind: "member",
@@ -484,6 +498,18 @@ export function SendDocument({
           title,
           subtitle: parent ? `${d.name} · ${parent.name}` : d.name,
           initial: (title || "?").charAt(0).toUpperCase(),
+          searchHaystack: fold(
+            [
+              m.name,
+              fonction,
+              d.name,
+              d.code ?? "",
+              parent?.name ?? "",
+              parent?.code ?? "",
+            ]
+              .filter(Boolean)
+              .join(" "),
+          ),
         });
       }
     }
@@ -492,41 +518,59 @@ export function SendDocument({
 
   const selectedDestPicks: DestPick[] = allDestOptions.filter((o) =>
     o.kind === "dept"
-      ? destIds.includes(o.id)
-      : memberDestIds.includes(o.id),
+      ? destIds.includes(o.id as Id<"departments">)
+      : memberDestIds.includes(o.id as Id<"users">),
   );
 
-  const qNorm = destQuery.trim().toLowerCase();
-  const destSuggestions = allDestOptions
-    .filter((o) => {
-      if (o.kind === "dept" && destIds.includes(o.id)) return false;
-      if (o.kind === "member" && memberDestIds.includes(o.id)) return false;
-      if (!qNorm) return true;
-      return (
-        o.title.toLowerCase().includes(qNorm) ||
-        o.subtitle.toLowerCase().includes(qNorm)
-      );
-    })
-    .slice(0, 12);
+  /** Suggestions type e-mail : uniquement si du texte est saisi, classées par pertinence */
+  const destSuggestions = (() => {
+    const q = fold(destQuery);
+    if (!q) return [] as DestPick[];
+    const tokens = q.split(" ").filter(Boolean);
+    const scored: Array<{ o: DestPick; score: number }> = [];
+    for (const o of allDestOptions) {
+      if (o.kind === "dept" && destIds.includes(o.id as Id<"departments">)) continue;
+      if (o.kind === "member" && memberDestIds.includes(o.id as Id<"users">)) continue;
+      const hay = o.searchHaystack;
+      if (!tokens.every((tok) => hay.includes(tok))) continue;
+      const titleF = fold(o.title);
+      const subF = fold(o.subtitle);
+      let score = 0;
+      if (titleF === q) score += 100;
+      else if (titleF.startsWith(q)) score += 80;
+      else if (titleF.includes(q)) score += 50;
+      if (subF.startsWith(q) || subF.includes(` ${q}`)) score += 25;
+      if (hay.startsWith(q)) score += 15;
+      // bonus tokens matches on title
+      for (const tok of tokens) {
+        if (titleF.includes(tok)) score += 10;
+      }
+      scored.push({ o, score });
+    }
+    scored.sort((a, b) => b.score - a.score || a.o.title.localeCompare(b.o.title, "fr"));
+    return scored.slice(0, 12).map((x) => x.o);
+  })();
 
   const pickDest = (o: DestPick) => {
     if (o.kind === "dept") {
-      setDestIds((prev) => (prev.includes(o.id) ? prev : [...prev, o.id]));
+      const id = o.id as Id<"departments">;
+      setDestIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     } else {
-      setMemberDestIds((prev) =>
-        prev.includes(o.id) ? prev : [...prev, o.id],
-      );
+      const id = o.id as Id<"users">;
+      setMemberDestIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
     }
     setDestQuery("");
-    setDestSuggestOpen(true);
+    setDestSuggestOpen(false);
     destInputRef.current?.focus();
   };
 
   const removeDestPick = (o: DestPick) => {
     if (o.kind === "dept") {
-      setDestIds((prev) => prev.filter((x) => x !== o.id));
+      const id = o.id as Id<"departments">;
+      setDestIds((prev) => prev.filter((x) => x !== id));
     } else {
-      setMemberDestIds((prev) => prev.filter((x) => x !== o.id));
+      const id = o.id as Id<"users">;
+      setMemberDestIds((prev) => prev.filter((x) => x !== id));
     }
   };
 
@@ -1027,7 +1071,7 @@ export function SendDocument({
                     />
                   </div>
 
-                  {destSuggestOpen && destSuggestions.length > 0 ? (
+                  {destSuggestOpen && destQuery.trim() && destSuggestions.length > 0 ? (
                     <ul className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg">
                       {destSuggestions.map((o) => (
                         <li key={o.key}>
