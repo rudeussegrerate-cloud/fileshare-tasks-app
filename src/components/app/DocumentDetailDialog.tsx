@@ -74,8 +74,16 @@ export function DocumentDetailDialog({
   const retrySummary = useMutation(api.documents.retrySummary);
   const updateUnread = useMutation(api.documents.updateUnreadSend);
   const cancelUnread = useMutation(api.documents.cancelUnreadSend);
+  const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
+  const sendDocument = useMutation(api.documents.send);
 
   const [editing, setEditing] = useState(false);
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const [replyObjet, setReplyObjet] = useState("");
+  const [replyObs, setReplyObs] = useState("");
+  const [replySending, setReplySending] = useState(false);
+  const replyInputRef = useRef<HTMLInputElement>(null);
   const [editObjet, setEditObjet] = useState("");
   const [editObservations, setEditObservations] = useState("");
   const [editTasks, setEditTasks] = useState<string[]>([]);
@@ -296,8 +304,80 @@ export function DocumentDetailDialog({
 
   const documentOrNull = courrier;
 
+  const handleReplySend = async () => {
+    if (!documentOrNull || !documentId) return;
+    const toId = (documentOrNull as { senderId?: Id<"users"> }).senderId;
+    if (!toId) {
+      toast.error("Expéditeur introuvable — impossible de répondre.");
+      return;
+    }
+    if (replyFiles.length === 0) {
+      toast.error("Joignez au moins un fichier à votre réponse.");
+      return;
+    }
+    if (!replyObjet.trim()) {
+      toast.error("Indiquez l'objet de la réponse.");
+      return;
+    }
+    setReplySending(true);
+    try {
+      let lastId: Id<"documents"> | undefined;
+      for (let i = 0; i < replyFiles.length; i++) {
+        const file = replyFiles[i]!;
+        const uploadUrl = await generateUploadUrl({});
+        const res = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+        if (!res.ok) throw new Error("Échec de l'envoi du fichier.");
+        const { storageId } = (await res.json()) as { storageId: Id<"_storage"> };
+        lastId = await sendDocument({
+          storageId,
+          fileName: file.name,
+          contentType: file.type || undefined,
+          size: file.size,
+          objet: replyObjet.trim(),
+          observations: replyObs.trim() || undefined,
+          tasks: ["Prise de connaissance"],
+          recipientId: toId,
+          parentCourrierId: documentId,
+          referenceText:
+            documentOrNull.publicRef ||
+            documentOrNull.referenceText ||
+            documentOrNull.objet ||
+            undefined,
+          mailKind: "envoi",
+          onBehalfOfType: "internal",
+          onBehalfOfUserId: undefined,
+          requiresResponse: false,
+        });
+      }
+      toast.success(
+        replyFiles.length > 1
+          ? `${replyFiles.length} réponses envoyées.`
+          : "Réponse envoyée.",
+      );
+      setReplyOpen(false);
+      setReplyFiles([]);
+      onOpenChange(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Envoi de la réponse impossible.");
+    } finally {
+      setReplySending(false);
+    }
+  };
+
   useEffect(() => {
     if (!documentOrNull) return;
+    setReplyOpen(false);
+    setReplyFiles([]);
+    setReplyObjet(
+      documentOrNull.objet
+        ? `Réponse à : ${documentOrNull.objet}`
+        : "Réponse",
+    );
+    setReplyObs("");
     setEditObjet(documentOrNull.objet ?? "");
     setEditObservations(documentOrNull.observations ?? "");
     setEditTasks(
@@ -372,6 +452,9 @@ export function DocumentDetailDialog({
                   </DialogTitle>
                   <DialogDescription className="mt-0.5">
                     {formatBytes(documentOrNull.size)} · {formatDateTime(documentOrNull.createdAt)}
+                    {documentOrNull.parentCourrierId ? (
+                      <span className="ml-2 text-brand">· Réponse à un courrier</span>
+                    ) : null}
                     {(documentOrNull as { urgent?: boolean }).urgent && documentOrNull.status !== "traite" ? (
                       <span className="ml-2 inline-flex rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-red-700">
                         Urgent
@@ -1091,6 +1174,114 @@ export function DocumentDetailDialog({
               </section>
             )}
 
+
+            {replyOpen && documentOrNull.canReply ? (
+              <section className="space-y-3 rounded-xl border border-brand/30 bg-brand-soft/30 p-4">
+                <div>
+                  <h4 className="text-sm font-semibold text-foreground">
+                    Répondre à ce courrier
+                  </h4>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Destinataire :{" "}
+                    <span className="font-medium text-foreground">
+                      {(documentOrNull as { senderName?: string }).senderName ||
+                        structureSender(documentOrNull)}
+                    </span>
+                    {" · "}référence liée automatiquement
+                    {documentOrNull.publicRef
+                      ? ` (${documentOrNull.publicRef})`
+                      : ""}
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="reply-objet">Objet</Label>
+                  <Input
+                    id="reply-objet"
+                    value={replyObjet}
+                    onChange={(e) => setReplyObjet(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="reply-obs">Message / observations</Label>
+                  <Textarea
+                    id="reply-obs"
+                    rows={3}
+                    value={replyObs}
+                    onChange={(e) => setReplyObs(e.target.value)}
+                    className="resize-y"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Pièce(s) jointe(s) *</Label>
+                  <input
+                    ref={replyInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const list = e.target.files
+                        ? Array.from(e.target.files)
+                        : [];
+                      setReplyFiles((prev) => [...prev, ...list]);
+                      e.target.value = "";
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => replyInputRef.current?.click()}
+                    >
+                      Joindre un fichier
+                    </Button>
+                    {replyFiles.map((f, i) => (
+                      <span
+                        key={`${f.name}-${i}`}
+                        className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-1 text-xs"
+                      >
+                        {f.name}
+                        <button
+                          type="button"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() =>
+                            setReplyFiles((prev) =>
+                              prev.filter((_, j) => j !== i),
+                            )
+                          }
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={replySending}
+                    onClick={() => setReplyOpen(false)}
+                  >
+                    Annuler
+                  </Button>
+                  <Button
+                    type="button"
+                    className="gap-2"
+                    disabled={replySending}
+                    onClick={() => void handleReplySend()}
+                  >
+                    {replySending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Reply className="size-4" />
+                    )}
+                    Envoyer la réponse
+                  </Button>
+                </div>
+              </section>
+            ) : null}
+
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">
                 {documentOrNull.isRecipient
@@ -1102,6 +1293,17 @@ export function DocumentDetailDialog({
                   : ""}
               </p>
               <div className="flex flex-wrap gap-2">
+                {documentOrNull.canReply ? (
+                  <Button
+                    type="button"
+                    variant="default"
+                    className="gap-2"
+                    onClick={() => setReplyOpen((v) => !v)}
+                  >
+                    <Reply className="size-4" />
+                    {replyOpen ? "Fermer la réponse" : "Répondre"}
+                  </Button>
+                ) : null}
                 {documentOrNull.downloadUrl ? (
                   <>
                     <Button

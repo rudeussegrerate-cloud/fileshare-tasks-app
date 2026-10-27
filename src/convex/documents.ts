@@ -1530,7 +1530,11 @@ export const get = query({
        * Répondre : tout utilisateur qui peut ouvrir le courrier
        * (sauf l'émetteur) — envoi structurel n'a souvent pas de recipientId.
        */
-      canReply: !isSender && document.status !== "traite",
+      canReply: Boolean(
+        !isSender &&
+          document.recipientId &&
+          document.recipientId === userId,
+      ),
       /** Émetteur peut modifier tant que personne n'a lu (statut encore « envoyé ») */
       canEdit: isSender && document.status === "envoye" && !document.archivedAt,
       canCancel: isSender && document.status === "envoye" && !document.archivedAt,
