@@ -147,7 +147,7 @@ export function DashboardHome({
         <Section
           icon={BarChart3}
           title="Vue d'ensemble"
-          subtitle="Courriers et structures du ministère"
+          subtitle="Pilotage des courriers (personne → personne) et des directions"
         >
           {overview === undefined ? (
             <MndptLoader size="section" />
@@ -543,7 +543,7 @@ function EnterprisePanel({
           onClick={() => setDrill("open")}
         />
         <Metric
-          label="En retard (>48 h)"
+          label="En retard (>24 h)"
           value={overview.totals.overdue}
           className="border-red-200/80 bg-red-50/80 text-red-900"
           onClick={() => setDrill("overdue")}
@@ -599,7 +599,7 @@ function EnterprisePanel({
                     ) : null}
                     <p className="text-[11px] text-muted-foreground">
                       {item.senderName || item.senderDepartment
-                        ? `${item.senderDepartment || item.senderName} → ${item.recipientDepartment || item.recipientName}`
+                        ? `${item.senderName || item.senderDepartment || "—"} → ${item.recipientName || item.recipientDepartment || "—"}`
                         : item.fonction || item.email || ""}
                       {item.activeAssigneeName
                         ? ` · chez ${item.activeAssigneeName}`
@@ -692,7 +692,7 @@ function EnterprisePanel({
           </Button>
         </div>
         <p className="mb-2 text-[11px] text-muted-foreground">
-          Priorité aux courriers ouverts ou en retard. Toucher une ligne pour le détail.
+          Courriers non classés ou en retard (>24 h) par direction. Toucher une ligne pour le détail.
         </p>
         {overview.departmentStats.length === 0 ? (
           <p className="text-xs text-muted-foreground">
@@ -790,9 +790,9 @@ function EnterprisePanel({
                       {doc.objet || doc.fileName}
                     </p>
                     <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {doc.senderDepartment || "Structure"}
+                      {doc.senderName || doc.senderDepartment || "—"}
                       {" → "}
-                      {doc.recipientDepartment || doc.recipientName || "Structure"}
+                      {doc.recipientName || doc.recipientDepartment || "—"}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
@@ -802,6 +802,7 @@ function EnterprisePanel({
                           | "envoye"
                           | "consulte"
                           | "en_cours"
+                          | "en_retard"
                           | "traite"
                       }
                     />
@@ -1133,6 +1134,7 @@ function DepartmentPanel({
                           | "envoye"
                           | "consulte"
                           | "en_cours"
+                          | "en_retard"
                           | "traite"
                       }
                     />

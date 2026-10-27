@@ -2562,7 +2562,7 @@ export const stats = query({
         awaiting: 0,
         inProgress: 0,
         done: 0,
-        byStatus: { envoye: 0, consulte: 0, en_cours: 0, traite: 0 },
+        byStatus: { envoye: 0, consulte: 0, en_cours: 0, en_retard: 0, traite: 0 },
         departments: 0,
         archived: 0,
       };
@@ -2587,6 +2587,9 @@ export const stats = query({
     const inProgress = activeReceived.filter(
       (d) => d.status === "en_cours",
     ).length;
+    const overdue = activeReceived.filter(
+      (d) => d.status === "en_retard",
+    ).length;
     const done = activeReceived.filter((d) => d.status === "traite").length;
     const awaiting = activeReceived.filter((d) => d.status !== "traite").length;
 
@@ -2595,11 +2598,13 @@ export const stats = query({
       sent: activeSent.length,
       awaiting,
       inProgress,
+      overdue,
       done,
       byStatus: {
         envoye: activeReceived.filter((d) => d.status === "envoye").length,
         consulte: activeReceived.filter((d) => d.status === "consulte").length,
         en_cours: inProgress,
+        en_retard: overdue,
         traite: done,
       },
       departments: departmentCount,
@@ -2816,13 +2821,19 @@ export const enterpriseOverview = query({
       envoye: active.filter((d) => d.status === "envoye").length,
       consulte: active.filter((d) => d.status === "consulte").length,
       en_cours: active.filter((d) => d.status === "en_cours").length,
+      en_retard: active.filter((d) => d.status === "en_retard").length,
       traite: active.filter((d) => d.status === "traite").length,
     };
-    const open = byStatus.envoye + byStatus.consulte + byStatus.en_cours;
+    const open =
+      byStatus.envoye +
+      byStatus.consulte +
+      byStatus.en_cours +
+      byStatus.en_retard;
     const overdue = active.filter((d) => {
       if (d.status === "traite") return false;
+      if (d.status === "en_retard") return true;
       const age = Date.now() - (d.createdAt ?? d._creationTime);
-      return age > 48 * 3600 * 1000;
+      return age > 24 * 3600 * 1000;
     }).length;
 
     const depMap = new Map(
@@ -2884,7 +2895,9 @@ export const enterpriseOverview = query({
       if (d.status !== "traite") {
         recvRow.open += 1;
         const age = Date.now() - (d.createdAt ?? d._creationTime);
-        if (age > 48 * 3600 * 1000) recvRow.overdue += 1;
+        if (d.status === "en_retard" || age > 24 * 3600 * 1000) {
+          recvRow.overdue += 1;
+        }
       } else {
         recvRow.traite += 1;
       }
@@ -2941,6 +2954,7 @@ export const enterpriseOverview = query({
         fileName: d.fileName,
         objet: d.objet,
         status: d.status,
+        urgent: Boolean(d.urgent) && d.status !== "traite",
         senderName: d.senderName,
         recipientName: d.recipientName,
         senderDepartment:
@@ -3062,8 +3076,9 @@ export const departmentOverview = query({
       const open = received.filter((d) => d.status !== "traite");
       const traite = received.filter((d) => d.status === "traite");
       const overdue = open.filter((d) => {
+        if (d.status === "en_retard") return true;
         const age = Date.now() - (d.createdAt ?? d._creationTime);
-        return age > 48 * 3600 * 1000;
+        return age > 24 * 3600 * 1000;
       });
 
       const recent = [...related]
@@ -3818,7 +3833,7 @@ export const dgDetailList = query({
           const stepHours = d.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
           if (d.dueAt && now > d.dueAt) return true;
           const age = now - (d.createdAt ?? d._creationTime);
-          return age > 48 * 3600 * 1000;
+          return age > 24 * 3600 * 1000;
         });
         if (deptId) {
           docs = docs.filter(
