@@ -24,6 +24,7 @@ import {
   RefreshCw,
   Sparkles,
   CheckCircle2,
+  Reply,
   Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -40,6 +41,7 @@ import {
   type DocumentStatus,
   PREDEFINED_TASKS,
 } from "./shared";
+import { ReplyComposer } from "./ReplyComposer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -177,6 +179,7 @@ export function DocumentDetailDialog({
   const viewedRef = useRef<Id<"documents"> | null>(null);
   const [showAudit, setShowAudit] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [replyOpen, setReplyOpen] = useState(false);
 
   // Opening a courrier counts as consulting it for the sender.
   useEffect(() => {
@@ -287,6 +290,7 @@ export function DocumentDetailDialog({
   const showThumb = Boolean(documentOrNull);
 
   return (
+    <>
     <Dialog open={documentId !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         {documentOrNull === undefined ? (
@@ -678,6 +682,23 @@ export function DocumentDetailDialog({
 
                         
 
+            {documentOrNull.canReply ? (
+              <div className="space-y-2 rounded-lg border border-brand/30 bg-brand-soft/40 p-3">
+                <p className="text-xs text-muted-foreground">
+                  Générez un courrier de réponse (champs + aperçu éditable),
+                  puis imprimez, téléchargez ou envoyez à l&apos;expéditeur.
+                </p>
+                <Button
+                  type="button"
+                  className="w-full gap-2 sm:w-auto"
+                  onClick={() => setReplyOpen(true)}
+                >
+                  <Reply className="size-4" />
+                  Rédiger une réponse
+                </Button>
+              </div>
+            ) : null}
+
             {documentOrNull.canUpdateStatus || documentOrNull.isRecipient ? (
               <section className="space-y-3">
                 {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 1 ? (
@@ -1021,5 +1042,22 @@ export function DocumentDetailDialog({
         )}
       </DialogContent>
     </Dialog>
+      <ReplyComposer
+        open={replyOpen}
+        onOpenChange={setReplyOpen}
+        parent={
+          documentOrNull && documentOrNull.canReply
+            ? {
+                documentId: documentOrNull._id,
+                objet: documentOrNull.objet,
+                publicRef: documentOrNull.publicRef,
+                fileName: documentOrNull.fileName,
+                senderId: (documentOrNull as { senderId?: import("@/convex/_generated/dataModel").Id<"users"> }).senderId ?? null,
+                senderName: (documentOrNull as { senderName?: string }).senderName ?? null,
+              }
+            : null
+        }
+      />
+    </>
   );
 }
