@@ -279,7 +279,7 @@ export function ReplyComposer({
   const [editorDirty, setEditorDirty] = useState(false);
   const [sending, setSending] = useState(false);
   const [classifying, setClassifying] = useState(false);
-  const [zoom, setZoom] = useState(1.2);
+  const [zoom, setZoom] = useState(1);
 
   const myName = me?.user?.name?.trim() || me?.user?.email || "";
   const defaultLogoSrc = mndptLogo as string;
@@ -487,7 +487,10 @@ export function ReplyComposer({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[98vh] w-[99vw] max-w-none flex-col gap-0 overflow-hidden p-0 sm:rounded-none md:rounded-xl">
+      <DialogContent
+        showCloseButton={step === 1}
+        className="!fixed !inset-0 !top-0 !left-0 !flex h-[100dvh] max-h-[100dvh] w-screen max-w-none !translate-x-0 !translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-2xl sm:max-w-none"
+      >
         <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-5">
           <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
             <Reply className="size-4 text-brand" />
@@ -771,20 +774,15 @@ export function ReplyComposer({
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-auto bg-[#9aa6b5] p-3 sm:p-6">
-              <div
-                className="mx-auto flex justify-center"
-                style={{
-                  // réserve la hauteur visuelle après scale pour le scroll
-                  minHeight: `calc(297mm * ${zoom} + 48px)`,
-                  paddingBottom: "32px",
-                }}
-              >
+            <div className="min-h-0 flex-1 overflow-auto bg-[#b8c0cc]">
+              <div className="flex min-h-full justify-center px-4 py-6 sm:px-8 sm:py-8">
                 <div
-                  className="origin-top transition-transform"
+                  className="origin-top shadow-2xl transition-transform"
                   style={{
                     width: "210mm",
-                    transform: `scale(${zoom})`,
+                    maxWidth: "100%",
+                    transform: zoom === 1 ? undefined : `scale(${zoom})`,
+                    marginBottom: zoom > 1 ? `${(zoom - 1) * 297}mm` : undefined,
                   }}
                 >
                   <div
@@ -792,10 +790,11 @@ export function ReplyComposer({
                     contentEditable
                     suppressContentEditableWarning
                     onInput={() => setEditorDirty(true)}
-                    className="min-h-[297mm] w-[210mm] bg-white px-[20mm] py-[22mm] text-[14.5px] leading-relaxed text-black shadow-2xl outline-none focus:ring-2 focus:ring-brand/40"
+                    className="box-border min-h-[297mm] w-full bg-white px-[20mm] py-[22mm] text-[12pt] leading-[1.5] text-black outline-none focus:ring-2 focus:ring-brand/30"
                     style={{
                       fontFamily: 'Georgia, "Times New Roman", Times, serif',
-                      boxSizing: "border-box",
+                      width: "210mm",
+                      maxWidth: "100%",
                     }}
                   />
                 </div>
