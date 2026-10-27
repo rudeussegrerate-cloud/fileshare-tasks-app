@@ -224,7 +224,7 @@ export function DashboardHome({
           <StatTile
             label="À traiter"
             value={awaiting}
-            hint="Non classés"
+            hint="Reçus non classés"
             onClick={() => onNavigate("inbox")}
           />
           <StatTile

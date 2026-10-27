@@ -33,13 +33,20 @@ import {
 
 type Mode = "inbox" | "sent";
 
-function filtersFor(mode: Mode): Array<{ key: "all" | DocumentStatus | "urgent"; label: string }> {
+function filtersFor(mode: Mode): Array<{ key: "all" | DocumentStatus | "urgent" | "a_traiter"; label: string }> {
+  if (mode === "inbox") {
+    return [
+      { key: "all", label: "Tous" },
+      { key: "envoye", label: "Reçus" },
+      { key: "a_traiter", label: "À traiter" },
+      { key: "en_retard", label: "En retard" },
+      { key: "urgent", label: "Urgent" },
+      { key: "traite", label: "Classés" },
+    ];
+  }
   return [
     { key: "all", label: "Tous" },
-    {
-      key: "envoye",
-      label: mode === "inbox" ? "Non lu" : "Envoyé",
-    },
+    { key: "envoye", label: "Envoyé" },
     { key: "consulte", label: "Lu" },
     { key: "en_cours", label: "En traitement" },
     { key: "en_retard", label: "En retard" },
@@ -59,7 +66,7 @@ export function DocumentsList({
 }) {
   const FILTERS = filtersFor(mode);
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"all" | DocumentStatus | "urgent">("all");
+  const [filter, setFilter] = useState<"all" | DocumentStatus | "urgent" | "a_traiter">("all");
   const [sortMode, setSortMode] = useState<"recent" | "urgent">("recent");
   const [showArchived, setShowArchived] = useState(false);
 
@@ -140,6 +147,12 @@ export function DocumentsList({
         (d) =>
           Boolean((d as { urgent?: boolean }).urgent) && d.status !== "traite",
       ).length ?? 0;
+    base.a_traiter =
+      allDocuments?.filter((d) =>
+        d.status === "consulte" ||
+        d.status === "en_cours" ||
+        d.status === "en_retard",
+      ).length ?? 0;
     return base;
   }, [allDocuments]);
 
@@ -149,6 +162,13 @@ export function DocumentsList({
     if (filter === "urgent") {
       list = list.filter(
         (d) => Boolean((d as { urgent?: boolean }).urgent) && d.status !== "traite",
+      );
+    } else if (filter === "a_traiter") {
+      // Ouverts / en cours / retard — plus seulement « reçus » (non lus)
+      list = list.filter((d) =>
+        d.status === "consulte" ||
+        d.status === "en_cours" ||
+        d.status === "en_retard",
       );
     } else if (filter !== "all") {
       list = list.filter((d) => d.status === filter);
@@ -248,7 +268,7 @@ export function DocumentsList({
             </h2>
             <p className="text-xs text-muted-foreground">
               {mode === "inbox"
-                ? "Courriers adressés à votre structure — consultez, répondez ou classez."
+                ? "Reçus = non ouverts · À traiter = ouverts (à classer)."
                 : "Courriers que vous avez émis — suivez leur état."}
             </p>
           </div>

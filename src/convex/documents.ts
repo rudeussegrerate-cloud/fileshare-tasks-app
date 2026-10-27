@@ -1757,8 +1757,10 @@ export const markViewed = mutation({
 
     const user = await ctx.db.get(userId);
     const now = Date.now();
+    // Ouverture par le destinataire : le courrier n'est plus seulement « reçu »,
+    // il passe en « à traiter ».
     await ctx.db.patch(args.documentId, {
-      status: "consulte",
+      status: "en_cours",
       viewedAt: now,
       updatedAt: now,
     });
@@ -2585,9 +2587,7 @@ export const stats = query({
     const activeReceived = received.filter((d) => !d.archivedAt);
     const activeSent = sentDocs.filter((d) => !d.archivedAt);
 
-    // Aligné avec les libellés UI :
-    // - awaiting (« À traiter ») = reçus pas encore « Traité »
-    //   (envoyé + consulté + en cours)
+    // - awaiting (« À traiter ») = tout reçu non classé (reçu + à traiter + retard)
     const inProgress = activeReceived.filter(
       (d) => d.status === "en_cours",
     ).length;

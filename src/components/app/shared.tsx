@@ -38,22 +38,24 @@ export const STATUS_META: Record<
 > = {
   envoye: {
     label: "Envoyé",
-    labelRecipient: "Non lu",
+    labelRecipient: "Reçu",
     className: "border-amber-200 bg-amber-50 text-amber-700",
     icon: Clock3,
-    hint: "Courrier transmis, en attente de lecture.",
+    hint: "Courrier reçu, pas encore ouvert — déjà à traiter.",
   },
   consulte: {
     label: "Lu",
+    labelRecipient: "À traiter",
     className: "border-sky-200 bg-sky-50 text-sky-700",
     icon: Eye,
-    hint: "Le destinataire a pris connaissance du courrier.",
+    hint: "Courrier ouvert — à traiter (plus seulement « reçu »).",
   },
   en_cours: {
     label: "En traitement",
+    labelRecipient: "À traiter",
     className: "border-indigo-200 bg-indigo-50 text-indigo-700",
     icon: Loader2,
-    hint: "Le courrier est en cours de traitement ou de réponse.",
+    hint: "Courrier ouvert et en cours de traitement.",
   },
   en_retard: {
     label: "En retard",
