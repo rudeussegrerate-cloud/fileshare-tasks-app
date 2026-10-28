@@ -501,17 +501,29 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         ...(phone ? { phone } : {}),
       });
       if (requestedDepartmentId) {
-        try {
-          await requestJoin({
-            departmentId: requestedDepartmentId as Id<"departments">,
-          });
-        } catch (joinErr) {
-          console.warn("Demande département:", joinErr);
+        let joined = false;
+        for (let attempt = 0; attempt < 4 && !joined; attempt++) {
+          try {
+            if (attempt > 0) {
+              await new Promise((r) => setTimeout(r, 400 * attempt));
+            }
+            await requestJoin({
+              departmentId: requestedDepartmentId as Id<"departments">,
+            });
+            joined = true;
+          } catch (joinErr) {
+            console.warn("Demande département (essai", attempt + 1, "):", joinErr);
+          }
+        }
+        if (!joined) {
+          toast.message(
+            "Compte créé. La demande d'adhésion pourra être renvoyée après connexion dans Structures.",
+          );
         }
       }
       toast.success("Compte créé", {
         description: requestedDepartmentId
-          ? "Compte créé. Après validation par le DG, vous serez rattaché automatiquement à la direction choisie (sans service)."
+          ? "Une demande d'adhésion a été envoyée au chef de la direction choisie. Le DG doit d'abord valider votre compte."
           : "Votre demande a été transmise au DG. Vous serez notifié dès sa validation.",
       });
       navigate(redirect);
