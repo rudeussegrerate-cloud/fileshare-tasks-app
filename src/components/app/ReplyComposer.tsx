@@ -11,7 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
-import { exportAsPdf, exportAsWord } from "@/lib/letterEditor";
+import {
+  embedImagesAsDataUrls,
+  exportAsPdf,
+  exportAsWordAsync,
+} from "@/lib/letterEditor";
 import { cn } from "@/lib/utils";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { format } from "date-fns";
@@ -416,10 +420,10 @@ export function ReplyComposer({
     }
   };
 
-  const handleDownloadWord = () => {
+  const handleDownloadWord = async () => {
     try {
-      exportAsWord(letterTitle, getBodyHtml());
-      toast.success("Fichier Word téléchargé");
+      await exportAsWordAsync(letterTitle, getBodyHtml());
+      toast.success("Fichier Word téléchargé (images incluses)");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Téléchargement impossible");
     }
@@ -429,7 +433,7 @@ export function ReplyComposer({
     if (!parent?.senderId) {
       throw new Error("Expéditeur d'origine introuvable — envoi impossible.");
     }
-    const html = getBodyHtml();
+    const html = await embedImagesAsDataUrls(getBodyHtml());
     if (!html.replace(/<[^>]+>/g, "").trim()) {
       throw new Error("Le document de réponse est vide.");
     }

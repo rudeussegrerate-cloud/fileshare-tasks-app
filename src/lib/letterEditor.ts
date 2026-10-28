@@ -283,9 +283,63 @@ export function wrapLetterHtml(title: string, bodyHtml: string): string {
 </style></head><body><div class="page">${bodyHtml}</div></body></html>`;
 }
 
+
+/** Convertit les <img src="…"> en data-URL pour Word / téléchargement hors ligne. */
+export async function embedImagesAsDataUrls(html: string): Promise<string> {
+  const srcs = new Set<string>();
+  const re = /<img\b[^>]*\bsrc=["']([^"']+)["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html)) !== null) {
+    const src = m[1]!.trim();
+    if (!src || src.startsWith("data:")) continue;
+    srcs.add(src);
+  }
+  if (srcs.size === 0) return html;
+
+  const map = new Map<string, string>();
+  await Promise.all(
+    [...srcs].map(async (src) => {
+      try {
+        const url = src.startsWith("http") || src.startsWith("blob:")
+          ? src
+          : new URL(src, window.location.href).href;
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result));
+          reader.onerror = () => reject(reader.error);
+          reader.readAsDataURL(blob);
+        });
+        map.set(src, dataUrl);
+      } catch (e) {
+        console.warn("[embedImagesAsDataUrls]", src, e);
+      }
+    }),
+  );
+
+  if (map.size === 0) return html;
+  return html.replace(
+    /(<img\b[^>]*\bsrc=["'])([^"']+)(["'])/gi,
+    (full, pre, src, post) => {
+      const embedded = map.get(src);
+      return embedded ? `${pre}${embedded}${post}` : full;
+    },
+  );
+}
+
 export function exportAsWord(title: string, bodyHtml: string): void {
+  void exportAsWordAsync(title, bodyHtml);
+}
+
+export async function exportAsWordAsync(
+  title: string,
+  bodyHtml: string,
+): Promise<void> {
   const safe =
     title.replace(/[^\w\s\-àâäéèêëïîôùûüç]/gi, "").trim() || "courrier";
+  const embeddedBody = await embedImagesAsDataUrls(bodyHtml);
   const html = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office"
  xmlns:w="urn:schemas-microsoft-com:office:word"
@@ -298,7 +352,7 @@ export function exportAsWord(title: string, bodyHtml: string): void {
   img{max-width:100%}
   @page{size:A4;margin:2cm}
 </style>
-</head><body>${bodyHtml}</body></html>`;
+</head><body>${embeddedBody}</body></html>`;
   const blob = new Blob(["\ufeff", html], {
     type: "application/msword;charset=utf-8",
   });
