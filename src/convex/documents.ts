@@ -2490,6 +2490,56 @@ export const documentHistory = query({
       /* */
     }
 
+    // Journal d'audit (événements complémentaires)
+    try {
+      const logs = await ctx.db
+        .query("auditLogs")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      for (const log of logs) {
+        const action = log.action ?? "";
+        let status = "info";
+        let note = log.details ?? action;
+        if (action.includes("viewed") || /consult/i.test(note)) {
+          status = "consulte";
+          note = note || "Courrier ouvert / consulté";
+        } else if (action.includes("status")) {
+          status = "statut";
+          note = note || "Changement de statut";
+        } else if (action.includes("sent") || action.includes("created")) {
+          status = "envoye";
+          note = note || "Envoi enregistré";
+        } else if (action.includes("cancel")) {
+          status = "annule";
+          note = note || "Envoi annulé";
+        } else if (action.includes("archive")) {
+          status = "archive";
+          note = note || "Archivage";
+        }
+        events.push({
+          at: log.createdAt ?? document.createdAt,
+          structure: "Suivi",
+          status,
+          note,
+          kind: "statut",
+        });
+      }
+    } catch {
+      /* index ou table */
+    }
+
+    if (document.viewedAt) {
+      events.push({
+        at: document.viewedAt,
+        structure: recipientDep
+          ? `${recipientDep.code ? recipientDep.code + " — " : ""}${recipientDep.name}`
+          : document.recipientName || "Destinataire",
+        status: "consulte",
+        note: "Première consultation",
+        kind: "statut",
+      });
+    }
+
     events.push({
       at: document.updatedAt ?? document.createdAt ?? document._creationTime,
       structure: recipientDep
@@ -2502,15 +2552,56 @@ export const documentHistory = query({
 
     events.sort((a, b) => a.at - b.at);
 
+    // Dédupliquer événements quasi-identiques (même minute + statut + structure)
+    const deduped: typeof events = [];
+    for (const ev of events) {
+      const prev = deduped[deduped.length - 1];
+      if (
+        prev &&
+        prev.status === ev.status &&
+        prev.structure === ev.structure &&
+        Math.abs(prev.at - ev.at) < 60_000
+      ) {
+        // garder la note la plus informative
+        if ((ev.note?.length ?? 0) > (prev.note?.length ?? 0)) {
+          deduped[deduped.length - 1] = ev;
+        }
+        continue;
+      }
+      deduped.push(ev);
+    }
+
+    const statusLabel = (s: string) => {
+      const map: Record<string, string> = {
+        envoye: "Envoyé",
+        consulte: "Consulté",
+        en_cours: "En traitement",
+        traite: "Classé",
+        annule: "Annulé",
+        archive: "Archivé",
+        active: "En cours",
+        done: "Validé",
+        pending: "En attente",
+        rejected: "Refusé",
+        info: "Information",
+        statut: "Mise à jour",
+      };
+      return map[s] ?? s;
+    };
+
     return {
       publicRef: document.publicRef ?? null,
       mailKind: document.mailKind ?? "envoi",
       objet: document.objet ?? document.fileName,
       currentStatus: document.status,
+      currentStatusLabel: statusLabel(document.status),
       currentStructure: recipientDep
         ? `${recipientDep.code ? recipientDep.code + " — " : ""}${recipientDep.name}`
         : document.recipientName || "—",
-      events,
+      events: deduped.map((ev) => ({
+        ...ev,
+        statusLabel: statusLabel(ev.status),
+      })),
     };
   },
 });
