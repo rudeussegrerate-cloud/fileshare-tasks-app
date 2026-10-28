@@ -1532,8 +1532,10 @@ export const get = query({
        */
       canReply: Boolean(
         !isSender &&
-          document.recipientId &&
-          document.recipientId === userId,
+          document.senderId &&
+          (document.recipientId === userId ||
+            isStructureViewer ||
+            isStepAssignee),
       ),
       /** Émetteur peut modifier tant que personne n'a lu (statut encore « envoyé ») */
       canEdit: isSender && document.status === "envoye" && !document.archivedAt,

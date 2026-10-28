@@ -1290,67 +1290,79 @@ async function reviewAccount(
     patch.departmentId = undefined;
     patch.departmentRole = undefined;
     patch.requestedDepartmentId = undefined;
-  } else if (status === "valide" && target.requestedDepartmentId && !target.departmentId) {
-    // Compte validé : s'assurer qu'une demande d'adhésion est bien envoyée au chef
-    // (pas de rattachement auto — le chef accepte dans Structures).
-    let dirId = target.requestedDepartmentId;
-    const reqDept = await ctx.db.get(dirId);
-    if (reqDept?.parentId) {
-      dirId = reqDept.parentId;
-    }
-    patch.requestedDepartmentId = dirId;
+  } else if (status === "valide" && !target.departmentId) {
+    // Direction souhaitée (inscription) ou demande acceptée par le chef
+    let dirId = target.requestedDepartmentId ?? undefined;
     const requests = await ctx.db
       .query("departmentJoinRequests")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    const pending = requests.find(
-      (r) => r.status === "pending" && r.departmentId === dirId,
-    );
-    if (!pending) {
-      for (const r of requests) {
-        if (r.status === "pending") {
-          await ctx.db.patch(r._id, { status: "cancelled" });
+    const accepted = requests.find((r) => r.status === "accepted");
+    const pending = requests.find((r) => r.status === "pending");
+    if (accepted) {
+      dirId = accepted.departmentId;
+    } else if (pending && !dirId) {
+      dirId = pending.departmentId;
+    }
+    if (dirId) {
+      const reqDept = await ctx.db.get(dirId);
+      if (reqDept?.parentId) {
+        dirId = reqDept.parentId;
+      }
+      // Chef a déjà accepté → rattacher maintenant que le compte est valide
+      if (accepted) {
+        patch.departmentId = dirId;
+        patch.departmentRole = "membre";
+        patch.requestedDepartmentId = undefined;
+      } else {
+        // Sinon garder la demande pending / la créer pour le chef
+        patch.requestedDepartmentId = dirId;
+        if (!pending || pending.departmentId !== dirId) {
+          for (const r of requests) {
+            if (r.status === "pending") {
+              await ctx.db.patch(r._id, { status: "cancelled" });
+            }
+          }
+          if (!accepted) {
+            await ctx.db.insert("departmentJoinRequests", {
+              userId,
+              departmentId: dirId,
+              status: "pending",
+              createdAt: Date.now(),
+            });
+          }
+        }
+        try {
+          const { pushNotification } = await import("./inAppNotifications");
+          const members = await ctx.db
+            .query("users")
+            .withIndex("by_department", (q) => q.eq("departmentId", dirId!))
+            .collect();
+          const chefs = members.filter((m) => m.departmentRole === "chef");
+          const who = target.name ?? target.email ?? "Un utilisateur";
+          const deptName = (await ctx.db.get(dirId!))?.name ?? "la direction";
+          const title = "Demande d'adhésion";
+          const body = `${who} (compte validé) souhaite rejoindre « ${deptName} ». Validez dans Structures.`;
+          const targets =
+            chefs.length > 0
+              ? chefs
+              : (await ctx.db.query("users").collect()).filter(
+                  (u) =>
+                    (u.role === "admin" || u.role === "root") &&
+                    u.accountStatus === "valide",
+                );
+          for (const c of targets) {
+            await pushNotification(ctx, {
+              userId: c._id,
+              type: "department.join_request",
+              title,
+              body,
+            });
+          }
+        } catch (e) {
+          console.error("[reviewAccount] notify chefs", e);
         }
       }
-      await ctx.db.insert("departmentJoinRequests", {
-        userId,
-        departmentId: dirId,
-        status: "pending",
-        createdAt: Date.now(),
-      });
-    }
-    // Notifier le chef (ou le DG s'il n'y a pas de chef)
-    try {
-      const { pushNotification } = await import("./inAppNotifications");
-      const members = await ctx.db
-        .query("users")
-        .withIndex("by_department", (q) => q.eq("departmentId", dirId))
-        .collect();
-      const chefs = members.filter((m) => m.departmentRole === "chef");
-      const who = target.name ?? target.email ?? "Un utilisateur";
-      const deptName = reqDept?.name ?? "la direction";
-      const title = "Demande d'adhésion";
-      const body = `${who} (compte validé) souhaite rejoindre « ${deptName} ». Validez dans Structures.`;
-      const targets =
-        chefs.length > 0
-          ? chefs
-          : (
-              await ctx.db.query("users").collect()
-            ).filter(
-              (u) =>
-                (u.role === "admin" || u.role === "root") &&
-                u.accountStatus === "valide",
-            );
-      for (const c of targets) {
-        await pushNotification(ctx, {
-          userId: c._id,
-          type: "department.join_request",
-          title,
-          body,
-        });
-      }
-    } catch (e) {
-      console.error("[reviewAccount] notify chefs", e);
     }
   }
   await ctx.db.patch(userId, patch as any);

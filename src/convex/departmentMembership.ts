@@ -335,13 +335,12 @@ export const reviewRequest = mutation({
     if (!person) throw new Error("Utilisateur introuvable.");
     const dept = await ctx.db.get(request.departmentId);
 
-    await ctx.db.patch(request._id, {
-      status: args.accept ? "accepted" : "rejected",
-      reviewedBy: reviewer._id,
-      reviewedAt: Date.now(),
-    });
-
     if (!args.accept) {
+      await ctx.db.patch(request._id, {
+        status: "rejected",
+        reviewedBy: reviewer._id,
+        reviewedAt: Date.now(),
+      });
       if (person.requestedDepartmentId === request.departmentId) {
         await ctx.db.patch(person._id, { requestedDepartmentId: undefined });
       }
@@ -354,19 +353,26 @@ export const reviewRequest = mutation({
       return null;
     }
 
+    let assignId = request.departmentId;
+    const assignDept = await ctx.db.get(assignId);
+    if (assignDept?.parentId) {
+      assignId = assignDept.parentId;
+    }
+    if (
+      person.departmentId &&
+      person.departmentId !== assignId &&
+      !(await isRelatedDepartment(ctx, person.departmentId, assignId))
+    ) {
+      throw new Error("Cette personne est déjà dans une autre direction.");
+    }
+
+    // Compte déjà validé par le DG → rattachement immédiat
     if (person.accountStatus === "valide") {
-      let assignId = request.departmentId;
-      const assignDept = await ctx.db.get(assignId);
-      if (assignDept?.parentId) {
-        assignId = assignDept.parentId; // direction uniquement
-      }
-      if (
-        person.departmentId &&
-        person.departmentId !== assignId &&
-        !(await isRelatedDepartment(ctx, person.departmentId, assignId))
-      ) {
-        throw new Error("Cette personne est déjà dans une autre direction.");
-      }
+      await ctx.db.patch(request._id, {
+        status: "accepted",
+        reviewedBy: reviewer._id,
+        reviewedAt: Date.now(),
+      });
       await ctx.db.patch(person._id, {
         departmentId: assignId,
         departmentRole: "membre",
@@ -378,17 +384,24 @@ export const reviewRequest = mutation({
         title: "Adhésion acceptée",
         body: `Vous avez rejoint le département « ${dept?.name ?? ""} ».`,
       });
-    } else {
-      await ctx.db.patch(person._id, {
-        requestedDepartmentId: request.departmentId,
-      });
-      await pushNotification(ctx, {
-        userId: person._id,
-        type: "department.join_accepted",
-        title: "Adhésion pré-acceptée",
-        body: `Le chef a accepté votre demande pour « ${dept?.name ?? ""} ». L'accès complet suivra la validation du compte par le DG.`,
-      });
+      return null;
     }
+
+    // Compte encore en attente DG : pré-acceptation (demande reste exploitable à la validation)
+    await ctx.db.patch(request._id, {
+      status: "accepted",
+      reviewedBy: reviewer._id,
+      reviewedAt: Date.now(),
+    });
+    await ctx.db.patch(person._id, {
+      requestedDepartmentId: assignId,
+    });
+    await pushNotification(ctx, {
+      userId: person._id,
+      type: "department.join_accepted",
+      title: "Adhésion pré-acceptée",
+      body: `Le chef a accepté votre demande pour « ${dept?.name ?? ""} ». L'accès suivra la validation du compte par le DG.`,
+    });
     return null;
   },
 });
