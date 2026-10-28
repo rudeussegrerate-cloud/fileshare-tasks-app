@@ -2940,6 +2940,16 @@ export const assistantMailBrief = query({
       });
     }
     recentItems.sort((a, b) => b.createdAt - a.createdAt);
+    const unreadDoc = received.find((d) => d.status === "envoye");
+    const urgentDoc = received.find(
+      (d) => Boolean(d.urgent) && d.status !== "traite",
+    );
+    const overdueDoc = received.find((d) => {
+      if (d.status === "en_retard") return true;
+      if (d.status === "traite") return false;
+      const due = d.dueAt ?? (d.createdAt ?? d._creationTime) + DAY;
+      return now > due;
+    });
     return {
       received: received.length,
       sent: activeSent.length,
@@ -2948,6 +2958,10 @@ export const assistantMailBrief = query({
       urgent,
       recentNew,
       recent: recentItems.slice(0, 8),
+      latestReceivedId: recentItems[0]?._id ?? null,
+      latestUnreadId: unreadDoc ? String(unreadDoc._id) : null,
+      latestUrgentId: urgentDoc ? String(urgentDoc._id) : null,
+      latestOverdueId: overdueDoc ? String(overdueDoc._id) : null,
     };
   },
 });
