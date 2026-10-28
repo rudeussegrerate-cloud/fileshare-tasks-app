@@ -373,7 +373,7 @@ export function ReplyComposer({
         publicRef: parent.publicRef ?? undefined,
         senderName: parent.senderName ?? undefined,
         intent:
-          "Rédiger le corps d'une réponse au courrier reçu en s'appuyant strictement sur son contenu (texte, résumé, objet).",
+          "Tu es secrétaire administratif MNDPT. Rédige le corps d'une réponse officielle au courrier reçu. Base-toi exclusivement sur le contenu fourni (texte extrait, résumé, objet, tâches). Accuse réception, traite les points soulevés, propose une suite claire. Style français administratif, poli, précis. Pas de faits inventés.",
       });
       if (res?.body) {
         updateField("corps", res.body);
@@ -541,9 +541,9 @@ export function ReplyComposer({
         showCloseButton={step === 1}
         className="!fixed !inset-0 !top-0 !left-0 !flex h-[100dvh] max-h-[100dvh] w-screen max-w-none !translate-x-0 !translate-y-0 flex-col gap-0 overflow-hidden rounded-none border-0 p-0 shadow-2xl sm:max-w-none"
       >
-        <DialogHeader className="shrink-0 border-b border-border px-4 py-3 sm:px-5">
-          <DialogTitle className="flex flex-wrap items-center gap-2 text-base">
-            <Reply className="size-4 text-brand" />
+        <DialogHeader className="shrink-0 border-b border-violet-100 bg-gradient-to-r from-violet-50/80 to-transparent px-4 py-3 sm:px-5">
+          <DialogTitle className="flex flex-wrap items-center gap-2 text-base text-violet-950">
+            <Reply className="size-4 text-violet-700" />
             Rédiger une réponse
             <span className="ml-1 text-xs font-normal text-muted-foreground">
               Étape {step} / 2 —{" "}
@@ -615,32 +615,52 @@ export function ReplyComposer({
                     ) : f.multiline ? (
                       <div className="space-y-2">
                         {f.id === "corps" ? (
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="secondary"
-                            className="gap-1.5"
-                            disabled={generating}
-                            onClick={() => void handleGenerateBody()}
-                          >
-                            {generating ? (
-                              <Loader2 className="size-3.5 animate-spin" />
-                            ) : (
-                              <Sparkles className="size-3.5" />
-                            )}
-                            {generating
-                              ? "Génération…"
-                              : "Générer avec le bot"}
-                          </Button>
+                          <div className="rounded-xl border border-violet-200/80 bg-gradient-to-br from-violet-50 to-indigo-50 p-3 shadow-sm">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="min-w-0 space-y-0.5">
+                                <p className="text-sm font-semibold text-violet-950">
+                                  Assistant de rédaction
+                                </p>
+                                <p className="text-[11px] leading-snug text-violet-900/75">
+                                  Génère le corps à partir du{" "}
+                                  <span className="font-medium">
+                                    courrier reçu
+                                  </span>{" "}
+                                  (texte, résumé, objet). Vous pourrez tout
+                                  corriger ensuite.
+                                </p>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                disabled={generating}
+                                onClick={() => void handleGenerateBody()}
+                                className="shrink-0 gap-1.5 bg-violet-700 text-white hover:bg-violet-800"
+                              >
+                                {generating ? (
+                                  <Loader2 className="size-3.5 animate-spin" />
+                                ) : (
+                                  <Sparkles className="size-3.5" />
+                                )}
+                                {generating
+                                  ? "Rédaction…"
+                                  : "Générer la réponse"}
+                              </Button>
+                            </div>
+                          </div>
                         ) : null}
                         <Textarea
-                          rows={f.id === "corps" ? 8 : 2}
+                          rows={f.id === "corps" ? 10 : 2}
                           value={f.value}
                           onChange={(e) => updateField(f.id, e.target.value)}
-                          className="resize-y text-sm"
+                          className={
+                            f.id === "corps"
+                              ? "min-h-[160px] resize-y border-violet-200/60 bg-white text-sm leading-relaxed focus-visible:ring-violet-400/40"
+                              : "resize-y text-sm"
+                          }
                           placeholder={
                             f.id === "corps"
-                              ? "Rédigez le corps ou générez-le avec le bot à partir du courrier reçu…"
+                              ? "Le corps de la réponse apparaîtra ici après génération, ou saisissez-le manuellement…"
                               : undefined
                           }
                         />
