@@ -19,11 +19,11 @@ import {
   ExternalLink,
   Printer,
   FileText,
-  History,
   Loader2,
   RefreshCw,
   Sparkles,
   CheckCircle2,
+  Reply,
   Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -40,6 +40,7 @@ import {
   type DocumentStatus,
   PREDEFINED_TASKS,
 } from "./shared";
+import { ReplyComposer } from "./ReplyComposer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -57,14 +58,6 @@ export function DocumentDetailDialog({
     api.documents.get,
     documentId ? { documentId } : "skip",
   );
-  const auditLogs = useQuery(
-    api.documents.auditTrail,
-    documentId ? { documentId } : "skip",
-  );
-  const trackingHistory = useQuery(
-    api.documents.documentHistory,
-    documentId ? { documentId } : "skip",
-  );
   const markViewed = useMutation(api.documents.markViewed);
   const setStatus = useMutation(api.documents.setStatus);
   const archiveDoc = useMutation(api.documents.archive);
@@ -77,6 +70,7 @@ export function DocumentDetailDialog({
     kind: "pdf" | "image" | "other";
   } | null>(null);
   const [viewerLoading, setViewerLoading] = useState(false);
+  const [replyOpen, setReplyOpen] = useState(false);
 
   const openDocumentViewer = async () => {
     const url =
@@ -176,7 +170,6 @@ export function DocumentDetailDialog({
     w.document.close();
   };
   const viewedRef = useRef<Id<"documents"> | null>(null);
-  const [showAudit, setShowAudit] = useState(false);
   const [busy, setBusy] = useState(false);
 
   // Opening a courrier counts as consulting it for the sender.
@@ -642,6 +635,23 @@ export function DocumentDetailDialog({
               </div>
             </section>
 
+            {documentOrNull.canReply ? (
+              <section className="space-y-2 rounded-lg border border-brand/30 bg-brand-soft/40 p-3">
+                <p className="text-xs text-muted-foreground">
+                  Rédigez un courrier de réponse (champs + aperçu éditable), puis
+                  imprimez, téléchargez ou envoyez à l&apos;expéditeur.
+                </p>
+                <Button
+                  type="button"
+                  className="w-full gap-2 sm:w-auto"
+                  onClick={() => setReplyOpen(true)}
+                >
+                  <Reply className="size-4" />
+                  Rédiger une réponse
+                </Button>
+              </section>
+            ) : null}
+
             {documentOrNull.canUpdateStatus || documentOrNull.isRecipient ? (
               <section className="space-y-3">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -811,122 +821,43 @@ export function DocumentDetailDialog({
                   </Button>
                 )}
 
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1.5"
-                  onClick={() => {
-                    setShowAudit(true);
-                    document
-                      .querySelector("[data-scandoc-tour='tracking-history']")
-                      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                  }}
-                >
-                  <History className="size-3.5" />
-                  Historique
-                </Button>
               </div>
             </div>
 
-            <section
-              data-scandoc-tour="tracking-history"
-              className="rounded-lg border border-border bg-card p-3 sm:p-4"
-            >
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <History className="size-3.5" />
-                  Historique de suivi
-                </h4>
-                {trackingHistory?.currentStatusLabel ? (
-                  <span className="rounded-full bg-brand-soft px-2.5 py-0.5 text-[11px] font-semibold text-foreground">
-                    {trackingHistory.currentStatusLabel}
-                    {trackingHistory.currentStructure
-                      ? ` · ${trackingHistory.currentStructure}`
-                      : ""}
-                  </span>
-                ) : null}
-              </div>
-              {trackingHistory === undefined ? (
-                <p className="text-xs text-muted-foreground">Chargement…</p>
-              ) : !trackingHistory ||
-                !trackingHistory.events ||
-                trackingHistory.events.length === 0 ? (
-                <p className="text-xs text-muted-foreground">
-                  Aucun événement de suivi pour le moment.
-                </p>
-              ) : (
-                <ol className="relative space-y-0 border-l border-border pl-4">
-                  {trackingHistory.events.map(
-                    (
-                      ev: {
-                        at: number;
-                        structure: string;
-                        status: string;
-                        statusLabel?: string;
-                        note?: string | null;
-                        kind: string;
-                      },
-                      idx: number,
-                    ) => (
-                      <li key={`${ev.at}-${ev.status}-${idx}`} className="relative pb-4 last:pb-0">
-                        <span className="absolute -left-[1.15rem] top-1.5 size-2.5 rounded-full border-2 border-brand bg-card" />
-                        <p className="text-sm font-medium text-foreground">
-                          {ev.statusLabel ?? ev.status}
-                          <span className="ml-2 text-xs font-normal text-muted-foreground">
-                            {formatDateTime(ev.at)}
-                          </span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {ev.structure}
-                          {ev.note ? ` — ${ev.note}` : ""}
-                        </p>
-                      </li>
-                    ),
-                  )}
-                </ol>
-              )}
-              <div className="mt-3 border-t border-border pt-2">
-                <button
-                  type="button"
-                  className="text-[11px] font-medium text-brand hover:underline"
-                  onClick={() => setShowAudit((v) => !v)}
-                >
-                  {showAudit
-                    ? "Masquer le journal technique"
-                    : "Journal technique (détail)"}
-                </button>
-                {showAudit ? (
-                  <ul className="mt-2 space-y-1.5">
-                    {!auditLogs || auditLogs.length === 0 ? (
-                      <li className="text-xs text-muted-foreground">
-                        Aucune entrée technique.
-                      </li>
-                    ) : (
-                      auditLogs.map((log) => (
-                        <li
-                          key={log._id}
-                          className="flex flex-wrap items-baseline gap-x-2 text-xs"
-                        >
-                          <span className="font-medium text-foreground">
-                            {log.actorName}
-                          </span>
-                          <span className="text-muted-foreground">
-                            {log.details ?? log.action}
-                          </span>
-                          <span className="text-muted-foreground/70">
-                            · {formatDateTime(log.createdAt)}
-                          </span>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                ) : null}
-              </div>
-            </section>
+            
           </>
         )}
       </DialogContent>
     </Dialog>
+      <ReplyComposer
+        open={replyOpen}
+        onOpenChange={setReplyOpen}
+        parent={
+          documentOrNull && documentOrNull.canReply
+            ? {
+                documentId: documentOrNull._id,
+                objet: documentOrNull.objet,
+                publicRef: documentOrNull.publicRef,
+                fileName: documentOrNull.fileName,
+                senderId:
+                  (documentOrNull as { senderId?: Id<"users"> }).senderId ??
+                  null,
+                senderName:
+                  (documentOrNull as { senderName?: string }).senderName ??
+                  null,
+                summary:
+                  (documentOrNull as { summary?: string | null }).summary ??
+                  null,
+                extractedText:
+                  (documentOrNull as { extractedText?: string | null })
+                    .extractedText ?? null,
+                observations:
+                  (documentOrNull as { observations?: string | null })
+                    .observations ?? null,
+              }
+            : null
+        }
+      />
 </>
   );
 }
