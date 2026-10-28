@@ -176,36 +176,24 @@ function detectSiteAction(text: string): SiteAction {
 }
 
 
-/** Questions hors ScanDoc → refus (sauf salutation / apprentissage / commande site). */
+/** Hors sujet clair uniquement — le reste est accepté (évite les non-réponses). */
 function isSiteRelated(text: string): boolean {
   const q = text
     .toLowerCase()
     .normalize("NFD")
-    .replace(/\p{M}/gu, "")
+    .replace(/[̀-ͯ]/g, "")
     .trim();
   if (q.length < 2) return true;
-  // Salutations / politesse courte
-  if (
-    /^(bonjour|bonsoir|salut|hello|merci|ok|daccord|d'accord|oui|non)[\s!?.]*$/i.test(
-      q,
-    )
-  ) {
-    return true;
-  }
-  // Apprentissage de compétences
-  if (/^apprends\s*:/i.test(text.trim()) || /quand je dis/i.test(q)) {
-    return true;
-  }
-  const siteHints =
-    /scandoc|courrier|document|envoi|envoyer|recu|recus|envoye|boite|inbox|dashboard|tableau de bord|menu|parametre|departement|direction|service|structure|classer|traiter|retard|urgent|non lu|inventaire|filtre|trier|recherche|connexion|login|compte|notification|fichier|repondre|objet|reference|n°|numero|mndpt|assistant|bot|aide|comment|ou (est|sont|trouver|ouvrir)|ouvrir|afficher|voir mes|mes courriers|nouveau courrier|transmission/;
-  if (siteHints.test(q)) return true;
-  // Action détectée = liée au site
   if (detectSiteAction(text) !== "reply") return true;
-  return false;
+  const offTopic =
+    /(meteo|météo|football|foot|politique|election|recette|cuisine|film|serie|blague|horoscope|crypto|bitcoin|devoir de math|traduis en anglais|ecrire un poeme|qui a gagne)/;
+  if (offTopic.test(q)) {
+    const site =
+      /scandoc|courrier|document|envoi|envoyer|recu|envoye|menu|parametre|departement|inventaire|retard|urgent|classer|fichier|mndpt/;
+    return site.test(q);
+  }
+  return true;
 }
-
-const OFF_TOPIC_REPLY =
-  "Je suis l'assistant ScanDoc : je ne réponds qu'aux questions sur ce site (courriers, menus, retards, envoi…). Essayez par exemple : « inventaire », « voir les retards » ou « comment envoyer un courrier ».";
 
 function detectEmotion(text: string, mood: string): BotEmotion {
   const q = text.toLowerCase();
@@ -486,7 +474,10 @@ ${guideLine("inventory")}`;
     const action = detectSiteAction(message);
     let reply = ruleBasedReply(message, name, mood, action);
     if (!reply) {
-      reply = `${moodPrefix(name, mood)} Dites-moi ce que vous cherchez — j’ouvre la page pour vous. Sinon on peut juste discuter.`;
+      reply =
+        action !== "reply"
+          ? `${moodPrefix(name, mood)} ${guideLine(action)}`
+          : `${moodPrefix(name, mood)} Posez votre question sur ScanDoc (courriers, menus, retards, envoi…). Ex. : « inventaire » ou « comment envoyer un courrier ».`;
     }
 
     try {
@@ -537,11 +528,19 @@ ${navHint}`,
       console.error("[assistantBot.ask] Groq:", e);
     }
 
-    await ctx.runMutation(internal.bot.saveExchange, {
-      userId,
-      userBody: message,
-      assistantBody: reply,
-    });
+    if (!reply || !String(reply).trim()) {
+      reply = `${name} : je suis là pour ScanDoc. Essayez « inventaire », « voir les retards », « nouveau courrier » ou « courriers reçus ».`;
+    }
+
+    try {
+      await ctx.runMutation(internal.bot.saveExchange, {
+        userId,
+        userBody: message,
+        assistantBody: reply,
+      });
+    } catch (e) {
+      console.error("[assistantBot.ask] saveExchange:", e);
+    }
 
     return {
       reply,

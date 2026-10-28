@@ -447,6 +447,9 @@ export function FloatingAssistant() {
 
   const [open, setOpen] = useState(false);
   const [proactiveBanner, setProactiveBanner] = useState<string | null>(null);
+  const [localChat, setLocalChat] = useState<
+    Array<{ id: string; role: "user" | "assistant"; body: string }>
+  >([]);
   const [settings, setSettings] = useState(false);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -815,13 +818,13 @@ export function FloatingAssistant() {
                 {proactiveBanner}
               </div>
             ) : null}
-            {(history?.length ?? 0) === 0 ? (
+            {(history?.length ?? 0) === 0 && localChat.length === 0 ? (
               <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
                 <p className="font-medium text-foreground">
                   Bonjour ! Je suis {botName}.
                 </p>
                 <p className="mt-1">
-                  Posez-moi une question si vous êtes perdu, par exemple :
+                  Posez-moi une question sur ScanDoc, par exemple :
                 </p>
                 <ul className="mt-1 list-inside list-disc">
                   <li>Inventaire de mes courriers</li>
@@ -831,26 +834,48 @@ export function FloatingAssistant() {
                 </ul>
               </div>
             ) : (
-              history!.map((m) => (
-                <div
-                  key={m._id}
-                  className={cn(
-                    "flex",
-                    m.role === "user" ? "justify-end" : "justify-start",
-                  )}
-                >
+              <>
+                {(history ?? []).map((m) => (
                   <div
+                    key={m._id}
                     className={cn(
-                      "max-w-[85%] rounded-2xl px-3 py-2 text-xs whitespace-pre-wrap",
-                      m.role === "user"
-                        ? "rounded-br-md bg-brand text-primary-foreground"
-                        : "rounded-bl-md border border-border bg-muted/40",
+                      "flex",
+                      m.role === "user" ? "justify-end" : "justify-start",
                     )}
                   >
-                    {m.body}
+                    <div
+                      className={cn(
+                        "max-w-[85%] rounded-2xl px-3 py-2 text-xs whitespace-pre-wrap",
+                        m.role === "user"
+                          ? "rounded-br-md bg-brand text-primary-foreground"
+                          : "rounded-bl-md border border-border bg-muted/40",
+                      )}
+                    >
+                      {m.body}
+                    </div>
                   </div>
-                </div>
-              ))
+                ))}
+                {localChat.map((m) => (
+                  <div
+                    key={m.id}
+                    className={cn(
+                      "flex",
+                      m.role === "user" ? "justify-end" : "justify-start",
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "max-w-[85%] rounded-2xl px-3 py-2 text-xs whitespace-pre-wrap",
+                        m.role === "user"
+                          ? "rounded-br-md bg-brand text-primary-foreground"
+                          : "rounded-bl-md border border-border bg-muted/40",
+                      )}
+                    >
+                      {m.body}
+                    </div>
+                  </div>
+                ))}
+              </>
             )}
             <div ref={bottomRef} />
           </div>
@@ -859,10 +884,18 @@ export function FloatingAssistant() {
             className="flex gap-2 border-t border-border p-2"
             onSubmit={async (e) => {
               e.preventDefault();
-              if (!text.trim() || busy || !me.user._id) return;
+              if (!text.trim() || busy) return;
+              if (!me?.user?._id) {
+                toast.error("Session expirée — reconnectez-vous.");
+                return;
+              }
               setBusy(true);
               const msg = text.trim();
               setText("");
+              setLocalChat((c) => [
+                ...c,
+                { id: `u-${Date.now()}`, role: "user", body: msg },
+              ]);
               try {
                 const res = await ask({ message: msg }) as {
                   reply?: string;
@@ -870,6 +903,17 @@ export function FloatingAssistant() {
                   learned?: boolean;
                   emotion?: string;
                 };
+                const answer =
+                  (res?.reply && String(res.reply).trim()) ||
+                  "Je n'ai pas pu formuler de réponse. Réessayez ou dites « inventaire ».";
+                setLocalChat((c) => [
+                  ...c,
+                  {
+                    id: `a-${Date.now()}`,
+                    role: "assistant",
+                    body: answer,
+                  },
+                ]);
                 if (res?.learned) {
                   toast.success("Tâche apprise par le bot");
                 }
@@ -880,7 +924,7 @@ export function FloatingAssistant() {
                     if (!open) setIdleEmotion("idle");
                   }, 4500);
                 }
-                const spoken = res?.reply ?? "";
+                const spoken = answer;
                 if (spoken && voiceOn) {
                   setSpeaking(true);
                   setIdleEmotion((prev) =>
@@ -1003,9 +1047,17 @@ export function FloatingAssistant() {
                   }
                 }
               } catch (err) {
-                toast.error(
-                  err instanceof Error ? err.message : "Assistant indisponible",
-                );
+                const errMsg =
+                  err instanceof Error ? err.message : "Assistant indisponible";
+                setLocalChat((c) => [
+                  ...c,
+                  {
+                    id: `e-${Date.now()}`,
+                    role: "assistant",
+                    body: errMsg,
+                  },
+                ]);
+                toast.error(errMsg);
               } finally {
                 setBusy(false);
               }
