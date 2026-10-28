@@ -590,6 +590,7 @@ export function SendDocument({
               if (!arriveeLe.trim()) return false;
               if (!duField.trim()) return false;
               if (!dateCourrier.trim()) return false;
+              if (dateCourrier.trim() > arriveeLe.trim()) return false;
               if (!objet.trim()) return false;
               if (selectedTasks.length === 0 && !customTask.trim()) return false;
               return true;
@@ -614,6 +615,12 @@ export function SendDocument({
     }
     if (!dateCourrier.trim()) {
       toast.error("Indiquez la date du courrier.");
+      return;
+    }
+    if (arriveeLe.trim() && dateCourrier.trim() && dateCourrier.trim() > arriveeLe.trim()) {
+      toast.error(
+        "La date du courrier doit être antérieure ou égale à la date d'arrivée.",
+      );
       return;
     }
     if (!objet.trim()) {
@@ -686,7 +693,7 @@ export function SendDocument({
           ? { label: "Émetteur", value: duField.trim(), source: "manual" as const }
           : null,
         dateCourrier.trim()
-          ? { label: "Date", value: dateCourrier.trim(), source: "manual" as const }
+          ? { label: "Date du courrier", value: dateCourrier.trim(), source: "manual" as const }
           : null,
       ].filter(Boolean) as Array<{
         label: string;
@@ -1435,7 +1442,7 @@ export function SendDocument({
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="dateCourrier">
-                    Date
+                    Date du courrier
                     <span className="ml-1 text-destructive" aria-hidden>
                       *
                     </span>
@@ -1444,6 +1451,7 @@ export function SendDocument({
                     id="dateCourrier"
                     type="date"
                     value={dateCourrier}
+                    max={arriveeLe.trim() || undefined}
                     onChange={(e) => setDateCourrier(e.target.value)}
                   />
                 </div>
@@ -1590,7 +1598,7 @@ export function SendDocument({
                   ) : null}
                   {dateCourrier.trim() ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="shrink-0 text-muted-foreground">Date</dt>
+                      <dt className="shrink-0 text-muted-foreground">Date du courrier</dt>
                       <dd className="text-right font-medium">{dateCourrier}</dd>
                     </div>
                   ) : null}
