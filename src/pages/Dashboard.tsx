@@ -104,8 +104,19 @@ export default function Dashboard() {
       const detail = (e as CustomEvent<{ view?: AppView }>).detail;
       if (detail?.view) setView(detail.view);
     };
+    const onOpenDoc = (e: Event) => {
+      const detail = (e as CustomEvent<{ documentId?: string }>).detail;
+      if (detail?.documentId) {
+        setView("inbox");
+        setOpenDocumentId(detail.documentId as Id<"documents">);
+      }
+    };
     window.addEventListener("scandoc:navigate", onNav);
-    return () => window.removeEventListener("scandoc:navigate", onNav);
+    window.addEventListener("scandoc:open-document", onOpenDoc);
+    return () => {
+      window.removeEventListener("scandoc:navigate", onNav);
+      window.removeEventListener("scandoc:open-document", onOpenDoc);
+    };
   }, []);
 
   // Attendre le statut de compte (syncProfile).

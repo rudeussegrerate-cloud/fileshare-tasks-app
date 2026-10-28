@@ -900,8 +900,15 @@ export function FloatingAssistant() {
                 const res = await ask({ message: msg }) as {
                   reply?: string;
                   action?: string | null;
+                  openDocumentId?: string | null;
                   learned?: boolean;
                   emotion?: string;
+                  mailBrief?: {
+                    unread?: number;
+                    overdue?: number;
+                    urgent?: number;
+                    received?: number;
+                  } | null;
                 };
                 const answer =
                   (res?.reply && String(res.reply).trim()) ||
@@ -955,6 +962,10 @@ export function FloatingAssistant() {
                     filter_urgent: "inbox",
                     filter_unread: "inbox",
                     inventory: "inbox",
+                    open_latest_received: "inbox",
+                    open_latest_unread: "inbox",
+                    open_latest_urgent: "inbox",
+                    open_latest_overdue: "inbox",
                   };
                   // Préférences liste (tri / filtre) pour l'assistant
                   if (
@@ -992,11 +1003,23 @@ export function FloatingAssistant() {
                       new CustomEvent("scandoc:docs-prefs", { detail: prefs }),
                     );
                   }
+                  if (res?.openDocumentId) {
+                    toast.success("Ouverture du courrier…");
+                    window.dispatchEvent(
+                      new CustomEvent("scandoc:open-document", {
+                        detail: { documentId: res.openDocumentId },
+                      }),
+                    );
+                  }
                   const view = map[action];
                   if (view) {
                     setOpen(false);
                     setIdleEmotion("excited");
-                    toast.message("Suivez-moi…");
+                    toast.message(
+                      action.startsWith("open_") || action.startsWith("filter_") || action.startsWith("sort_")
+                        ? "Action en cours…"
+                        : "Suivez-moi…",
+                    );
                     window.dispatchEvent(
                       new CustomEvent("scandoc:navigate", {
                         detail: { view },

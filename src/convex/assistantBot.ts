@@ -56,7 +56,11 @@ type SiteAction =
   | "filter_overdue"
   | "filter_urgent"
   | "filter_unread"
-  | "inventory";
+  | "inventory"
+  | "open_latest_received"
+  | "open_latest_unread"
+  | "open_latest_urgent"
+  | "open_latest_overdue";
 
 type BotEmotion =
   | "idle"
@@ -169,6 +173,20 @@ function detectSiteAction(text: string): SiteAction {
   ) {
     return "filter_unread";
   }
+  if (
+    /ouvrir (le |mon )?dernier courrier|dernier recu|ouvre le dernier/.test(q)
+  ) {
+    return "open_latest_received";
+  }
+  if (/ouvrir (le |un )?non lu|premier non lu|ouvre.*non lu/.test(q)) {
+    return "open_latest_unread";
+  }
+  if (/ouvrir (le |un )?urgent|ouvre.*urgent/.test(q)) {
+    return "open_latest_urgent";
+  }
+  if (/ouvrir (le |un )?retard|ouvre.*en retard/.test(q)) {
+    return "open_latest_overdue";
+  }
   if (/tache|a traiter|rappel|en retard|non fini/.test(q)) {
     return "remind_tasks";
   }
@@ -242,6 +260,10 @@ function guideLine(action: SiteAction): string {
     filter_urgent: "Je filtre les courriers **urgents**.",
     filter_unread: "Je filtre les courriers **non lus**.",
     inventory: "Voici l'**inventaire** de vos courriers.",
+    open_latest_received: "J'ouvre votre **dernier courrier reçu**.",
+    open_latest_unread: "J'ouvre un courrier **non lu**.",
+    open_latest_urgent: "J'ouvre un courrier **urgent**.",
+    open_latest_overdue: "J'ouvre un courrier **en retard**.",
   };
   return lines[action] ?? "";
 }
@@ -376,6 +398,10 @@ export const ask = action({
         status: string;
         urgent: boolean;
       }>;
+      latestReceivedId?: string | null;
+      latestUnreadId?: string | null;
+      latestUrgentId?: string | null;
+      latestOverdueId?: string | null;
     };
     let mailBrief: MailBrief | null = null;
     try {
@@ -418,8 +444,14 @@ ${guideLine("inventory")}`;
       return {
         reply,
         action: "inventory",
+        openDocumentId: null as string | null,
         emotion: "look" as BotEmotion,
-        mailBrief,
+        mailBrief: {
+          unread: mailBrief.unread,
+          overdue: mailBrief.overdue,
+          urgent: mailBrief.urgent,
+          received: mailBrief.received,
+        },
       };
     }
 
@@ -545,11 +577,49 @@ ${navHint}`,
       console.error("[assistantBot.ask] saveExchange:", e);
     }
 
+    // Identifiant document pour ouverture visuelle
+    let openDocumentId: string | null = null;
+    if (mailBrief) {
+      if (action === "open_latest_received")
+        openDocumentId = mailBrief.latestReceivedId ?? null;
+      if (action === "open_latest_unread")
+        openDocumentId = mailBrief.latestUnreadId ?? null;
+      if (action === "open_latest_urgent")
+        openDocumentId = mailBrief.latestUrgentId ?? null;
+      if (action === "open_latest_overdue")
+        openDocumentId = mailBrief.latestOverdueId ?? null;
+    }
+    if (
+      (action === "open_latest_received" ||
+        action === "open_latest_unread" ||
+        action === "open_latest_urgent" ||
+        action === "open_latest_overdue") &&
+      !openDocumentId
+    ) {
+      reply = `${name} : je ne trouve aucun courrier correspondant dans vos données pour le moment.`;
+    } else if (openDocumentId && action !== "reply") {
+      const g = guideLine(action);
+      if (g && !reply.includes("ouvre")) {
+        reply = `${reply}
+
+${g}`;
+      }
+    }
+
     return {
       reply,
       action: action === "reply" ? null : action,
+      openDocumentId,
       learned: false,
       emotion,
+      mailBrief: mailBrief
+        ? {
+            unread: mailBrief.unread,
+            overdue: mailBrief.overdue,
+            urgent: mailBrief.urgent,
+            received: mailBrief.received,
+          }
+        : null,
     };
   },
 });
