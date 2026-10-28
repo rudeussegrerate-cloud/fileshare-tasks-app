@@ -140,7 +140,7 @@ export function FileManagerView({
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
                     {structureSender(doc)} → {structureRecipient(doc)}
-                    {doc.hasCircuit ? " · circuit" : ""}
+                    ""
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     {formatDateTime(doc.updatedAt ?? doc.createdAt)}

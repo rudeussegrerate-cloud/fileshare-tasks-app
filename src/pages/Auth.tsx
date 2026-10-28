@@ -553,7 +553,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             Votre espace de travail documentaire, en un seul endroit.
           </p>
           <ul className="mt-8 flex flex-wrap gap-2">
-            {["Courriers", "Circuits", "Structures", "Suivi"].map((chip) => (
+            {["Courriers", "Structures", "Suivi", "Documents"].map((chip) => (
               <li
                 key={chip}
                 className="rounded-full border border-white/30 bg-white/10 px-3 py-1 text-xs font-medium text-white/90 backdrop-blur-sm"

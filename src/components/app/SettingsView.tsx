@@ -466,7 +466,7 @@ const stats = useQuery(api.documents.stats);
                 <li>· Nouvel envoi</li>
                 <li>· Boîte de réception</li>
                 <li>· Envoyés</li>
-                <li>· Suivi &amp; circuits</li>
+                <li>· Suivi des courriers</li>
                 <li>· Recherche fichiers</li>
               </ul>
             </div>

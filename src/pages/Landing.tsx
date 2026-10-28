@@ -199,7 +199,7 @@ export default function Landing() {
                 en route.
               </h1>
               <p className="mt-5 max-w-xl text-base leading-relaxed text-white/75">
-                ScanDoc digitalise le circuit du courrier interne : l'émetteur
+                ScanDoc digitalise le courrier interne : l'émetteur
                 dépose un fichier et précise la tâche à réaliser, le
                 destinataire reçoit un résumé automatique et met à jour le
                 statut du traitement.
@@ -318,7 +318,7 @@ export default function Landing() {
               Fonctionnalités
             </p>
             <h2 className="mt-2 text-3xl font-bold tracking-tight">
-              Le circuit du courrier interne, enfin traçable
+              Le courrier interne, enfin traçable
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               ScanDoc remplace les envois informels par un flux clair : chaque

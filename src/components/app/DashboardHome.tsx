@@ -1122,9 +1122,7 @@ function DepartmentPanel({
                           : "Interne"}
                       {" · "}
                       {structureSender(doc as any)} → {structureRecipient(doc as any)}
-                      {doc.hasCircuit
-                        ? ` · circuit ${doc.currentStepIndex + 1}/${doc.circuitTotalSteps || "?"}`
-                        : ""}
+                      ""
                     </p>
                   </div>
                   <div className="shrink-0 text-right">

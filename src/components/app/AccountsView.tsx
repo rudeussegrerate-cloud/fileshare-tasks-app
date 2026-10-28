@@ -151,7 +151,7 @@ export function AccountsView() {
             Zone sensible — documents uniquement
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Supprime tous les dossiers, circuits, fichiers et historiques liés.
+            Supprime tous les dossiers, fichiers et historiques liés.
             Ne touche pas aux comptes, départements, annonces ni messages.
           </p>
           <Button

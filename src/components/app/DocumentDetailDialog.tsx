@@ -24,7 +24,6 @@ import {
   RefreshCw,
   Sparkles,
   CheckCircle2,
-  Reply,
   Trash2,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -41,7 +40,6 @@ import {
   type DocumentStatus,
   PREDEFINED_TASKS,
 } from "./shared";
-import { ReplyComposer } from "./ReplyComposer";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -65,9 +63,6 @@ export function DocumentDetailDialog({
   );
   const markViewed = useMutation(api.documents.markViewed);
   const setStatus = useMutation(api.documents.setStatus);
-  const completeStep = useMutation(api.documents.completeStep);
-  const [stepNote, setStepNote] = useState("");
-
   const archiveDoc = useMutation(api.documents.archive);
   const unarchiveDoc = useMutation(api.documents.unarchive);
   const removeDoc = useMutation(api.documents.remove);
@@ -179,7 +174,6 @@ export function DocumentDetailDialog({
   const viewedRef = useRef<Id<"documents"> | null>(null);
   const [showAudit, setShowAudit] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [replyOpen, setReplyOpen] = useState(false);
 
   // Opening a courrier counts as consulting it for the sender.
   useEffect(() => {
@@ -477,42 +471,6 @@ export function DocumentDetailDialog({
               </section>
             ) : null}
 
-            {!documentOrNull.isSender &&
-            documentOrNull.relativeTracking ? (
-              <section className="rounded-lg border border-brand/20 bg-brand-soft/40 p-3 text-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  Votre suivi (relatif)
-                </p>
-                <p className="mt-1">
-                  <span className="text-muted-foreground">Recevoir de · </span>
-                  <span className="font-medium">
-                    {documentOrNull.relativeTracking.receiveFrom}
-                  </span>
-                </p>
-                {documentOrNull.relativeTracking.sendTo ? (
-                  <p>
-                    <span className="text-muted-foreground">Puis transmettre à · </span>
-                    <span className="font-medium">
-                      {documentOrNull.relativeTracking.sendTo}
-                    </span>
-                  </p>
-                ) : (
-                  <p className="text-muted-foreground">
-                    Votre validation classe le courrier.
-                  </p>
-                )}
-                <p className="mt-2 text-xs">
-                  {documentOrNull.relativeTracking.isMyTurn
-                    ? "C'est votre tour de traiter ce courrier."
-                    : documentOrNull.relativeTracking.waitingForPrevious
-                      ? "En attente de la personne précédente."
-                      : documentOrNull.relativeTracking.myStatus === "done"
-                        ? "Vous avez déjà validé votre étape."
-                        : "En attente de traitement."}
-                </p>
-              </section>
-            ) : null}
-
             <Separator />
 
 
@@ -680,154 +638,8 @@ export function DocumentDetailDialog({
               </div>
             </section>
 
-                        
-
-            {documentOrNull.canReply ? (
-              <div className="space-y-2 rounded-lg border border-brand/30 bg-brand-soft/40 p-3">
-                <p className="text-xs text-muted-foreground">
-                  Générez un courrier de réponse (champs + aperçu éditable),
-                  puis imprimez, téléchargez ou envoyez à l&apos;expéditeur.
-                </p>
-                <Button
-                  type="button"
-                  className="w-full gap-2 sm:w-auto"
-                  onClick={() => setReplyOpen(true)}
-                >
-                  <Reply className="size-4" />
-                  Rédiger une réponse
-                </Button>
-              </div>
-            ) : null}
-
             {documentOrNull.canUpdateStatus || documentOrNull.isRecipient ? (
               <section className="space-y-3">
-                {documentOrNull.isSender && documentOrNull.hasCircuit && Array.isArray(documentOrNull.steps) && documentOrNull.steps.length > 1 ? (
-                  <div className="rounded-lg border border-border bg-muted/20 p-3">
-                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Circuit de traitement ({(documentOrNull.currentStepIndex ?? 0) + 1}/
-                      {documentOrNull.circuitTotalSteps ?? documentOrNull.steps.length})
-                    </h4>
-                    <ol className="mt-2 space-y-1.5">
-                      {documentOrNull.steps.map((s: {
-                        stepIndex: number;
-                        assigneeName: string;
-                        status: string;
-                        note?: string | null;
-                        isMine?: boolean;
-                      }) => (
-                        <li
-                          key={s.stepIndex}
-                          className={cn(
-                            "flex items-start gap-2 rounded-md px-2 py-1.5 text-sm",
-                            s.status === "active" && "bg-brand-soft/60",
-                            s.status === "done" && "opacity-80",
-                          )}
-                        >
-                          <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-bold">
-                            {s.stepIndex + 1}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="font-medium">{s.assigneeName}</span>
-                            {s.isMine ? (
-                              <span className="ml-1 text-[10px] text-brand">(vous)</span>
-                            ) : null}
-                            <span className="mt-0.5 block text-[11px] text-muted-foreground">
-                              {s.status === "waiting"
-                                ? "En attente"
-                                : s.status === "active"
-                                  ? "À traiter maintenant"
-                                  : s.status === "done"
-                                    ? "Validé"
-                                    : "Refusé"}
-                              {s.note ? ` — ${s.note}` : ""}
-                            </span>
-                          </span>
-                        </li>
-                      ))}
-                    </ol>
-                    {documentOrNull.canActOnStep ? (
-                      <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
-                        <p className="text-xs text-muted-foreground">
-                          C&apos;est votre tour. Validez pour passer à l&apos;étape suivante,
-                          ou refusez pour signaler un problème.
-                        </p>
-                        <textarea
-                          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                          rows={2}
-                          placeholder="Note optionnelle (avis, réserve…)"
-                          value={stepNote}
-                          onChange={(e) => setStepNote(e.target.value)}
-                        />
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="gap-1.5"
-                            disabled={busy}
-                            onClick={async () => {
-                              if (!documentId) return;
-                              setBusy(true);
-                              try {
-                                const res = await completeStep({
-                                  documentId,
-                                  decision: "done",
-                                  note: stepNote.trim() || undefined,
-                                });
-                                setStepNote("");
-                                if (res?.done) {
-                                  toast.success("Circuit terminé — courrier traité");
-                                } else if (res?.advanced) {
-                                  toast.success(
-                                    `Étape validée → ${res.nextAssignee ?? "suivant"}`,
-                                  );
-                                } else {
-                                  toast.success("Étape validée");
-                                }
-                              } catch (e) {
-                                toast.error(
-                                  e instanceof Error ? e.message : "Erreur",
-                                );
-                              } finally {
-                                setBusy(false);
-                              }
-                            }}
-                          >
-                            <CheckCircle2 className="size-3.5" />
-                            Valider mon étape
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={async () => {
-                              if (!documentId) return;
-                              setBusy(true);
-                              try {
-                                await completeStep({
-                                  documentId,
-                                  decision: "rejected",
-                                  note: stepNote.trim() || undefined,
-                                });
-                                setStepNote("");
-                                toast.message("Étape refusée — expéditeur notifié");
-                              } catch (e) {
-                                toast.error(
-                                  e instanceof Error ? e.message : "Erreur",
-                                );
-                              } finally {
-                                setBusy(false);
-                              }
-                            }}
-                          >
-                            Refuser
-                          </Button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
-
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   <span data-scandoc-tour="doc-status">
                     Traitement du courrier
@@ -1042,25 +854,6 @@ export function DocumentDetailDialog({
         )}
       </DialogContent>
     </Dialog>
-      <ReplyComposer
-        open={replyOpen}
-        onOpenChange={setReplyOpen}
-        parent={
-          documentOrNull && documentOrNull.canReply
-            ? {
-                documentId: documentOrNull._id,
-                objet: documentOrNull.objet,
-                publicRef: documentOrNull.publicRef,
-                fileName: documentOrNull.fileName,
-                senderId: (documentOrNull as { senderId?: import("@/convex/_generated/dataModel").Id<"users"> }).senderId ?? null,
-                senderName: (documentOrNull as { senderName?: string }).senderName ?? null,
-                summary: (documentOrNull as { summary?: string | null }).summary ?? null,
-                extractedText: (documentOrNull as { extractedText?: string | null }).extractedText ?? null,
-                observations: (documentOrNull as { observations?: string | null }).observations ?? null,
-              }
-            : null
-        }
-      />
-    </>
+</>
   );
 }

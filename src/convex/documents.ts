@@ -894,9 +894,9 @@ export const send = mutation({
       referenceText,
       requiresResponse: args.requiresResponse === true,
       urgent: args.urgent === true ? true : undefined,
-      hasCircuit: circuitUsers.length > 1,
+      hasCircuit: false,
       currentStepIndex: 0,
-      circuitTotalSteps: circuitUsers.length,
+      circuitTotalSteps: 0,
       stepDeadlineHours: Math.min(
         168,
         Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
@@ -911,8 +911,8 @@ export const send = mutation({
       168,
       Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
     );
-    // Créer les étapes du circuit (structure et/ou personne)
-    for (let i = 0; i < circuitNodes.length; i++) {
+    // Circuit désactivé : pas d'étapes séquentielles
+    for (let i = 0; i < 0; i++) {
       const node = circuitNodes[i]!;
       const u = node.user;
       const isFirst = i === 0;
@@ -3342,122 +3342,15 @@ export const alertActiveStep = mutation({
  */
 export const circuitTracking = query({
   args: {},
-  handler: async (ctx) => {
-    try {
-      const userId = await getAuthUserId(ctx);
-      if (!userId) return null;
-      const me = await ctx.db.get(userId);
-      if (!me) return null;
-      const isAdmin = isAdminRole(me.role);
-
-      let docs = await ctx.db.query("documents").collect();
-      docs = docs.filter((d) => !d.archivedAt);
-
-      if (!isAdmin) {
-        const myStepDocIds = new Set<string>();
-        try {
-          const allSteps = await ctx.db.query("documentSteps").collect();
-          for (const s of allSteps) {
-            if (s.assigneeId === userId) myStepDocIds.add(String(s.documentId));
-          }
-        } catch {
-          /* ignore */
-        }
-        docs = docs.filter(
-          (d) =>
-            d.senderId === userId ||
-            d.recipientId === userId ||
-            myStepDocIds.has(String(d._id)),
-        );
-      }
-
-      const now = Date.now();
-      const items = [];
-      for (const d of docs) {
-        let steps: Doc<"documentSteps">[] = [];
-        try {
-          steps = (
-            await ctx.db
-              .query("documentSteps")
-              .withIndex("by_document", (q) => q.eq("documentId", d._id))
-              .collect()
-          ).sort((a, b) => a.stepIndex - b.stepIndex);
-        } catch {
-          steps = [];
-        }
-        const active = steps.find((s) => s.status === "active") ?? null;
-        const stepHours = d.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS;
-        const stepDueAt =
-          active?.dueAt ??
-          (active?.activatedAt
-            ? active.activatedAt + stepHours * 3600 * 1000
-            : null) ??
-          d.dueAt ??
-          null;
-        const age = now - (d.createdAt ?? d._creationTime);
-        const stepOverdue =
-          d.status !== "traite" && stepDueAt != null && now > stepDueAt;
-        const globalOverdue =
-          d.status !== "traite" &&
-          ((d.dueAt != null && now > d.dueAt) ||
-            age > stepHours * 3600 * 1000 * Math.max(1, steps.length || 1));
-        const overdue = stepOverdue || globalOverdue;
-        let category: "en_attente" | "en_cours" | "en_retard" | "termines" =
-          "en_cours";
-        if (d.status === "traite") category = "termines";
-        else if (overdue) category = "en_retard";
-        else if (d.status === "envoye" || (active && active.stepIndex === 0))
-          category = "en_attente";
-        else category = "en_cours";
-
-        const msLeft = stepDueAt != null ? stepDueAt - now : null;
-        items.push({
-          _id: d._id,
-          publicRef: d.publicRef ?? null,
-          objet: d.objet,
-          fileName: d.fileName,
-          status: d.status,
-          senderId: d.senderId,
-          senderName: d.senderName,
-          recipientName: d.recipientName,
-          hasCircuit: Boolean(d.hasCircuit) || steps.length > 1,
-          currentStepIndex: d.currentStepIndex ?? active?.stepIndex ?? 0,
-          circuitTotalSteps: d.circuitTotalSteps ?? steps.length,
-          activeAssigneeName: active?.assigneeName ?? d.recipientName,
-          activeDepartment: active?.assigneeDepartmentName ?? null,
-          isSender: d.senderId === userId,
-          isMyTurn: active?.assigneeId === userId,
-          canAlert:
-            (d.senderId === userId || isAdmin) &&
-            d.status !== "traite" &&
-            Boolean(active),
-          category,
-          dueAt: stepDueAt,
-          globalDueAt: d.dueAt ?? null,
-          stepDeadlineHours: stepHours,
-          hoursLeft:
-            msLeft == null
-              ? null
-              : Math.round((msLeft / 3600000) * 10) / 10,
-          isOverdue: overdue,
-          createdAt: d.createdAt ?? d._creationTime,
-          updatedAt: d.updatedAt ?? d.createdAt,
-        });
-      }
-
-      items.sort((a, b) => b.updatedAt - a.updatedAt);
-
-      return {
-        en_attente: items.filter((i) => i.category === "en_attente"),
-        en_cours: items.filter((i) => i.category === "en_cours"),
-        en_retard: items.filter((i) => i.category === "en_retard"),
-        termines: items.filter((i) => i.category === "termines"),
-        all: items,
-      };
-    } catch (e) {
-      console.error("[circuitTracking]", e);
-      return null;
-    }
+  handler: async () => {
+    // Circuit de courrier désactivé pour tous les comptes
+    return {
+      en_attente: [],
+      en_cours: [],
+      en_retard: [],
+      termines: [],
+      all: [],
+    };
   },
 });
 
