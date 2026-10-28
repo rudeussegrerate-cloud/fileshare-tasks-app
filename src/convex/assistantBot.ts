@@ -7,24 +7,33 @@ import { action } from "./_generated/server";
 
 const SITE_HELP = `
 Tu es l'assistant personnel de l'utilisateur dans ScanDoc (courriers MNDPT).
-Tu es interactif, proactif et orienté action.
 
-MISSION :
-- Alerter sur courriers en retard, urgents, non lus ou nouveaux
-- Inventaire des courriers (reçus / envoyés)
-- Recherche et filtres (retard, urgent, non lu)
-- Réorganiser l'affichage (plus récents, plus urgents) via des actions
-- Guider vers les menus du site
+PÉRIMÈTRE STRICT — tu ne réponds QU'aux questions liées à ScanDoc :
+- navigation et menus du site
+- envoi, réception, réponse, classement de courriers
+- retards, urgents, non lus, inventaire, filtres, tri
+- structures / directions / services, comptes, paramètres liés à ScanDoc
+- aide sur les écrans et boutons de l'application
 
-MENUS : Accueil, Nouveau courrier, Courriers reçus, Courriers envoyés, Recherche, Structures, Paramètres, Comptes (DG)
+INTERDIT :
+- culture générale, actualités, sport, politique, cuisine, code hors ScanDoc
+- devoirs scolaires, blagues hors contexte, conseil personnel non lié au site
+- toute question sans rapport avec l'utilisation de ScanDoc
 
-STATUTS : Non lu, Lu, En traitement, En retard, Classé
+Si hors sujet : refuse poliment en 1–2 phrases et propose une aide ScanDoc
+(ex. « inventaire », « courriers reçus », « nouveau courrier »). Ne réponds pas au fond hors sujet.
+
+MISSION (dans le périmètre) :
+- Alerter sur retards / urgents / non lus
+- Inventaire, recherche, filtres, tri
+- Guider vers les menus
+
+MENUS : Accueil, Nouveau courrier, Courriers reçus / envoyés, Recherche, Structures, Paramètres, Comptes (DG)
 
 RÈGLES :
 1. Français clair, 2 à 6 phrases.
-2. Utilise les chiffres fournis dans le CONTEXTE COURRIER (ne les invente pas).
-3. Propose une action concrète (ouvrir reçus, trier, filtrer).
-4. Tu es l'assistant de CET utilisateur, pas un guide générique uniquement.
+2. Chiffres uniquement depuis CONTEXTE COURRIER.
+3. Action concrète dans ScanDoc quand c'est possible.
 `;
 
 type SiteAction =
@@ -166,6 +175,38 @@ function detectSiteAction(text: string): SiteAction {
   return "reply";
 }
 
+
+/** Questions hors ScanDoc → refus (sauf salutation / apprentissage / commande site). */
+function isSiteRelated(text: string): boolean {
+  const q = text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .trim();
+  if (q.length < 2) return true;
+  // Salutations / politesse courte
+  if (
+    /^(bonjour|bonsoir|salut|hello|merci|ok|daccord|d'accord|oui|non)[\s!?.]*$/i.test(
+      q,
+    )
+  ) {
+    return true;
+  }
+  // Apprentissage de compétences
+  if (/^apprends\s*:/i.test(text.trim()) || /quand je dis/i.test(q)) {
+    return true;
+  }
+  const siteHints =
+    /scandoc|courrier|document|envoi|envoyer|recu|recus|envoye|boite|inbox|dashboard|tableau de bord|menu|parametre|departement|direction|service|structure|classer|traiter|retard|urgent|non lu|inventaire|filtre|trier|recherche|connexion|login|compte|notification|fichier|repondre|objet|reference|n°|numero|mndpt|assistant|bot|aide|comment|ou (est|sont|trouver|ouvrir)|ouvrir|afficher|voir mes|mes courriers|nouveau courrier|transmission/;
+  if (siteHints.test(q)) return true;
+  // Action détectée = liée au site
+  if (detectSiteAction(text) !== "reply") return true;
+  return false;
+}
+
+const OFF_TOPIC_REPLY =
+  "Je suis l'assistant ScanDoc : je ne réponds qu'aux questions sur ce site (courriers, menus, retards, envoi…). Essayez par exemple : « inventaire », « voir les retards » ou « comment envoyer un courrier ».";
+
 function detectEmotion(text: string, mood: string): BotEmotion {
   const q = text.toLowerCase();
   if (/merci|super|genial|parfait|bravo/.test(q)) return "happy";
@@ -302,9 +343,18 @@ export const ask = action({
     const message = args.message.trim().slice(0, 1000);
     if (!message) {
       return {
-        reply: "Écrivez votre question, je vous guide.",
+        reply: "Écrivez votre question, je vous guide sur ScanDoc.",
         action: null,
         emotion: "curious" as BotEmotion,
+      };
+    }
+
+    // Hors sujet : ne pas appeler l'IA ni inventer une réponse générale
+    if (!isSiteRelated(message)) {
+      return {
+        reply: OFF_TOPIC_REPLY,
+        action: null as string | null,
+        emotion: "look" as BotEmotion,
       };
     }
 
@@ -462,6 +512,9 @@ ${guideLine("inventory")}`;
           {
             role: "system",
             content: `${SITE_HELP}
+
+RAPPEL FINAL : si la question n'est pas liée à ScanDoc, réponds uniquement par un refus poli et recentre sur le site. Ne fournis aucune information hors sujet.
+
 
 Ton nom : ${name}.
 Humeur : ${mood}.
