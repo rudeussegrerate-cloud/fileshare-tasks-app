@@ -369,8 +369,8 @@ export function DocumentsList({
             showArchived
               ? "Les courriers archivés apparaîtront ici."
               : mode === "inbox"
-                ? "Les courriers destinés à votre structure apparaîtront ici."
-                : "Transmettez un fichier avec la tâche à réaliser pour le voir apparaître ici."
+                ? "Votre boîte de réception est vide."
+                : "Aucun envoi pour le moment."
           }
           action={
             !showArchived && onCreate ? (
@@ -383,48 +383,83 @@ export function DocumentsList({
         />
       ) : (
         <>
-          <ul className="space-y-2">
+          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             {documents.map((document) => {
               const counterpart =
                 mode === "inbox"
                   ? structureSender(document)
                   : structureRecipient(document);
-              const title =
+              const subject =
                 (document.objet && document.objet.trim()) || document.fileName;
-              const fileUrl = (document as { fileUrl?: string | null }).fileUrl;
+              const unread =
+                mode === "inbox" && document.status === "envoye";
+              const urgent =
+                Boolean((document as { urgent?: boolean }).urgent) &&
+                document.status !== "traite";
+              const preview =
+                (document.summary && document.summary.trim()) ||
+                (document.publicRef ? `Réf. ${document.publicRef}` : "") ||
+                document.fileName;
               return (
                 <li key={document._id}>
                   <button
                     type="button"
                     onClick={() => onOpen(document._id)}
                     className={cn(
-                      "sc-mail-row group flex w-full items-start gap-3 p-3 text-left sm:gap-4 sm:p-4",
-                      document.archivedAt && "opacity-70",
+                      "group flex w-full items-start gap-3 px-3 py-3 text-left transition-colors sm:gap-4 sm:px-4",
+                      "hover:bg-muted/50",
+                      unread && "bg-brand-soft/30",
+                      document.archivedAt && "opacity-60",
                     )}
                   >
-                    <FileThumb
-                      fileName={document.fileName}
-                      contentType={document.contentType}
-                      fileUrl={fileUrl}
-                    />
+                    <div
+                      className={cn(
+                        "mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
+                        unread
+                          ? "bg-brand text-primary-foreground"
+                          : "bg-muted text-muted-foreground",
+                      )}
+                      aria-hidden
+                    >
+                      {(counterpart || "?").slice(0, 1).toUpperCase()}
+                    </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-sm font-semibold text-foreground">
-                          {title}
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p
+                          className={cn(
+                            "truncate text-sm",
+                            unread
+                              ? "font-semibold text-foreground"
+                              : "font-medium text-foreground",
+                          )}
+                        >
+                          {counterpart || "—"}
                         </p>
-                        <MailKindBadge
-                          kind={
-                            (document as { mailKind?: string }).mailKind
-                          }
-                        />
-                        {(document as { urgent?: boolean }).urgent && document.status !== "traite" ? (
-                          <Badge
-                            variant="outline"
-                            className="border-red-500/50 bg-red-500/10 text-red-700"
-                          >
+                        <time className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                          {formatDateTime(document.createdAt)}
+                        </time>
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                        {urgent ? (
+                          <span className="text-[10px] font-semibold uppercase tracking-wide text-red-600">
                             Urgent
-                          </Badge>
+                          </span>
                         ) : null}
+                        <p
+                          className={cn(
+                            "truncate text-sm",
+                            unread
+                              ? "font-semibold text-foreground"
+                              : "text-foreground/90",
+                          )}
+                        >
+                          {subject}
+                        </p>
+                      </div>
+                      <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                        {preview}
+                      </p>
+                      <div className="mt-1.5">
                         <StatusBadge
                           asRecipient={mode === "inbox"}
                           status={
@@ -432,68 +467,16 @@ export function DocumentsList({
                               String(document.status),
                             )
                               ? document.status
-                              : "envoye") as "envoye" | "consulte" | "en_cours" | "en_retard" | "traite"
+                              : "envoye") as
+                              | "envoye"
+                              | "consulte"
+                              | "en_cours"
+                              | "en_retard"
+                              | "traite"
                           }
                         />
-                        {document.archivedAt ? (
-                          <Badge
-                            variant="outline"
-                            className="gap-1 border-border text-[10px] font-medium text-muted-foreground"
-                          >
-                            <Archive className="size-3" />
-                            Archivé
-                          </Badge>
-                        ) : null}
-                        {document.summaryStatus === "en_attente" ? (
-                          <Badge
-                            variant="outline"
-                            className="gap-1 border-border text-[10px] font-medium text-muted-foreground"
-                          >
-                            <Loader2 className="size-3 animate-spin" />
-                            résumé…
-                          </Badge>
-                        ) : null}
                       </div>
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {mode === "inbox" ? "De" : "À"} {counterpart}
-                        {" · "}
-                        {formatDateTime(document.createdAt)} ·{" "}
-                        {formatBytes(document.size)}
-                      </p>
-                      {document.publicRef ? (
-                        <p className="text-[11px] font-mono text-muted-foreground">
-                          {document.publicRef}
-                        </p>
-                      ) : null}
-                      {document.fileName &&
-                      document.objet &&
-                      document.fileName !== document.objet ? (
-                        <p className="mt-1 truncate text-[11px] text-muted-foreground">
-                          Fichier : {document.fileName}
-                        </p>
-                      ) : null}
-                      {mode === "sent" && document.hasCircuit ? (
-                        <p className="mt-1 text-xs font-medium text-amber-900">
-                          {document.status === "traite"
-                            ? "Traitement terminé"
-                            : `En cours chez ${structureRecipient(document)}`}
-                        </p>
-                      ) : null}
-                      <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-foreground/80">
-                        <span className="font-medium text-brand-sky">
-                          Tâches :{" "}
-                        </span>
-                        {document.tasks && document.tasks.length > 0
-                          ? document.tasks.join(" · ")
-                          : (document.task ?? "—")}
-                      </p>
-                      {document.summary ? (
-                        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground italic">
-                          {document.summary}
-                        </p>
-                      ) : null}
                     </div>
-                    <FileText className="mt-1 size-4 shrink-0 text-muted-foreground/40 transition-colors group-hover:text-brand-sky" />
                   </button>
                 </li>
               );

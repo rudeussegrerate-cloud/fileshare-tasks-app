@@ -8,7 +8,6 @@ import { DocumentDetailDialog } from "@/components/app/DocumentDetailDialog";
 import { DocumentsList } from "@/components/app/DocumentsList";
 import { ProfileSetup } from "@/components/app/ProfileSetup";
 import { SendDocument } from "@/components/app/SendDocument";
-import { FileManagerView } from "@/components/app/FileManagerView";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { SettingsView } from "@/components/app/SettingsView";
@@ -191,16 +190,7 @@ export default function Dashboard() {
         />
       ) : null}
 
-      {view === "transmit" ? (
-        <SendDocument
-          key="transmit"
-          mode="transmission"
-          onSent={() => setView("sent")}
-          onManageDepartments={() => setView("departments")}
-        />
-      ) : null}
-
-      {view === "inbox" ? (
+{view === "inbox" ? (
         <DocumentsList
           mode="inbox"
           onOpen={setOpenDocumentId}
@@ -215,16 +205,7 @@ export default function Dashboard() {
           onCreate={() => setView("send")}
         />
       ) : null}
-{view === "fichiers" ? (
-        <ViewErrorBoundary label="le gestionnaire de fichiers">
-          <FileManagerView
-            onOpen={setOpenDocumentId}
-            onSend={() => setView("send")}
-          />
-        </ViewErrorBoundary>
-      ) : null}
-
-      {view === "departments" ? (
+{view === "departments" ? (
         <ViewErrorBoundary label="les départements">
           <DepartmentsView />
         </ViewErrorBoundary>
