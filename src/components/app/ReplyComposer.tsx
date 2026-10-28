@@ -367,12 +367,13 @@ export function ReplyComposer({
         .filter((x) => x && String(x).trim())
         .join("\n\n");
       const res = await draftReplyBody({
+        documentId: parent.documentId,
         sourceText: source || parent.objet || parent.fileName || "",
         objet: parent.objet ?? undefined,
         publicRef: parent.publicRef ?? undefined,
         senderName: parent.senderName ?? undefined,
         intent:
-          "Rédiger le corps d'une réponse administrative au courrier reçu, en lien avec son contenu.",
+          "Rédiger le corps d'une réponse au courrier reçu en s'appuyant strictement sur son contenu (texte, résumé, objet).",
       });
       if (res?.body) {
         updateField("corps", res.body);

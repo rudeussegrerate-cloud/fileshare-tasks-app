@@ -2,6 +2,7 @@
 
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 import { action } from "./_generated/server";
 import { groqChat } from "./lib/groq";
 
@@ -304,10 +305,11 @@ export const generateDraft = action({
   },
 });
 
-/** Corps de réponse (texte) à partir du courrier d'origine — pour le formulaire de réponse. */
+/** Corps de réponse à partir du courrier d'origine (chargé côté serveur). */
 export const draftReplyBody = action({
   args: {
-    sourceText: v.string(),
+    documentId: v.optional(v.id("documents")),
+    sourceText: v.optional(v.string()),
     objet: v.optional(v.string()),
     publicRef: v.optional(v.string()),
     senderName: v.optional(v.string()),
@@ -317,37 +319,80 @@ export const draftReplyBody = action({
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("Connexion requise.");
 
-    const source = args.sourceText.trim().slice(0, 16000);
-    if (source.length < 8 && !(args.objet ?? "").trim()) {
+    let objet = (args.objet ?? "").trim();
+    let publicRef = (args.publicRef ?? "").trim();
+    let senderName = (args.senderName ?? "").trim();
+    let source = (args.sourceText ?? "").trim();
+
+    if (args.documentId) {
+      const doc = await ctx.runQuery(api.documents.get, {
+        documentId: args.documentId,
+      });
+      if (!doc) {
+        throw new Error("Courrier d'origine introuvable ou inaccessible.");
+      }
+      const d = doc as {
+        objet?: string | null;
+        publicRef?: string | null;
+        senderName?: string | null;
+        summary?: string | null;
+        extractedText?: string | null;
+        observations?: string | null;
+        fileName?: string | null;
+        task?: string | null;
+        tasks?: string[] | null;
+      };
+      objet = objet || (d.objet ?? "").trim();
+      publicRef = publicRef || (d.publicRef ?? "").trim();
+      senderName = senderName || (d.senderName ?? "").trim();
+      const parts = [
+        d.summary,
+        d.extractedText,
+        d.observations,
+        d.task,
+        (d.tasks ?? []).join(" · "),
+        d.objet,
+        d.fileName,
+      ]
+        .filter((x) => x && String(x).trim())
+        .map((x) => String(x).trim());
+      const fromDoc = parts.join("\n\n");
+      if (fromDoc.length > source.length) source = fromDoc;
+    }
+
+    source = source.slice(0, 16000);
+    if (source.length < 8 && !objet) {
       throw new Error(
-        "Pas assez d'informations sur le courrier d'origine pour générer une réponse.",
+        "Pas assez d'informations sur le courrier d'origine pour générer une réponse. Ouvrez le document ou attendez le résumé.",
       );
     }
 
     const intent =
       args.intent?.trim() ||
-      "Rédiger une réponse administrative polie et professionnelle au courrier reçu.";
+      "Rédiger une réponse administrative qui traite explicitement le contenu du courrier reçu.";
 
     const system = `Tu es un rédacteur de courriers administratifs pour le MNDPT (Madagascar).
-Rédige UNIQUEMENT le corps de la lettre de réponse en français (sans en-tête, sans N°, sans objet, sans signature).
-Structure typique :
-- Formule d'appel (Madame, Monsieur, / Monsieur le Directeur, …)
-- 1 à 3 paragraphes qui répondent au fond du courrier reçu
-- Formule de politesse de clôture
+Tu rédiges le CORPS d'une lettre de réponse en français (sans en-tête, sans N°, sans ligne Objet, sans signature).
 
-Règles :
-- Ne pas inventer de numéros, montants, dates ou décisions non présents dans le document source.
-- Si l'information manque, utiliser une formulation neutre ou « [À compléter] ».
-- Ton administratif, clair, courtois.
-- Réponds uniquement avec le texte du corps, sans guillemets ni markdown.`;
+RÈGLE PRINCIPALE :
+Le corps doit se baser UNIQUEMENT sur le contenu fourni du courrier reçu (texte extrait, résumé, objet, tâches).
+Réponds au fond de ce document : reprendre les points importants, accuser réception, indiquer la suite envisagée.
+N'invente pas de faits absents du document source (montants, dates, décisions). Si une info manque : « [À compléter] ».
+
+Structure :
+1) Formule d'appel adaptée
+2) 2 à 4 paragraphes liés au contenu du courrier reçu
+3) Formule de politesse de clôture
+
+Réponds uniquement avec le texte du corps, sans markdown ni guillemets.`;
 
     const user = JSON.stringify(
       {
         intention: intent,
-        objet_courrier: args.objet ?? "",
-        reference: args.publicRef ?? "",
-        expediteur: args.senderName ?? "",
-        contenu_ou_resume_du_courrier: source || args.objet || "",
+        objet_du_courrier_recu: objet,
+        reference_du_courrier_recu: publicRef,
+        expediteur_du_courrier_recu: senderName,
+        contenu_integral_ou_resume_du_document_recu: source || objet,
       },
       null,
       2,
@@ -358,24 +403,27 @@ Règles :
         { role: "system", content: system },
         { role: "user", content: user },
       ],
-      temperature: 0.35,
-      maxTokens: 1200,
+      temperature: 0.3,
+      maxTokens: 1400,
     });
 
     if (ai && ai.trim().length > 20) {
       return { source: "ia" as const, body: ai.trim() };
     }
 
-    // Repli local
-    const dest = args.senderName?.trim() || "Madame, Monsieur";
-    const obj = args.objet?.trim() || "votre correspondance";
+    const obj = objet || "votre correspondance";
+    const snippet = source.slice(0, 280).replace(/\s+/g, " ").trim();
     const body = `Madame, Monsieur,
 
 J'ai l'honneur d'accuser réception de votre courrier concernant « ${obj} »${
-      args.publicRef?.trim() ? ` (réf. ${args.publicRef.trim()})` : ""
+      publicRef ? ` (réf. ${publicRef})` : ""
     }.
 
-Après examen des éléments dont nous disposons, [À compléter : suite à donner / position de l'administration].
+${
+      snippet
+        ? `Au regard des éléments communiqués (${snippet}${source.length > 280 ? "…" : ""}), [À compléter : position / suite à donner].`
+        : "Après examen des éléments dont nous disposons, [À compléter : suite à donner / position de l'administration]."
+    }
 
 Je vous prie d'agréer, Madame, Monsieur, l'expression de ma considération distinguée.`;
     return { source: "local" as const, body };
