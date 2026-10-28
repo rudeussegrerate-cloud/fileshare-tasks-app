@@ -791,14 +791,18 @@ export function SendDocument({
     <div className="space-y-8">
       <div className="space-y-1">
         <h2 className="text-xl font-semibold tracking-tight">
-          {isTransmission
-            ? "Transmission de courrier"
-            : "Nouveau courrier"}
+          {step === 0
+            ? "Joindre le fichier"
+            : step === 1
+              ? "Choisir le destinataire"
+              : "Compléter et envoyer"}
         </h2>
         <p className="text-sm text-muted-foreground">
-          {isTransmission
-            ? "Numérisez le courrier reçu et transmettez-le au service compétent."
-            : "Joignez le fichier, choisissez les destinataires, puis validez."}
+          {step === 0
+            ? "Ajoutez le ou les documents à envoyer (PDF, Word… ou photo)."
+            : step === 1
+              ? "Recherchez une personne et validez la sélection avant de continuer."
+              : "Renseignez l'objet, les références, puis vérifiez avant l'envoi."}
         </p>
       </div>
 
@@ -926,84 +930,40 @@ export function SendDocument({
                   rattachés à une structure.
                 </p>
               ) : (
-                <div className="relative">
-                  <div
-                    className="flex min-h-[48px] flex-wrap items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20"
-                    onClick={() => {
-                      destInputRef.current?.focus();
-                      setDestSuggestOpen(true);
-                    }}
-                  >
-                    <span className="mr-1 shrink-0 text-sm font-medium text-muted-foreground">
+                <div className="relative space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-sm font-medium text-muted-foreground">
                       À
                     </span>
-                    {selectedDestPicks.map((o) => (
-                      <span
-                        key={o.key}
-                        className="inline-flex max-w-[220px] items-center gap-1 rounded-full border border-border bg-muted/60 py-0.5 pl-1 pr-1.5 text-xs font-medium text-foreground"
-                      >
-                        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-semibold text-white">
-                          {o.initial}
-                        </span>
-                        <span className="truncate">{o.title}</span>
-                        <button
-                          type="button"
-                          className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeDestPick(o);
-                          }}
-                          aria-label={`Retirer ${o.title}`}
-                        >
-                          <X className="size-3" />
-                        </button>
-                      </span>
-                    ))}
-                    <input
-                      ref={destInputRef}
-                      type="text"
-                      value={destQuery}
-                      onChange={(e) => {
-                        setDestQuery(e.target.value);
-                        setDestSuggestOpen(true);
-                      }}
-                      onFocus={() => setDestSuggestOpen(true)}
-                      onKeyDown={(e) => {
-                        if (
-                          e.key === "Backspace" &&
-                          !destQuery &&
-                          selectedDestPicks.length > 0
-                        ) {
-                          removeDestPick(
-                            selectedDestPicks[selectedDestPicks.length - 1]!,
+                    <div className="relative min-w-0 flex-1">
+                      <input
+                        ref={destInputRef}
+                        type="text"
+                        value={destQuery}
+                        onChange={(e) => {
+                          setDestQuery(e.target.value);
+                          setDestSuggestOpen(true);
+                        }}
+                        onFocus={() => setDestSuggestOpen(true)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") setDestSuggestOpen(false);
+                          if (e.key === "Enter" && destSuggestions[0]) {
+                            e.preventDefault();
+                            pickDest(destSuggestions[0]);
+                          }
+                        }}
+                        onBlur={() => {
+                          window.setTimeout(
+                            () => setDestSuggestOpen(false),
+                            180,
                           );
-                        }
-                        if (e.key === "Escape") setDestSuggestOpen(false);
-                        if (
-                          e.key === "Enter" &&
-                          destSuggestions[0]
-                        ) {
-                          e.preventDefault();
-                          pickDest(destSuggestions[0]);
-                        }
-                      }}
-                      onBlur={() => {
-                        window.setTimeout(
-                          () => setDestSuggestOpen(false),
-                          180,
-                        );
-                      }}
-                      placeholder={
-                        selectedDestPicks.length === 0
-                          ? "Rechercher une personne (nom ou fonction)…"
-                          : ""
-                      }
-                      className="min-w-[140px] flex-1 border-0 bg-transparent py-1 text-sm outline-none placeholder:text-muted-foreground"
-                    />
-                  </div>
+                        }}
+                        placeholder="Rechercher une personne (nom ou fonction)…"
+                        className="h-11 w-full rounded-lg border border-border bg-card px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-brand focus:ring-2 focus:ring-brand/20"
+                      />
 
                   {destSuggestOpen && destQuery.trim() && destSuggestions.length > 0 ? (
-                    <ul className="absolute left-0 right-0 z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg">
+                    <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg">
                       {destSuggestions.map((o) => (
                         <li key={o.key}>
                           <button
@@ -1032,10 +992,57 @@ export function SendDocument({
                   {destSuggestOpen &&
                   destQuery.trim() &&
                   destSuggestions.length === 0 ? (
-                    <div className="absolute left-0 right-0 z-30 mt-1 rounded-lg border border-border bg-card px-3 py-3 text-sm text-muted-foreground shadow-lg">
+                    <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-border bg-card px-3 py-3 text-sm text-muted-foreground shadow-lg">
                       Aucun résultat pour « {destQuery.trim()} »
                     </div>
                   ) : null}
+                    </div>
+                  </div>
+
+                  {selectedDestPicks.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        Destinataire{selectedDestPicks.length > 1 ? "s" : ""} sélectionné
+                        {selectedDestPicks.length > 1 ? "s" : ""} (
+                        {selectedDestPicks.length})
+                      </p>
+                      <ul className="flex flex-col gap-2">
+                        {selectedDestPicks.map((o) => (
+                          <li
+                            key={o.key}
+                            className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2"
+                          >
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                              {o.initial}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium text-foreground">
+                                {o.title}
+                              </span>
+                              {o.subtitle ? (
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {o.subtitle}
+                                </span>
+                              ) : null}
+                            </span>
+                            <button
+                              type="button"
+                              className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                              onClick={() => removeDestPick(o)}
+                              aria-label={`Retirer ${o.title}`}
+                            >
+                              <X className="size-4" />
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Aucun destinataire pour l&apos;instant — utilisez la recherche
+                      ci-dessus.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
