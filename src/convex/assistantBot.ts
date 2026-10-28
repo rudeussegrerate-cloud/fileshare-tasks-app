@@ -177,6 +177,9 @@ function detectSiteAction(text: string): SiteAction {
 
 
 /** Hors sujet clair uniquement — le reste est accepté (évite les non-réponses). */
+const OFF_TOPIC_REPLY =
+  "Je suis l'assistant ScanDoc : je ne réponds qu'aux questions sur ce site (courriers, menus, retards, envoi…). Essayez par exemple : « inventaire », « voir les retards » ou « comment envoyer un courrier ».";
+
 function isSiteRelated(text: string): boolean {
   const q = text
     .toLowerCase()
