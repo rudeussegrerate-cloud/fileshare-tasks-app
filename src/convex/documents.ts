@@ -919,28 +919,54 @@ export const send = mutation({
       168,
       Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
     );
-    // Première intervention : destinataire personne (suivi multi-intervenants)
-    if (recipient) {
+    // Circuit d'interventions : 1re active, suivantes en attente
+    const nodesToSteps =
+      circuitNodes.length > 0
+        ? circuitNodes
+        : recipient
+          ? [
+              {
+                user: recipient,
+                departmentId: recipientDeptId ?? recipient.departmentId,
+                departmentName: recipientDept
+                  ? recipientDept.code
+                    ? `${recipientDept.code} — ${recipientDept.name}`
+                    : recipientDept.name
+                  : undefined,
+              },
+            ]
+          : [];
+    for (let i = 0; i < nodesToSteps.length; i++) {
+      const node = nodesToSteps[i]!;
+      const u = node.user;
+      const isFirst = i === 0;
+      let depLabel = node.departmentName;
+      if (!depLabel && u.departmentId) {
+        const dep = await ctx.db.get(u.departmentId);
+        if (dep) {
+          depLabel = dep.code ? `${dep.code} — ${dep.name}` : dep.name;
+        }
+      }
       await ctx.db.insert("documentSteps", {
         documentId,
-        stepIndex: 0,
-        assigneeId: recipient._id,
-        assigneeName: displayName(recipient),
-        assigneeFonction: recipient.fonction ?? undefined,
-        assigneeDepartmentName: recipientDept
-          ? `${recipientDept.code ? recipientDept.code + " — " : ""}${recipientDept.name}`
-          : undefined,
-        assigneeDepartmentId: recipientDeptId ?? recipient.departmentId,
+        stepIndex: i,
+        assigneeId: u._id,
+        assigneeName: displayName(u),
+        assigneeFonction: u.fonction ?? undefined,
+        assigneeDepartmentName: depLabel,
+        assigneeDepartmentId: node.departmentId ?? u.departmentId,
         taskLabel: tasks[0],
-        status: "active",
-        activatedAt: now,
-        dueAt: now + stepHours * 3600 * 1000,
+        status: isFirst ? "active" : "waiting",
+        activatedAt: isFirst ? now : undefined,
+        dueAt: isFirst ? now + stepHours * 3600 * 1000 : undefined,
         createdAt: now,
       });
+    }
+    if (nodesToSteps.length > 0) {
       await ctx.db.patch(documentId, {
-        hasCircuit: true,
+        hasCircuit: nodesToSteps.length > 1,
         currentStepIndex: 0,
-        circuitTotalSteps: 1,
+        circuitTotalSteps: nodesToSteps.length,
       });
     }
 

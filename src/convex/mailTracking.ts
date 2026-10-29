@@ -471,11 +471,44 @@ export const completeMyPart = mutation({
       startedAt: step.startedAt ?? step.receivedAt ?? now,
       note: args.note?.trim().slice(0, 500) || step.note,
     });
-    // Global reste ouvert (en_cours), jamais traite ici
-    await ctx.db.patch(doc._id, {
-      status: "en_cours",
-      updatedAt: now,
-    });
+
+    // Activer l'étape suivante du circuit prédéfini (si encore en waiting)
+    const allSteps = await loadSteps(ctx, doc._id);
+    const nextWaiting = allSteps.find(
+      (s) =>
+        s.stepIndex > step.stepIndex &&
+        s.status === "waiting" &&
+        !s.completedAt,
+    );
+    if (nextWaiting) {
+      await ctx.db.patch(nextWaiting._id, {
+        status: "active",
+        activatedAt: now,
+        dueAt: now + 24 * 3600 * 1000,
+      });
+      await ctx.db.patch(doc._id, {
+        recipientId: nextWaiting.assigneeId,
+        recipientName: nextWaiting.assigneeName,
+        recipientDepartmentId: nextWaiting.assigneeDepartmentId,
+        status: "en_cours",
+        currentStepIndex: nextWaiting.stepIndex,
+        dueAt: now + 24 * 3600 * 1000,
+        updatedAt: now,
+      });
+      await pushNotification(ctx, {
+        userId: nextWaiting.assigneeId,
+        type: "document.received",
+        title: "Circuit — à votre tour",
+        body: `Le courrier « ${doc.objet} » vous est transmis (étape ${nextWaiting.stepIndex + 1}).`,
+        documentId: doc._id,
+      });
+    } else {
+      // Global reste ouvert (en_cours), jamais traite ici
+      await ctx.db.patch(doc._id, {
+        status: "en_cours",
+        updatedAt: now,
+      });
+    }
     const who = displayName(user);
     await writeAudit(ctx, {
       action: "tracking.part_done",

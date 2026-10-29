@@ -110,6 +110,8 @@ export function SendDocument({
   const [destIds, setDestIds] = useState<Id<"departments">[]>([]);
   /** Membres de direction (hors services) cochés comme destinataires */
   const [memberDestIds, setMemberDestIds] = useState<Id<"users">[]>([]);
+  /** Circuit ordonné : 1er destinataire actif, suivants en attente sur le même dossier */
+  const [circuitMode, setCircuitMode] = useState(false);
   const [destQuery, setDestQuery] = useState("");
   const [destSuggestOpen, setDestSuggestOpen] = useState(false);
   const destInputRef = useRef<HTMLInputElement>(null);
@@ -159,6 +161,20 @@ export function SendDocument({
   const [onBehalfDepartmentText, setOnBehalfDepartmentText] = useState("");
 
   const [sending, setSending] = useState(false);
+
+  const moveCircuitPerson = (id: Id<"users">, dir: -1 | 1) => {
+    setMemberDestIds((prev) => {
+      const i = prev.indexOf(id);
+      if (i < 0) return prev;
+      const j = i + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      const tmp = next[i]!;
+      next[i] = next[j]!;
+      next[j] = tmp;
+      return next;
+    });
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -555,6 +571,7 @@ export function SendDocument({
     setFiles([]);
     setDestIds([]);
     setMemberDestIds([]);
+    setCircuitMode(false);
     setDestQuery("");
     setDestSuggestOpen(false);
     setDestMode("direction");
@@ -703,16 +720,16 @@ export function SendDocument({
       const mergedFields = [...metaFields].slice(0, 8);
 
       let combo = 0;
-      for (let pi = 0; pi < memberDestIds.length; pi++) {
-        const personId = memberDestIds[pi]!;
+      const useCircuit =
+        circuitMode && memberDestIds.length >= 2 && !isTransmission;
+      if (useCircuit) {
+        const primary = memberDestIds[0]!;
+        const rest = memberDestIds.slice(1);
         for (let fi = 0; fi < uploaded.length; fi++) {
           const up = uploaded[fi]!;
           let refBase: string | undefined = publicRef.trim() || undefined;
-          const parts: string[] = [];
-          if (refBase) {
-            if (memberDestIds.length > 1) parts.push(`p${pi + 1}`);
-            if (uploaded.length > 1) parts.push(`f${fi + 1}`);
-            refBase = parts.length ? `${refBase}#${parts.join("-")}` : refBase;
+          if (refBase && uploaded.length > 1) {
+            refBase = `${refBase}#f${fi + 1}`;
           }
           lastId = await sendDocument({
             storageId: up.storageId,
@@ -722,9 +739,9 @@ export function SendDocument({
             objet: objet.trim(),
             observations: observations.trim() || undefined,
             tasks: effectiveTasks,
-            extractedText:
-              pi === 0 && fi === 0 ? extractedText || undefined : undefined,
-            recipientId: personId,
+            extractedText: fi === 0 ? extractedText || undefined : undefined,
+            recipientId: primary,
+            circuitAssigneeIds: rest,
             publicRef: isTransmission ? undefined : refBase,
             mailKind: isTransmission ? "transmission" : "envoi",
             stepDeadlineHours: undefined,
@@ -744,12 +761,57 @@ export function SendDocument({
           });
           combo += 1;
         }
+      } else {
+        for (let pi = 0; pi < memberDestIds.length; pi++) {
+          const personId = memberDestIds[pi]!;
+          for (let fi = 0; fi < uploaded.length; fi++) {
+            const up = uploaded[fi]!;
+            let refBase: string | undefined = publicRef.trim() || undefined;
+            const parts: string[] = [];
+            if (refBase) {
+              if (memberDestIds.length > 1) parts.push(`p${pi + 1}`);
+              if (uploaded.length > 1) parts.push(`f${fi + 1}`);
+              refBase = parts.length ? `${refBase}#${parts.join("-")}` : refBase;
+            }
+            lastId = await sendDocument({
+              storageId: up.storageId,
+              fileName: up.fileName,
+              contentType: up.contentType,
+              size: up.size,
+              objet: objet.trim(),
+              observations: observations.trim() || undefined,
+              tasks: effectiveTasks,
+              extractedText:
+                pi === 0 && fi === 0 ? extractedText || undefined : undefined,
+              recipientId: personId,
+              publicRef: isTransmission ? undefined : refBase,
+              mailKind: isTransmission ? "transmission" : "envoi",
+              stepDeadlineHours: undefined,
+              referenceText: referenceText.trim() || undefined,
+              requiresResponse: false,
+              urgent: isUrgent || undefined,
+              emittingDepartmentId:
+                (me?.user?.departmentId as Id<"departments"> | undefined) ??
+                onBehalfDepartmentId ??
+                undefined,
+              onBehalfOfType: "internal",
+              onBehalfOfUserId: me?.user?._id ?? undefined,
+              onBehalfOfName: me?.user?.name?.trim() || undefined,
+              onBehalfOfFunction: me?.user?.fonction?.trim() || undefined,
+              onBehalfOfDepartment: me?.department?.name?.trim() || undefined,
+              customFields: mergedFields.length ? mergedFields : undefined,
+            });
+            combo += 1;
+          }
+        }
       }
       count = combo;
 
       toast.success(
         count === 1
           ? "Courrier envoyé."
+          : useCircuit
+          ? `${count} dossier(s) en circuit (${memberDestIds.length} intervenants).`
           : `${count} envoi(s) effectué(s) à ${memberDestIds.length} personne(s).`,
       );
       reset();
@@ -1013,6 +1075,26 @@ export function SendDocument({
                         {selectedDestPicks.length > 1 ? "s" : ""} (
                         {selectedDestPicks.length})
                       </p>
+                      {memberDestIds.length >= 2 ? (
+                        <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            checked={circuitMode}
+                            onChange={(e) => setCircuitMode(e.target.checked)}
+                          />
+                          <span>
+                            <span className="font-medium text-foreground">
+                              Créer un circuit ordonné
+                            </span>
+                            <span className="mt-0.5 block text-xs text-muted-foreground">
+                              Un seul dossier : le 1er traite, puis le 2e, etc.
+                              (réordonnez avec les flèches). Sans circuit = un
+                              envoi séparé à chaque personne.
+                            </span>
+                          </span>
+                        </label>
+                      ) : null}
                       <ul className="flex flex-col gap-2">
                         {selectedDestPicks.map((o) => (
                           <li
@@ -1032,6 +1114,35 @@ export function SendDocument({
                                 </span>
                               ) : null}
                             </span>
+                            {circuitMode && o.kind === "member" ? (
+                              <span className="flex shrink-0 flex-col gap-0.5">
+                                <button
+                                  type="button"
+                                  className="rounded px-1 text-[10px] text-muted-foreground hover:bg-muted"
+                                  onClick={() =>
+                                    moveCircuitPerson(o.id as Id<"users">, -1)
+                                  }
+                                  aria-label="Monter"
+                                >
+                                  ▲
+                                </button>
+                                <button
+                                  type="button"
+                                  className="rounded px-1 text-[10px] text-muted-foreground hover:bg-muted"
+                                  onClick={() =>
+                                    moveCircuitPerson(o.id as Id<"users">, 1)
+                                  }
+                                  aria-label="Descendre"
+                                >
+                                  ▼
+                                </button>
+                              </span>
+                            ) : null}
+                            {circuitMode && o.kind === "member" ? (
+                              <span className="shrink-0 rounded-full bg-brand-soft px-2 py-0.5 text-[10px] font-bold text-brand">
+                                {memberDestIds.indexOf(o.id as Id<"users">) + 1}
+                              </span>
+                            ) : null}
                             <button
                               type="button"
                               className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
