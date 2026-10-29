@@ -158,10 +158,11 @@ export function TrackingView({
         />
       ) : (
         <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-          <div className="hidden grid-cols-[1fr_1.2fr_1fr_auto_auto] gap-2 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
+          <div className="hidden grid-cols-[1fr_1.2fr_1fr_1fr_auto_auto] gap-2 border-b border-border bg-muted/40 px-4 py-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground md:grid">
             <span>Réf. / sens</span>
             <span>Objet</span>
             <span>Interlocuteur</span>
+            <span>Actuellement chez</span>
             <span>Statut</span>
             <span>Échéance</span>
           </div>
@@ -172,7 +173,7 @@ export function TrackingView({
                   type="button"
                   onClick={() => onOpen(row._id as Id<"documents">)}
                   className={cn(
-                    "grid w-full grid-cols-1 gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/40 md:grid-cols-[1fr_1.2fr_1fr_auto_auto] md:items-center",
+                    "grid w-full grid-cols-1 gap-2 px-4 py-3 text-left transition-colors hover:bg-muted/40 md:grid-cols-[1fr_1.2fr_1fr_1fr_auto_auto] md:items-center",
                     row.isOverdue && "bg-amber-50/50",
                   )}
                 >
@@ -211,6 +212,21 @@ export function TrackingView({
                   <p className="truncate text-sm text-foreground/90">
                     {row.counterpart}
                   </p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-foreground">
+                      {(row as { currentlyWith?: string }).currentlyWith ||
+                        row.counterpart}
+                    </p>
+                    {(row as { currentlyWithService?: string | null })
+                      .currentlyWithService ? (
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {
+                          (row as { currentlyWithService?: string | null })
+                            .currentlyWithService
+                        }
+                      </p>
+                    ) : null}
+                  </div>
                   <div>
                     <StatusBadge
                       asRecipient={row.direction === "received"}

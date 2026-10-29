@@ -309,10 +309,10 @@ export const getTracking = query({
             (myStep.startedAt || myStep.receivedAt),
         ),
         canTransfer: Boolean(
-          myStep &&
-            (myStep.status === "done" ||
-              myStep.status === "active") &&
-            !isClosed,
+          !isClosed &&
+            (doc.recipientId === userId ||
+              (myStep &&
+                (myStep.status === "done" || myStep.status === "active"))),
         ),
         canClassify: Boolean(
           !isClosed &&

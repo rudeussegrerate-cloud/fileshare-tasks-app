@@ -3079,12 +3079,15 @@ export const trackingOverview = query({
       const isOverdue =
         d.status !== "traite" &&
         (d.status === "en_retard" || (due != null && now > due));
+      const loc = await locationOf(d);
       rows.push({
         _id: String(d._id),
         direction: "received",
         objet: (d.objet || d.fileName || "Courrier").slice(0, 120),
         publicRef: d.publicRef ?? null,
         counterpart: d.senderName || "—",
+        currentlyWith: loc.currentlyWith,
+        currentlyWithService: loc.currentlyWithService,
         status: d.status,
         urgent: Boolean(d.urgent) && d.status !== "traite",
         createdAt: d.createdAt ?? d._creationTime,
@@ -3108,12 +3111,15 @@ export const trackingOverview = query({
       const isOverdue =
         d.status !== "traite" &&
         (d.status === "en_retard" || (due != null && now > due));
+      const loc = await locationOf(d);
       rows.push({
         _id: String(d._id),
         direction: "sent",
         objet: (d.objet || d.fileName || "Courrier").slice(0, 120),
         publicRef: d.publicRef ?? null,
         counterpart: d.recipientName || "—",
+        currentlyWith: loc.currentlyWith,
+        currentlyWithService: loc.currentlyWithService,
         status: d.status,
         urgent: Boolean(d.urgent) && d.status !== "traite",
         createdAt: d.createdAt ?? d._creationTime,
@@ -3123,13 +3129,7 @@ export const trackingOverview = query({
         nextAction:
           d.status === "traite"
             ? "Clôturé"
-            : d.status === "envoye"
-              ? "En attente de lecture"
-              : d.status === "en_cours" || d.status === "consulte"
-                ? "En traitement chez le destinataire"
-                : isOverdue
-                  ? "En retard chez le destinataire"
-                  : "Suivre",
+            : `Actuellement chez ${loc.currentlyWith}`,
       });
     }
     rows.sort((a, b) => b.updatedAt - a.updatedAt);
