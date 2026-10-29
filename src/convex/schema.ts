@@ -241,6 +241,12 @@ const schema = defineSchema(
       circuitTotalSteps: v.optional(v.number()),
       /** Échéance globale du dossier (ms) */
       dueAt: v.optional(v.number()),
+      /** Classement définitif (suivi terminé) */
+      closedAt: v.optional(v.number()),
+      closedByUserId: v.optional(v.id("users")),
+      closedByName: v.optional(v.string()),
+      closedByFonction: v.optional(v.string()),
+      closedByDepartment: v.optional(v.string()),
       /** Délai max par étape en heures (SLA circuit) */
       stepDeadlineHours: v.optional(v.number()),
       /** Dernière relance émetteur (anti-spam) */
@@ -286,6 +292,7 @@ const schema = defineSchema(
       stepIndex: v.number(), // 0, 1, 2…
       assigneeId: v.id("users"),
       assigneeName: v.string(),
+      assigneeFonction: v.optional(v.string()),
       assigneeDepartmentName: v.optional(v.string()),
       /** Envoi structurel : étape adressée à une direction/service */
       assigneeDepartmentId: v.optional(v.id("departments")),
@@ -298,6 +305,14 @@ const schema = defineSchema(
       ),
       note: v.optional(v.string()),
       actedAt: v.optional(v.number()),
+      receivedAt: v.optional(v.number()),
+      startedAt: v.optional(v.number()),
+      completedAt: v.optional(v.number()),
+      /** Transfert sortant de cette étape */
+      transferredToId: v.optional(v.id("users")),
+      transferredToName: v.optional(v.string()),
+      transferNote: v.optional(v.string()),
+      transferredAt: v.optional(v.number()),
       /** Quand l'étape est devenue active */
       activatedAt: v.optional(v.number()),
       /** Échéance de cette étape */

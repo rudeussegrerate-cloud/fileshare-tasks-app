@@ -26,6 +26,7 @@ import type * as inAppNotifications from "../inAppNotifications.js";
 import type * as letterAssistant from "../letterAssistant.js";
 import type * as lib_groq from "../lib/groq.js";
 import type * as lib_security from "../lib/security.js";
+import type * as mailTracking from "../mailTracking.js";
 import type * as notifications from "../notifications.js";
 import type * as presence from "../presence.js";
 import type * as smart from "../smart.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   letterAssistant: typeof letterAssistant;
   "lib/groq": typeof lib_groq;
   "lib/security": typeof lib_security;
+  mailTracking: typeof mailTracking;
   notifications: typeof notifications;
   presence: typeof presence;
   smart: typeof smart;

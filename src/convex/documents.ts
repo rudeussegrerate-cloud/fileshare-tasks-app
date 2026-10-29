@@ -911,25 +911,28 @@ export const send = mutation({
       168,
       Math.max(1, Math.floor(args.stepDeadlineHours ?? DEFAULT_STEP_DEADLINE_HOURS)),
     );
-    // Circuit désactivé : pas d'étapes séquentielles
-    for (let i = 0; i < 0; i++) {
-      const node = circuitNodes[i]!;
-      const u = node.user;
-      const isFirst = i === 0;
+    // Première intervention : destinataire personne (suivi multi-intervenants)
+    if (recipient) {
       await ctx.db.insert("documentSteps", {
         documentId,
-        stepIndex: i,
-        assigneeId: u._id,
-        assigneeName: node.departmentName
-          ? `${node.departmentName}`
-          : displayName(u),
-        assigneeDepartmentName: node.departmentName,
-        assigneeDepartmentId: node.departmentId,
+        stepIndex: 0,
+        assigneeId: recipient._id,
+        assigneeName: displayName(recipient),
+        assigneeFonction: recipient.fonction ?? undefined,
+        assigneeDepartmentName: recipientDept
+          ? `${recipientDept.code ? recipientDept.code + " — " : ""}${recipientDept.name}`
+          : undefined,
+        assigneeDepartmentId: recipientDeptId ?? recipient.departmentId,
         taskLabel: tasks[0],
-        status: isFirst ? "active" : "waiting",
-        activatedAt: isFirst ? now : undefined,
-        dueAt: isFirst ? now + stepHours * 3600 * 1000 : undefined,
+        status: "active",
+        activatedAt: now,
+        dueAt: now + stepHours * 3600 * 1000,
         createdAt: now,
+      });
+      await ctx.db.patch(documentId, {
+        hasCircuit: true,
+        currentStepIndex: 0,
+        circuitTotalSteps: 1,
       });
     }
 
@@ -2109,10 +2112,20 @@ export const setStatus = mutation({
       };
     }
 
-    // ——— Consulté / En cours (ou Traité sans circuit) ———
+    // ——— Consulté / En cours (ou Traité = classement définitif) ———
+    const closePatch =
+      args.status === "traite"
+        ? {
+            urgent: false as const,
+            closedAt: now,
+            closedByUserId: userId,
+            closedByName: actorLabel,
+            closedByFonction: user?.fonction ?? undefined,
+          }
+        : {};
     await ctx.db.patch(args.documentId, {
       status: args.status,
-      ...(args.status === "traite" ? { urgent: false } : {}),
+      ...closePatch,
       updatedAt: now,
       viewedAt: document.viewedAt ?? now,
     });

@@ -64,6 +64,22 @@ export function DocumentDetailDialog({
   const unarchiveDoc = useMutation(api.documents.unarchive);
   const removeDoc = useMutation(api.documents.remove);
   const retrySummary = useMutation(api.documents.retrySummary);
+  const tracking = useQuery(
+    api.mailTracking.getTracking,
+    documentId ? { documentId } : "skip",
+  );
+  const transferTargets = useQuery(api.mailTracking.listTransferTargets);
+  const receiveCourrier = useMutation(api.mailTracking.receiveCourrier);
+  const takeCharge = useMutation(api.mailTracking.takeCharge);
+  const completeMyPart = useMutation(api.mailTracking.completeMyPart);
+  const transferToPerson = useMutation(api.mailTracking.transferToPerson);
+  const classifyDefinitively = useMutation(
+    api.mailTracking.classifyDefinitively,
+  );
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferUserId, setTransferUserId] = useState("");
+  const [transferNote, setTransferNote] = useState("");
+  const [trackingBusy, setTrackingBusy] = useState(false);
 
   const [viewer, setViewer] = useState<{
     url: string;
@@ -726,6 +742,269 @@ export function DocumentDetailDialog({
               </section>
             )}
 
+
+            {tracking ? (
+              <section className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Suivi du dossier
+                    </h4>
+                    <p className="mt-1 text-sm text-foreground">
+                      {tracking.isClosed ? (
+                        <span className="font-medium text-emerald-700">
+                          Classé — suivi terminé
+                        </span>
+                      ) : (
+                        <>
+                          Responsable actuel :{" "}
+                          <span className="font-medium">
+                            {tracking.currentHolder?.name ?? "—"}
+                          </span>
+                          {tracking.currentHolder?.fonction
+                            ? ` · ${tracking.currentHolder.fonction}`
+                            : ""}
+                          {tracking.currentHolder?.service
+                            ? ` · ${tracking.currentHolder.service}`
+                            : ""}
+                        </>
+                      )}
+                    </p>
+                    {tracking.publicRef ? (
+                      <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                        {tracking.publicRef}
+                      </p>
+                    ) : null}
+                  </div>
+                </div>
+
+                {!tracking.isClosed && tracking.permissions ? (
+                  <div className="flex flex-wrap gap-2">
+                    {tracking.permissions.canReceive ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={trackingBusy}
+                        onClick={async () => {
+                          setTrackingBusy(true);
+                          try {
+                            await receiveCourrier({
+                              documentId: documentOrNull!._id,
+                            });
+                            toast.success("Réception confirmée");
+                          } catch (e) {
+                            toast.error(
+                              e instanceof Error ? e.message : "Erreur",
+                            );
+                          } finally {
+                            setTrackingBusy(false);
+                          }
+                        }}
+                      >
+                        Réceptionner
+                      </Button>
+                    ) : null}
+                    {tracking.permissions.canTakeCharge ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={trackingBusy}
+                        onClick={async () => {
+                          setTrackingBusy(true);
+                          try {
+                            await takeCharge({
+                              documentId: documentOrNull!._id,
+                            });
+                            toast.success("Prise en charge enregistrée");
+                          } catch (e) {
+                            toast.error(
+                              e instanceof Error ? e.message : "Erreur",
+                            );
+                          } finally {
+                            setTrackingBusy(false);
+                          }
+                        }}
+                      >
+                        Prendre en charge
+                      </Button>
+                    ) : null}
+                    {tracking.permissions.canCompletePart ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={trackingBusy}
+                        onClick={async () => {
+                          setTrackingBusy(true);
+                          try {
+                            await completeMyPart({
+                              documentId: documentOrNull!._id,
+                            });
+                            toast.success(
+                              "Votre part a été marquée comme traitée. Le suivi reste ouvert jusqu'au classement définitif.",
+                            );
+                          } catch (e) {
+                            toast.error(
+                              e instanceof Error ? e.message : "Erreur",
+                            );
+                          } finally {
+                            setTrackingBusy(false);
+                          }
+                        }}
+                      >
+                        Marquer ma part comme traitée
+                      </Button>
+                    ) : null}
+                    {tracking.permissions.canTransfer ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={trackingBusy}
+                        onClick={() => setTransferOpen((v) => !v)}
+                      >
+                        Transmettre à une personne
+                      </Button>
+                    ) : null}
+                    {tracking.permissions.canClassify ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="border-emerald-300 text-emerald-800"
+                        disabled={trackingBusy}
+                        onClick={async () => {
+                          if (
+                            !window.confirm(
+                              "Classer définitivement ce courrier ? Le suivi sera terminé.",
+                            )
+                          )
+                            return;
+                          setTrackingBusy(true);
+                          try {
+                            await classifyDefinitively({
+                              documentId: documentOrNull!._id,
+                            });
+                            toast.success(
+                              "Courrier classé — suivi terminé",
+                            );
+                          } catch (e) {
+                            toast.error(
+                              e instanceof Error ? e.message : "Erreur",
+                            );
+                          } finally {
+                            setTrackingBusy(false);
+                          }
+                        }}
+                      >
+                        Classer définitivement
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {transferOpen && !tracking.isClosed ? (
+                  <div className="space-y-2 rounded-lg border border-border bg-card p-3">
+                    <Label>Destinataire du transfert</Label>
+                    <select
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                      value={transferUserId}
+                      onChange={(e) => setTransferUserId(e.target.value)}
+                    >
+                      <option value="">— Choisir —</option>
+                      {(transferTargets ?? []).map((u: { _id: string; name: string; fonction: string | null }) => (
+                        <option key={u._id} value={u._id}>
+                          {u.name}
+                          {u.fonction ? ` · ${u.fonction}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <Textarea
+                      rows={2}
+                      placeholder="Instruction (optionnel)"
+                      value={transferNote}
+                      onChange={(e) => setTransferNote(e.target.value)}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={!transferUserId || trackingBusy}
+                        onClick={async () => {
+                          setTrackingBusy(true);
+                          try {
+                            await transferToPerson({
+                              documentId: documentOrNull!._id,
+                              toUserId: transferUserId as Id<"users">,
+                              note: transferNote || undefined,
+                            });
+                            toast.success("Courrier transmis");
+                            setTransferOpen(false);
+                            setTransferUserId("");
+                            setTransferNote("");
+                          } catch (e) {
+                            toast.error(
+                              e instanceof Error ? e.message : "Erreur",
+                            );
+                          } finally {
+                            setTrackingBusy(false);
+                          }
+                        }}
+                      >
+                        Confirmer le transfert
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setTransferOpen(false)}
+                      >
+                        Annuler
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {tracking.timeline && tracking.timeline.length > 0 ? (
+                  <ol className="relative max-h-56 space-y-0 overflow-y-auto border-l border-border pl-4">
+                    {tracking.timeline.map((ev: { at: number; title: string; actor: string; fonction?: string | null; service?: string | null; detail?: string | null; type: string }, idx: number) => (
+                      <li
+                        key={`${ev.at}-${ev.type}-${idx}`}
+                        className="relative pb-3 last:pb-0"
+                      >
+                        <span className="absolute -left-[1.15rem] top-1.5 size-2.5 rounded-full border-2 border-brand bg-card" />
+                        <p className="text-sm font-medium text-foreground">
+                          {ev.title}
+                          <span className="ml-2 text-xs font-normal text-muted-foreground">
+                            {formatDateTime(ev.at)}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {ev.actor}
+                          {ev.fonction ? ` · ${ev.fonction}` : ""}
+                          {ev.service ? ` · ${ev.service}` : ""}
+                          {ev.detail ? ` — ${ev.detail}` : ""}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
+                ) : null}
+
+                {tracking.closed ? (
+                  <p className="text-xs text-emerald-800">
+                    Classé par {tracking.closed.byName}
+                    {tracking.closed.byFonction
+                      ? ` (${tracking.closed.byFonction})`
+                      : ""}
+                    {tracking.closed.byDepartment
+                      ? ` · ${tracking.closed.byDepartment}`
+                      : ""}{" "}
+                    le {formatDateTime(tracking.closed.at)}
+                  </p>
+                ) : null}
+              </section>
+            ) : null}
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">
