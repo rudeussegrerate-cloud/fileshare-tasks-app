@@ -227,6 +227,8 @@ async function collectInboxDocuments(
     // L'émetteur ne voit jamais son propre envoi dans « reçus »
     if (String(d.senderId) === uid) return;
     if (!includeArchived && d.archivedAt) return;
+    // Classés : plus dans « reçus »
+    if (d.status === "traite" || d.closedAt) return;
     map.set(String(d._id), d);
   };
 
@@ -234,7 +236,25 @@ async function collectInboxDocuments(
     .query("documents")
     .withIndex("by_recipient", (q) => q.eq("recipientId", userId))
     .collect();
-  for (const d of byRecipient) accept(d);
+  for (const d of byRecipient) {
+    // Part déjà traitée par moi (étape done) → ne plus afficher en reçus
+    try {
+      const mySteps = await ctx.db
+        .query("documentSteps")
+        .withIndex("by_assignee", (q) => q.eq("assigneeId", userId))
+        .collect();
+      const forDoc = mySteps.filter((s) => String(s.documentId) === String(d._id));
+      if (
+        forDoc.length > 0 &&
+        forDoc.every((s) => s.status === "done" || s.status === "rejected")
+      ) {
+        continue;
+      }
+    } catch {
+      /* */
+    }
+    accept(d);
+  }
 
   try {
     const steps = await ctx.db

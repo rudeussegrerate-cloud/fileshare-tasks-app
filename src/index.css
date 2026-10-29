@@ -2011,31 +2011,3 @@ html, body, #root {
 .sc-shell-sidebar {
   background: var(--sidebar) !important;
 }
-
-
-/* === Maquette ScanDoc — overrides prioritaires === */
-.sc-app-shell {
-  background: #F5F6FB !important;
-}
-.sc-shell-sidebar {
-  background: #211D4D !important;
-  color: #EEEAFE !important;
-}
-.sc-shell-sidebar .sc-nav-item {
-  color: #C7C2E0 !important;
-}
-.sc-shell-sidebar .sc-nav-item:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  color: #fff !important;
-}
-.sc-shell-sidebar .sc-nav-item[data-active="true"] {
-  background: rgba(255, 255, 255, 0.15) !important;
-  color: #fff !important;
-}
-.sc-dash-card {
-  background: #fff;
-  border: 1px solid #E8E8F1;
-  border-radius: 14px;
-  padding: 18px 20px;
-  box-shadow: 0 2px 5px rgba(30, 24, 60, 0.015);
-}

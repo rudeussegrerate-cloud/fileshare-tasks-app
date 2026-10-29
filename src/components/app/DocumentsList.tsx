@@ -159,6 +159,12 @@ export function DocumentsList({
   const documents = useMemo(() => {
     if (!allDocuments) return undefined;
     let list = allDocuments;
+    // Reçus : masquer classés (sécurité UI)
+    if (mode === "inbox") {
+      list = list.filter(
+        (d) => d.status !== "traite" && !(d as { closedAt?: number }).closedAt,
+      );
+    }
     if (filter === "urgent") {
       list = list.filter(
         (d) => Boolean((d as { urgent?: boolean }).urgent) && d.status !== "traite",
@@ -185,7 +191,7 @@ export function DocumentsList({
       sorted.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
     }
     return sorted;
-  }, [allDocuments, filter, sortMode]);
+  }, [allDocuments, filter, sortMode, mode]);
 
   const exportCsv = () => {
     if (!documents || documents.length === 0) {
