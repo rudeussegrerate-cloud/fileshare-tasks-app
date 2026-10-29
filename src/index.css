@@ -2011,3 +2011,21 @@ html, body, #root {
 .sc-shell-sidebar {
   background: var(--sidebar) !important;
 }
+
+
+/* mailaka-drawer-nav — menu tiroir sombre (version hamburger) */
+.sc-shell-sidebar .sc-nav-item {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+.sc-shell-sidebar .sc-nav-item:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #fff !important;
+}
+.sc-shell-sidebar .sc-nav-item[data-active="true"] {
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #fff !important;
+  font-weight: 600;
+}
+.sc-shell-sidebar p {
+  color: rgba(255, 255, 255, 0.55) !important;
+}

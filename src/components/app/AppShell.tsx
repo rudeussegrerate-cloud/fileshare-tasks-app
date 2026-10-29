@@ -291,7 +291,7 @@ export function AppShell({
                 </SheetTrigger>
                 <SheetContent
                   side="left"
-                  className="sc-shell-sidebar flex w-[min(18rem,90vw)] flex-col border-sidebar-border p-4"
+                  className="sc-shell-sidebar flex w-[min(18rem,90vw)] flex-col border-0 bg-[#1e1b4b] p-4 text-white"
                 >
                   <SheetHeader className="p-0">
                     <SheetTitle className="sr-only">Menu ScanDoc</SheetTitle>

@@ -18,7 +18,7 @@ export function Logo({
       alt="MNDPT"
       width={size}
       height={size}
-      className={cn("shrink-0 object-contain", className)}
+      className={cn("shrink-0 rounded-md object-contain", className)}
       style={{ width: size, height: size }}
     />
   );
@@ -33,21 +33,17 @@ export function BrandLogo({
 }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <span
-        className={cn(
-          "flex shrink-0 items-center justify-center rounded-[13px] bg-white font-extrabold tracking-tight text-[#4C3EC7] shadow-md",
-          compact ? "size-9 text-xs" : "size-10 text-[15px]",
-        )}
-      >
-        SD
-      </span>
+      <Logo
+        size={compact ? 36 : 40}
+        className="rounded-lg border border-white/15 bg-white p-0.5 shadow-sm"
+      />
       {compact ? null : (
         <span className="min-w-0 leading-tight">
-          <span className="block text-[19px] font-extrabold tracking-tight text-white">
+          <span className="block text-[17px] font-bold tracking-tight text-white">
             ScanDoc
           </span>
-          <span className="mt-0.5 block text-[10px] font-medium text-[#B6B1DB]">
-            Courrier interne · MNDPT
+          <span className="mt-0.5 block text-[10px] font-medium text-white/70">
+            MNDPT · Échange de documents
           </span>
         </span>
       )}
