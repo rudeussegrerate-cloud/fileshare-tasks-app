@@ -40,7 +40,6 @@ import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
 import loginBackdrop from "@/assets/login-backdrop.jpg";
 import { NotificationsBell } from "./NotificationsBell";
-import { OnlinePeople } from "./OnlinePeople";
 import { PresenceDot } from "./PresenceDot";
 import { initialsOf } from "./shared";
 
@@ -310,9 +309,6 @@ export function AppShell({
                         pendingAccounts={me?.pendingAccounts ?? 0}
                         pendingTasks={pendingTasks}
                       />
-                    </div>
-                    <div className="mt-4 border-t border-border pt-3">
-                      <OnlinePeople />
                     </div>
                   </div>
                 </SheetContent>
