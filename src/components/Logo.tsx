@@ -40,7 +40,7 @@ export function BrandLogo({
       {compact ? null : (
         <span className="min-w-0 leading-tight">
           <span className="block text-[17px] font-bold tracking-tight text-white">
-            ScanDoc
+            Mailaka
           </span>
           <span className="mt-0.5 block text-[10px] font-medium text-white/70">
             MNDPT · Échange de documents

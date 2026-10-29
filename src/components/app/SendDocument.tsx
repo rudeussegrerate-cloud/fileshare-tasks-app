@@ -1483,6 +1483,9 @@ export function SendDocument({
                   <>
                     <Label htmlFor="publicRef">
                       N° du courrier
+                      <span className="ml-1 font-normal text-muted-foreground">
+                        (optionnel — auto si vide)
+                      </span>
                       <span className="ml-1 text-destructive" aria-hidden>
                         *
                       </span>
