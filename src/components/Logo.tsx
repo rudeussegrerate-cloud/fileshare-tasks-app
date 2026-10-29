@@ -33,21 +33,21 @@ export function BrandLogo({
 }) {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <img
-        src={mndptLogo}
-        alt="MNDPT"
+      <span
         className={cn(
-          "shrink-0 object-contain",
-          compact ? "h-9 w-9" : "h-11 w-11",
+          "flex shrink-0 items-center justify-center rounded-[13px] bg-white font-extrabold tracking-tight text-[#4C3EC7] shadow-md",
+          compact ? "size-9 text-xs" : "size-10 text-[15px]",
         )}
-      />
+      >
+        SD
+      </span>
       {compact ? null : (
         <span className="min-w-0 leading-tight">
-          <span className="block text-sm font-bold tracking-tight text-foreground">
+          <span className="block text-[19px] font-extrabold tracking-tight text-white">
             ScanDoc
           </span>
-          <span className="block text-[10px] font-medium text-muted-foreground">
-            MNDPT · Échange de documents
+          <span className="mt-0.5 block text-[10px] font-medium text-[#B6B1DB]">
+            Courrier interne · MNDPT
           </span>
         </span>
       )}

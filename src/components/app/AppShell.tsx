@@ -38,7 +38,6 @@ import {
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { BrandLogo } from "@/components/Logo";
-import loginBackdrop from "@/assets/login-backdrop.jpg";
 import { NotificationsBell } from "./NotificationsBell";
 import { OnlinePeople } from "./OnlinePeople";
 import { PresenceDot } from "./PresenceDot";
@@ -145,7 +144,7 @@ function NavList({
         if (items.length === 0) return null;
         return (
           <div key={group.title}>
-            <p className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground/90">
+            <p className="mb-1.5 px-3 text-[9px] font-extrabold uppercase tracking-[1.15px] text-[#9F9ABB]">
               {group.title}
             </p>
             <div className="space-y-0.5">
@@ -157,7 +156,12 @@ function NavList({
                     key={item.key}
                     type="button"
                     onClick={() => onSelect(item.key)}
-                    className={cn("sc-nav-item py-2.5 text-[14px]")}
+                    className={cn(
+                      "relative flex w-full items-center gap-3 rounded-[11px] px-3 py-2.5 text-left text-[12px] font-medium transition-colors",
+                      active
+                        ? "bg-white/15 text-white shadow-[inset_3px_0_0_#BDB4FF]"
+                        : "text-[#C7C2E0] hover:bg-white/8 hover:text-white",
+                    )}
                     data-active={active ? "true" : "false"}
                     data-scandoc-nav={item.key}
                   >
@@ -264,85 +268,112 @@ export function AppShell({
   );
 
   return (
-    <div className="sc-app-shell relative min-h-dvh overflow-x-hidden bg-[#1b1440]">
-      <img
-        src={loginBackdrop}
-        alt=""
-        className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover opacity-40"
-        aria-hidden
-      />
-      <div
-        className="pointer-events-none absolute inset-0 z-0 bg-[#f3f0fa]/88"
-        aria-hidden
-      />
-      <div className="relative z-10 mx-auto flex w-full max-w-[1280px] min-w-0">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sc-app-header sticky top-0 z-20 flex min-w-0 items-center justify-between gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-3.5 lg:px-8">
-            <div className="flex items-center gap-3">
-              <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
-                <SheetTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="Ouvrir le menu"
-                    className="size-10 shrink-0 rounded-xl border-2 border-[#6b3d3d]/70 bg-[#f5d5c8]/90 text-[#6b3d3d] shadow-sm hover:bg-[#f5d5c8]"
-                  >
-                    <Menu className="size-5" strokeWidth={2.5} />
-                  </Button>
-                </SheetTrigger>
-                <SheetContent
-                  side="left"
-                  className="sc-shell-sidebar flex w-[min(18rem,90vw)] flex-col border-sidebar-border p-4"
-                >
-                  <SheetHeader className="p-0">
-                    <SheetTitle className="sr-only">Menu ScanDoc</SheetTitle>
-                  </SheetHeader>
-                  <div className="flex flex-1 flex-col overflow-y-auto">
-                    <BrandMark />
-                    <div className="mt-6 flex-1">
-                      <NavList
-                        view={view}
-                        onSelect={(next) => {
-                          onViewChange(next);
-                          setMobileNavOpen(false);
-                        }}
-                        isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
-                        pendingAccounts={me?.pendingAccounts ?? 0}
-                        pendingTasks={pendingTasks}
-                      />
-                    </div>
-                    <div className="mt-4 border-t border-border pt-3">
-                      <OnlinePeople />
-                    </div>
-                  </div>
-                </SheetContent>
-              </Sheet>
-              <BrandMark compact />
-              <div className="min-w-0">
-                <h1 className="truncate text-base font-semibold tracking-tight text-foreground">
-                  {current}
-                </h1>
-                {me?.department?.name ? (
-                  <p className="truncate text-xs text-muted-foreground">
-                    {me.department.name}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <NotificationsBell
-                onOpenDocument={onOpenDocument}
-                onOpenAccounts={() => onViewChange("accounts")}
-                onOpenDepartments={() => onViewChange("departments")}
-              />
-              {userMenu}
-            </div>
-          </header>
-
-          <main className="sc-shell-main relative z-10 min-w-0 flex-1 px-3 py-4 sm:px-4 sm:py-5 lg:px-8 lg:py-7">
-            <div className="sc-fade-in mx-auto w-full min-w-0 max-w-6xl">{children}</div>
-          </main>
+    <div className="sc-app-shell flex min-h-dvh w-full bg-[#F5F6FB] text-foreground">
+      {/* Sidebar fixe — maquette ScanDoc */}
+      <aside className="sc-shell-sidebar sticky top-0 hidden h-dvh w-[244px] shrink-0 flex-col overflow-y-auto bg-[#211D4D] px-3.5 pb-4 pt-5 text-[#EEEAFE] lg:flex">
+        <div className="mb-6 px-2">
+          <BrandMark />
         </div>
+        <div className="mb-4 mx-1 flex items-center gap-2 rounded-xl border border-white/12 bg-white/[0.06] px-2.5 py-2.5">
+          <span className="flex size-8 items-center justify-center rounded-lg bg-white/12 text-xs font-bold">
+            SD
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-xs font-bold text-white">
+              {me?.department?.name ?? "ScanDoc"}
+            </span>
+            <span className="block text-[10px] text-[#B9B4D9]">
+              Courrier interne
+            </span>
+          </span>
+        </div>
+        <div className="flex-1">
+          <NavList
+            view={view}
+            onSelect={onViewChange}
+            isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
+            pendingAccounts={me?.pendingAccounts ?? 0}
+            pendingTasks={pendingTasks}
+          />
+        </div>
+        <div className="mt-auto border-t border-white/12 pt-3">
+          <div className="flex items-center gap-2 px-1.5">
+            <span className="flex size-9 items-center justify-center rounded-full bg-[#E4E0FF] text-[11px] font-extrabold text-[#4436A9]">
+              {initialsOf(me?.user.name)}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[11px] font-semibold text-white">
+                {me?.user.name ?? "…"}
+              </span>
+              <span className="block truncate text-[10px] text-[#B9B4D9]">
+                {me?.isRoot
+                  ? "Super utilisateur"
+                  : me?.isAdmin
+                    ? "Directeur général"
+                    : me?.isChef
+                      ? "Chef de structure"
+                      : "Membre"}
+              </span>
+            </span>
+          </div>
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 flex h-[72px] items-center gap-4 border-b border-[#E8E8F1] bg-white px-4 sm:px-6 lg:px-8">
+          <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+            <SheetTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                aria-label="Ouvrir le menu"
+                className="size-9 shrink-0 rounded-[11px] border-[#E8E8F1] lg:hidden"
+              >
+                <Menu className="size-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent
+              side="left"
+              className="flex w-[min(18rem,90vw)] flex-col border-0 bg-[#211D4D] p-4 text-[#EEEAFE]"
+            >
+              <SheetHeader className="p-0">
+                <SheetTitle className="sr-only">Menu ScanDoc</SheetTitle>
+              </SheetHeader>
+              <BrandMark />
+              <div className="mt-6 flex-1 overflow-y-auto">
+                <NavList
+                  view={view}
+                  onSelect={(next) => {
+                    onViewChange(next);
+                    setMobileNavOpen(false);
+                  }}
+                  isAdmin={Boolean(me?.isAdmin || me?.isRoot)}
+                  pendingAccounts={me?.pendingAccounts ?? 0}
+                  pendingTasks={pendingTasks}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          <div className="min-w-0">
+            <p className="text-[11px] text-[#78788F]">
+              ScanDoc / <strong className="text-[#17162B]">{current}</strong>
+            </p>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <NotificationsBell
+              onOpenDocument={onOpenDocument}
+              onOpenAccounts={() => onViewChange("accounts")}
+              onOpenDepartments={() => onViewChange("departments")}
+            />
+            {userMenu}
+          </div>
+        </header>
+
+        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-7">
+          <div className="mx-auto w-full max-w-[1520px]">{children}</div>
+        </main>
       </div>
     </div>
   );
