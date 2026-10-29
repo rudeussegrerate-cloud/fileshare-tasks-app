@@ -85,6 +85,49 @@ export function DocumentDetailDialog({
   const [transferNote, setTransferNote] = useState("");
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [journeyOpen, setJourneyOpen] = useState(false);
+  const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
+  const attachRevision = useMutation(api.documents.attachRevision);
+  const revisionFileRef = useRef<HTMLInputElement>(null);
+  const [revisionNote, setRevisionNote] = useState("");
+  const [revisionBusy, setRevisionBusy] = useState(false);
+
+  const handleAttachRevision = async (
+    file: File | null | undefined,
+  ) => {
+    if (!file || !documentOrNull?._id) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Fichier trop volumineux (max 10 Mo).");
+      return;
+    }
+    setRevisionBusy(true);
+    try {
+      const uploadUrl = await generateUploadUrl({});
+      const res = await fetch(uploadUrl, {
+        method: "POST",
+        headers: { "Content-Type": file.type || "application/octet-stream" },
+        body: file,
+      });
+      if (!res.ok) throw new Error("Échec du téléversement.");
+      const json = (await res.json()) as { storageId: string };
+      await attachRevision({
+        documentId: documentOrNull._id,
+        storageId: json.storageId as Id<"_storage">,
+        fileName: file.name,
+        contentType: file.type || undefined,
+        size: file.size,
+        note: revisionNote.trim() || undefined,
+      });
+      setRevisionNote("");
+      toast.success(
+        "Version modifiée jointe — même dossier et même référence de suivi.",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Impossible de joindre le fichier.");
+    } finally {
+      setRevisionBusy(false);
+      if (revisionFileRef.current) revisionFileRef.current.value = "";
+    }
+  };
 
   const [viewer, setViewer] = useState<{
     url: string;
@@ -880,6 +923,46 @@ export function DocumentDetailDialog({
                         Transmettre à une personne
                       </Button>
                     ) : null}
+                  </div>
+                ) : null}
+
+                {!tracking.isClosed &&
+                tracking.permissions?.isCurrentHolder ? (
+                  <div className="space-y-2 rounded-lg border border-dashed border-brand/40 bg-card p-3">
+                    <p className="text-xs font-medium text-foreground">
+                      Joindre une version modifiée
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Même identifiant de suivi. Le fichier principal du dossier
+                      est remplacé ; l&apos;historique conserve les versions
+                      précédentes.
+                    </p>
+                    <Input
+                      placeholder="Note (optionnel) — ex. corrections apportées"
+                      value={revisionNote}
+                      onChange={(e) => setRevisionNote(e.target.value)}
+                      disabled={revisionBusy}
+                    />
+                    <input
+                      ref={revisionFileRef}
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt"
+                      onChange={(e) =>
+                        void handleAttachRevision(e.target.files?.[0])
+                      }
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={revisionBusy}
+                      onClick={() => revisionFileRef.current?.click()}
+                    >
+                      {revisionBusy
+                        ? "Envoi…"
+                        : "Choisir le fichier modifié"}
+                    </Button>
                   </div>
                 ) : null}
 
