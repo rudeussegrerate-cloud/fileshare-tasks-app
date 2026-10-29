@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import JSZip from "jszip";
 import {
   STATUS_META,
   STATUS_ORDER,
@@ -50,6 +51,60 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+
+
+/** Télécharge un fichier ou un ZIP si plusieurs pièces du même envoi. */
+async function downloadCourrierFiles(
+  files: Array<{ fileName: string; downloadUrl: string | null | undefined }>,
+  zipBaseName: string,
+) {
+  const usable = files.filter((f) => f.downloadUrl);
+  if (usable.length === 0) {
+    toast.error("Aucun fichier téléchargeable.");
+    return;
+  }
+  if (usable.length === 1) {
+    const f = usable[0]!;
+    const a = window.document.createElement("a");
+    a.href = f.downloadUrl!;
+    a.download = f.fileName || "document";
+    a.rel = "noopener";
+    a.target = "_blank";
+    a.click();
+    return;
+  }
+  toast.message("Préparation du ZIP…");
+  try {
+    const zip = new JSZip();
+    const usedNames = new Set<string>();
+    for (const f of usable) {
+      const res = await fetch(f.downloadUrl!);
+      if (!res.ok) throw new Error("fetch");
+      const blob = await res.blob();
+      let name = f.fileName || "document";
+      if (usedNames.has(name)) {
+        const i = name.lastIndexOf(".");
+        const base = i > 0 ? name.slice(0, i) : name;
+        const ext = i > 0 ? name.slice(i) : "";
+        let n = 2;
+        while (usedNames.has(`${base} (${n})${ext}`)) n += 1;
+        name = `${base} (${n})${ext}`;
+      }
+      usedNames.add(name);
+      zip.file(name, blob);
+    }
+    const out = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(out);
+    const a = window.document.createElement("a");
+    a.href = url;
+    a.download = `${zipBaseName || "courrier"}.zip`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    toast.success(`${usable.length} fichiers téléchargés (ZIP).`);
+  } catch {
+    toast.error("Impossible de créer le ZIP. Réessayez fichier par fichier.");
+  }
+}
 
 export function DocumentDetailDialog({
   documentId,
@@ -1056,22 +1111,46 @@ export function DocumentDetailDialog({
                       Répondre
                     </Button>
                   ) : null}
-                  {documentOrNull.downloadUrl ? (
+                  {documentOrNull.downloadUrl ||
+                  ((documentOrNull as { relatedFiles?: { downloadUrl?: string | null }[] }).relatedFiles?.some(
+                    (f) => f.downloadUrl,
+                  )) ? (
                     <Button
                       className="gap-2"
                       variant="outline"
                       onClick={() => {
-                        if (!documentOrNull.downloadUrl) return;
-                        const anchor = window.document.createElement("a");
-                        anchor.href = documentOrNull.downloadUrl;
-                        anchor.download = documentOrNull.fileName ?? "document";
-                        window.document.body.appendChild(anchor);
-                        anchor.click();
-                        window.document.body.removeChild(anchor);
+                        const related = (
+                          documentOrNull as {
+                            relatedFiles?: Array<{
+                              fileName: string;
+                              downloadUrl: string | null;
+                            }>;
+                          }
+                        ).relatedFiles;
+                        void downloadCourrierFiles(
+                          related && related.length > 0
+                            ? related
+                            : [
+                                {
+                                  fileName: documentOrNull.fileName ?? "document",
+                                  downloadUrl: documentOrNull.downloadUrl,
+                                },
+                              ],
+                          String(
+                            documentOrNull.publicRef ||
+                              documentOrNull.objet ||
+                              "courrier",
+                          )
+                            .replace(/[^\w\-]+/g, "_")
+                            .slice(0, 40),
+                        );
                       }}
                     >
                       <Download className="size-4" />
-                      Télécharger
+                      {(documentOrNull as { relatedFiles?: unknown[] }).relatedFiles &&
+                      ((documentOrNull as { relatedFiles: unknown[] }).relatedFiles.length > 1)
+                        ? "Télécharger tout (ZIP)"
+                        : "Télécharger"}
                     </Button>
                   ) : null}
                   {tracking &&

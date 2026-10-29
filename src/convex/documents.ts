@@ -1541,9 +1541,41 @@ export const get = query({
           }
         : null;
 
+    // Pièces jointes du même envoi multi-fichiers (parent + enfants)
+    const batchRootId = document.parentCourrierId ?? document._id;
+    const children = await ctx.db
+      .query("documents")
+      .withIndex("by_parent", (q) => q.eq("parentCourrierId", batchRootId))
+      .collect();
+    const rootDoc =
+      batchRootId === document._id
+        ? document
+        : await ctx.db.get(batchRootId);
+    const batchDocs = [
+      ...(rootDoc ? [rootDoc] : []),
+      ...children.filter((c) => c._id !== rootDoc?._id),
+    ];
+    const relatedFiles: Array<{
+      _id: typeof document._id;
+      fileName: string;
+      downloadUrl: string | null;
+      size?: number;
+      contentType?: string;
+    }> = [];
+    for (const d of batchDocs) {
+      relatedFiles.push({
+        _id: d._id,
+        fileName: d.fileName,
+        downloadUrl: await ctx.storage.getUrl(d.storageId),
+        size: d.size,
+        contentType: d.contentType,
+      });
+    }
+
     return {
       ...(await decorate(ctx, [document]))[0]!,
       downloadUrl: await ctx.storage.getUrl(document.storageId),
+      relatedFiles,
       isRecipient: Boolean(
         (document.recipientId && document.recipientId === userId) ||
           isStructureViewer,

@@ -725,6 +725,7 @@ export function SendDocument({
       if (useCircuit) {
         const primary = memberDestIds[0]!;
         const rest = memberDestIds.slice(1);
+        let batchRoot: Id<"documents"> | undefined;
         for (let fi = 0; fi < uploaded.length; fi++) {
           const up = uploaded[fi]!;
           let refBase: string | undefined = publicRef.trim() || undefined;
@@ -748,6 +749,7 @@ export function SendDocument({
             referenceText: referenceText.trim() || undefined,
             requiresResponse: false,
             urgent: isUrgent || undefined,
+            parentCourrierId: batchRoot,
             emittingDepartmentId:
               (me?.user?.departmentId as Id<"departments"> | undefined) ??
               onBehalfDepartmentId ??
@@ -759,11 +761,13 @@ export function SendDocument({
             onBehalfOfDepartment: me?.department?.name?.trim() || undefined,
             customFields: mergedFields.length ? mergedFields : undefined,
           });
+          if (!batchRoot) batchRoot = lastId;
           combo += 1;
         }
       } else {
         for (let pi = 0; pi < memberDestIds.length; pi++) {
           const personId = memberDestIds[pi]!;
+          let batchRoot: Id<"documents"> | undefined;
           for (let fi = 0; fi < uploaded.length; fi++) {
             const up = uploaded[fi]!;
             let refBase: string | undefined = publicRef.trim() || undefined;
@@ -790,6 +794,7 @@ export function SendDocument({
               referenceText: referenceText.trim() || undefined,
               requiresResponse: false,
               urgent: isUrgent || undefined,
+              parentCourrierId: batchRoot,
               emittingDepartmentId:
                 (me?.user?.departmentId as Id<"departments"> | undefined) ??
                 onBehalfDepartmentId ??
@@ -801,6 +806,7 @@ export function SendDocument({
               onBehalfOfDepartment: me?.department?.name?.trim() || undefined,
               customFields: mergedFields.length ? mergedFields : undefined,
             });
+            if (!batchRoot) batchRoot = lastId;
             combo += 1;
           }
         }
