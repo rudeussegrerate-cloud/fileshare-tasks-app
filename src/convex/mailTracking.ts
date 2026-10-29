@@ -59,7 +59,13 @@ async function deptLabel(
   if (!departmentId) return null;
   const d = await ctx.db.get(departmentId);
   if (!d) return null;
-  return d.code ? `${d.code} — ${d.name}` : d.name;
+  const code = (d.code ?? "").trim();
+  const name = (d.name ?? "").trim();
+  if (code && name) {
+    if (name.toUpperCase().startsWith(code.toUpperCase())) return name;
+    return `${code} — ${name}`;
+  }
+  return name || code || null;
 }
 
 async function loadSteps(ctx: Ctx, documentId: Id<"documents">) {

@@ -259,7 +259,42 @@ export type StructureDocFields = {
   recipientName?: string | null;
   senderDepartmentName?: string | null;
   recipientDepartmentName?: string | null;
+  senderFonction?: string | null;
+  recipientFonction?: string | null;
 };
+
+/**
+ * Connecteurs d'affichage institutionnels :
+ *   Nom · Fonction · CODE — Structure
+ * Ex. : Lanja Andriarimamy · DTD — MNDPT
+ */
+export function formatIdentity(parts: {
+  name?: string | null;
+  fonction?: string | null;
+  /** Libellé structure déjà formé (ex. « DTD — Direction… ») ou simple nom */
+  department?: string | null;
+  /** Code court optionnel si department n'inclut pas déjà « — » */
+  departmentCode?: string | null;
+}): string {
+  const name = parts.name?.trim() || "";
+  const fonction = parts.fonction?.trim() || "";
+  let dept = parts.department?.trim() || "";
+  const code = parts.departmentCode?.trim() || "";
+  if (code && dept && !dept.includes("—") && !dept.startsWith(code)) {
+    dept = `${code} — ${dept}`;
+  } else if (code && !dept) {
+    dept = code;
+  }
+
+  const left: string[] = [];
+  if (name) left.push(name);
+  if (fonction && fonction !== name) left.push(fonction);
+
+  if (left.length && dept) return `${left.join(" · ")} · ${dept}`;
+  if (left.length) return left.join(" · ");
+  if (dept) return dept;
+  return "—";
+}
 
 export function structureFrom(
   structureName?: string | null,
@@ -272,24 +307,22 @@ export function structureFrom(
   return "—";
 }
 
-/** Expéditeur : nom de la personne, puis structure si connue. */
+/** Expéditeur : Nom · structure (CODE — libellé). */
 export function structureSender(doc: StructureDocFields): string {
-  const person = doc.senderName?.trim();
-  const dept = doc.senderDepartmentName?.trim();
-  if (person && dept) return `${person} · ${dept}`;
-  if (person) return person;
-  if (dept) return dept;
-  return "—";
+  return formatIdentity({
+    name: doc.senderName,
+    fonction: doc.senderFonction,
+    department: doc.senderDepartmentName,
+  });
 }
 
-/** Destinataire : nom de la personne, puis structure si connue. */
+/** Destinataire : Nom · structure (CODE — libellé). */
 export function structureRecipient(doc: StructureDocFields): string {
-  const person = doc.recipientName?.trim();
-  const dept = doc.recipientDepartmentName?.trim();
-  if (person && dept) return `${person} · ${dept}`;
-  if (person) return person;
-  if (dept) return dept;
-  return "—";
+  return formatIdentity({
+    name: doc.recipientName,
+    fonction: doc.recipientFonction,
+    department: doc.recipientDepartmentName,
+  });
 }
 
 export function formatDateTime(timestamp?: number | null) {

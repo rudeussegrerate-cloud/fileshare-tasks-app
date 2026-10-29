@@ -74,7 +74,15 @@ async function departmentName(
 ) {
   if (!departmentId) return null;
   const department = await ctx.db.get(departmentId);
-  return department?.name ?? null;
+  if (!department) return null;
+  const code = (department.code ?? "").trim();
+  const name = (department.name ?? "").trim();
+  if (code && name) {
+    // Évite "DTD — DTD — …" si le nom commence déjà par le code
+    if (name.toUpperCase().startsWith(code.toUpperCase())) return name;
+    return `${code} — ${name}`;
+  }
+  return name || code || null;
 }
 
 function displayName(user: { name?: string | null; email?: string | null }) {
