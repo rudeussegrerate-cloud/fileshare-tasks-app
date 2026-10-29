@@ -112,9 +112,9 @@ export function DashboardHome({
 
   return (
     <div className="space-y-6" data-scandoc-tour="home-stats">
-      <header className="sc-dash-hero mb-6 flex flex-wrap items-end justify-between gap-4 rounded-2xl border border-brand/15 bg-gradient-to-br from-brand-soft/60 via-card to-card px-4 py-5 shadow-sm sm:px-6">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-brand">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#4c3ec7]">
             Tableau de bord
           </p>
           <h2 className="text-2xl font-bold tracking-tight text-[#0f0a24]">
