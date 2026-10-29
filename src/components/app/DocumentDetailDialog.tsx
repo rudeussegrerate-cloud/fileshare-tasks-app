@@ -41,6 +41,10 @@ import {
   PREDEFINED_TASKS,
 } from "./shared";
 import { ReplyComposer } from "./ReplyComposer";
+import {
+  CourrierJourneyMap,
+  buildJourneyNodes,
+} from "./CourrierJourneyMap";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -80,6 +84,7 @@ export function DocumentDetailDialog({
   const [transferUserId, setTransferUserId] = useState("");
   const [transferNote, setTransferNote] = useState("");
   const [trackingBusy, setTrackingBusy] = useState(false);
+  const [journeyOpen, setJourneyOpen] = useState(false);
 
   const [viewer, setViewer] = useState<{
     url: string;
@@ -775,6 +780,14 @@ export function DocumentDetailDialog({
                         {tracking.publicRef}
                       </p>
                     ) : null}
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="mt-3 gap-2"
+                      onClick={() => setJourneyOpen(true)}
+                    >
+                      Suivre le document
+                    </Button>
                   </div>
                 </div>
 
@@ -865,40 +878,6 @@ export function DocumentDetailDialog({
                         onClick={() => setTransferOpen((v) => !v)}
                       >
                         Transmettre à une personne
-                      </Button>
-                    ) : null}
-                    {tracking.permissions.canClassify ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        className="border-emerald-300 text-emerald-800"
-                        disabled={trackingBusy}
-                        onClick={async () => {
-                          if (
-                            !window.confirm(
-                              "Classer définitivement ce courrier ? Le suivi sera terminé.",
-                            )
-                          )
-                            return;
-                          setTrackingBusy(true);
-                          try {
-                            await classifyDefinitively({
-                              documentId: documentOrNull!._id,
-                            });
-                            toast.success(
-                              "Courrier classé — suivi terminé",
-                            );
-                          } catch (e) {
-                            toast.error(
-                              e instanceof Error ? e.message : "Erreur",
-                            );
-                          } finally {
-                            setTrackingBusy(false);
-                          }
-                        }}
-                      >
-                        Classer définitivement
                       </Button>
                     ) : null}
                   </div>
@@ -1044,6 +1023,38 @@ export function DocumentDetailDialog({
                       Télécharger
                     </Button>
                   ) : null}
+                  {tracking &&
+                  !tracking.isClosed &&
+                  tracking.permissions?.canClassify ? (
+                    <Button
+                      className="gap-2 border-emerald-300 text-emerald-800"
+                      variant="outline"
+                      disabled={trackingBusy}
+                      onClick={async () => {
+                        if (
+                          !window.confirm(
+                            "Classer définitivement ce courrier ? Le suivi sera terminé.",
+                          )
+                        )
+                          return;
+                        setTrackingBusy(true);
+                        try {
+                          await classifyDefinitively({
+                            documentId: documentOrNull!._id,
+                          });
+                          toast.success("Courrier classé — suivi terminé");
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error ? e.message : "Erreur",
+                          );
+                        } finally {
+                          setTrackingBusy(false);
+                        }
+                      }}
+                    >
+                      Classer définitivement
+                    </Button>
+                  ) : null}
 
                 {documentOrNull.archivedAt ? (
                   <>
@@ -1091,6 +1102,35 @@ export function DocumentDetailDialog({
         )}
       </DialogContent>
     </Dialog>
+
+      <Dialog open={journeyOpen} onOpenChange={setJourneyOpen}>
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Parcours du document</DialogTitle>
+            <DialogDescription>
+              Déplacement du courrier d&apos;une personne / d&apos;un service à
+              l&apos;autre. La pastille indique où il se trouve maintenant.
+            </DialogDescription>
+          </DialogHeader>
+          {tracking ? (
+            <CourrierJourneyMap nodes={buildJourneyNodes(tracking)} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Chargement…</p>
+          )}
+          {tracking?.currentHolder && !tracking.isClosed ? (
+            <p className="text-center text-sm text-muted-foreground">
+              En ce moment chez{" "}
+              <span className="font-medium text-foreground">
+                {tracking.currentHolder.name}
+              </span>
+              {tracking.currentHolder.service
+                ? ` (${tracking.currentHolder.service})`
+                : ""}
+            </p>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
       <ReplyComposer
         open={replyOpen}
         onOpenChange={setReplyOpen}
