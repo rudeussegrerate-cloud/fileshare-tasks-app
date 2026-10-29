@@ -383,97 +383,135 @@ export function DocumentsList({
         />
       ) : (
         <>
-          <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            {documents.map((document) => {
-              const counterpart =
-                mode === "inbox"
-                  ? structureSender(document)
-                  : structureRecipient(document);
-              const counterpartLine =
-                mode === "inbox"
-                  ? counterpart && counterpart !== "—"
-                    ? `Vient de ${counterpart}`
-                    : "Expéditeur inconnu"
-                  : counterpart && counterpart !== "—"
-                    ? `Adressé à ${counterpart}`
-                    : "Destinataire inconnu";
-              const subject =
-                (document.objet && document.objet.trim()) || document.fileName;
-              const unread =
-                mode === "inbox" && document.status === "envoye";
-              const urgent =
-                Boolean((document as { urgent?: boolean }).urgent) &&
-                document.status !== "traite";
-              const preview =
-                (document.summary && document.summary.trim()) ||
-                (document.publicRef ? `Réf. ${document.publicRef}` : "") ||
-                document.fileName;
-              return (
-                <li key={document._id}>
-                  <button
-                    type="button"
-                    onClick={() => onOpen(document._id)}
-                    className={cn(
-                      "group flex w-full items-start gap-3 px-3 py-3 text-left transition-colors sm:gap-4 sm:px-4",
-                      "hover:bg-muted/50",
-                      unread && "bg-brand-soft/30",
-                      document.archivedAt && "opacity-60",
-                    )}
-                  >
-                    <div
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            {/* En-tête type maquette */}
+            <div className="hidden grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-3 border-b border-border bg-muted/40 px-4 py-2.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground md:grid">
+              <span>Courrier</span>
+              <span>{mode === "inbox" ? "Expéditeur" : "Destinataire"}</span>
+              <span>Service / étape</span>
+              <span className="text-right">Statut</span>
+            </div>
+            <ul className="divide-y divide-border">
+              {documents.map((document) => {
+                const counterpart =
+                  mode === "inbox"
+                    ? structureSender(document)
+                    : structureRecipient(document);
+                const subject =
+                  (document.objet && document.objet.trim()) || document.fileName;
+                const unread =
+                  mode === "inbox" && document.status === "envoye";
+                const urgent =
+                  Boolean((document as { urgent?: boolean }).urgent) &&
+                  document.status !== "traite";
+                const ref =
+                  (document.publicRef && String(document.publicRef).trim()) ||
+                  null;
+                const anyD = document as {
+                  senderDepartmentName?: string;
+                  recipientDepartmentName?: string;
+                  status?: string;
+                };
+                const service =
+                  mode === "inbox"
+                    ? anyD.senderDepartmentName || "—"
+                    : anyD.recipientDepartmentName || "—";
+                const stepHint =
+                  document.status === "envoye"
+                    ? mode === "inbox"
+                      ? "En attente de réception"
+                      : "En attente de lecture"
+                    : document.status === "consulte"
+                      ? "Prise en charge"
+                      : document.status === "en_cours"
+                        ? "En traitement"
+                        : document.status === "en_retard"
+                          ? "Retard de traitement"
+                          : document.status === "traite"
+                            ? "Classé"
+                            : "—";
+
+                return (
+                  <li key={document._id}>
+                    <button
+                      type="button"
+                      onClick={() => onOpen(document._id)}
                       className={cn(
-                        "mt-1 flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                        unread
-                          ? "bg-brand text-primary-foreground"
-                          : "bg-muted text-muted-foreground",
+                        "grid w-full grid-cols-1 gap-2 px-4 py-3.5 text-left transition-colors hover:bg-muted/40 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-center md:gap-3",
+                        unread && "bg-brand-soft/25",
+                        document.archivedAt && "opacity-60",
                       )}
-                      aria-hidden
                     >
-                      {(counterpart || "?").slice(0, 1).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <p
-                          className={cn(
-                            "truncate text-sm",
-                            unread
-                              ? "font-semibold text-foreground"
-                              : "font-medium text-foreground",
-                          )}
-                        >
-                          {counterpartLine}
-                        </p>
-                        <time className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-                          {formatDateTime(document.createdAt)}
-                        </time>
-                      </div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                        {urgent ? (
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-red-600">
-                            Urgent
-                          </span>
+                      {/* Courrier */}
+                      <div className="min-w-0">
+                        {ref ? (
+                          <p className="truncate text-[11px] font-bold text-brand">
+                            {ref}
+                          </p>
                         ) : null}
                         <p
                           className={cn(
-                            "truncate text-sm",
-                            unread
-                              ? "font-semibold text-foreground"
-                              : "text-foreground/90",
+                            "truncate text-sm text-foreground",
+                            unread ? "font-semibold" : "font-medium",
                           )}
                         >
                           {subject}
                         </p>
+                        <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
+                          {urgent ? (
+                            <span className="mr-1.5 font-semibold text-red-600">
+                              Urgent
+                            </span>
+                          ) : null}
+                          {formatDateTime(document.createdAt)}
+                        </p>
                       </div>
-                      <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
-                        {preview}
-                      </p>
-                      <div className="mt-1.5">
+
+                      {/* Personne */}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <div
+                          className={cn(
+                            "flex size-8 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
+                            unread
+                              ? "bg-brand text-primary-foreground"
+                              : "bg-muted text-muted-foreground",
+                          )}
+                          aria-hidden
+                        >
+                          {(counterpart || "?").slice(0, 1).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {counterpart || "—"}
+                          </p>
+                          <p className="truncate text-[11px] text-muted-foreground md:hidden">
+                            {service}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Service / étape */}
+                      <div className="hidden min-w-0 md:block">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {service}
+                        </p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {stepHint}
+                        </p>
+                      </div>
+
+                      {/* Statut */}
+                      <div className="flex md:justify-end">
                         <StatusBadge
                           asRecipient={mode === "inbox"}
                           status={
-                            (["envoye", "consulte", "en_cours", "en_retard", "traite"].includes(
-                              String(document.status),
-                            )
+                            ([
+                              "envoye",
+                              "consulte",
+                              "en_cours",
+                              "en_retard",
+                              "traite",
+                            ].includes(String(document.status))
                               ? document.status
                               : "envoye") as
                               | "envoye"
@@ -484,12 +522,16 @@ export function DocumentsList({
                           }
                         />
                       </div>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="border-t border-border px-4 py-2 text-right text-[11px] text-muted-foreground">
+              {documents.length} courrier
+              {documents.length > 1 ? "s" : ""}
+            </div>
+          </div>
         </>
       )}
     </div>
