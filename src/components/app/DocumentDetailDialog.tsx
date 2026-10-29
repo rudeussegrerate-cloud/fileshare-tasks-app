@@ -495,11 +495,11 @@ export function DocumentDetailDialog({
                 </p>
               ) : null}
               <p>
-                <span className="text-muted-foreground">Expéditeur : </span>
+                <span className="text-muted-foreground">Ce courrier vient de </span>
                 <span className="font-medium">{structureSender(documentOrNull)}</span>
               </p>
               <p>
-                <span className="text-muted-foreground">Destinataire : </span>
+                <span className="text-muted-foreground">Il est adressé à </span>
                 <span className="font-medium">{structureRecipient(documentOrNull)}</span>
               </p>
             </section>
@@ -757,15 +757,15 @@ export function DocumentDetailDialog({
                         </span>
                       ) : (
                         <>
-                          Responsable actuel :{" "}
+                          En ce moment, le dossier est chez{" "}
                           <span className="font-medium">
                             {tracking.currentHolder?.name ?? "—"}
                           </span>
                           {tracking.currentHolder?.fonction
-                            ? ` · ${tracking.currentHolder.fonction}`
+                            ? `, ${tracking.currentHolder.fonction}`
                             : ""}
                           {tracking.currentHolder?.service
-                            ? ` · ${tracking.currentHolder.service}`
+                            ? ` (${tracking.currentHolder.service})`
                             : ""}
                         </>
                       )}
@@ -993,12 +993,12 @@ export function DocumentDetailDialog({
 
                 {tracking.closed ? (
                   <p className="text-xs text-emerald-800">
-                    Classé par {tracking.closed.byName}
+                    Classé définitivement par {tracking.closed.byName}
                     {tracking.closed.byFonction
-                      ? ` (${tracking.closed.byFonction})`
+                      ? `, ${tracking.closed.byFonction}`
                       : ""}
                     {tracking.closed.byDepartment
-                      ? ` · ${tracking.closed.byDepartment}`
+                      ? ` (${tracking.closed.byDepartment})`
                       : ""}{" "}
                     le {formatDateTime(tracking.closed.at)}
                   </p>
@@ -1009,7 +1009,7 @@ export function DocumentDetailDialog({
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">
                 {documentOrNull.isRecipient
-                  ? `Envoyé par ${structureSender(documentOrNull)}`
+                  ? `Reçu de ${structureSender(documentOrNull)}`
                   : `Envoyé à ${structureRecipient(documentOrNull)}`}{" "}
                 le {formatDateTime(documentOrNull.createdAt)}
                 {documentOrNull.archivedAt

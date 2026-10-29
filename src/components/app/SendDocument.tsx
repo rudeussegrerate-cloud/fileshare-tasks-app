@@ -99,7 +99,7 @@ export function SendDocument({
 
   const isTransmission = mode === "transmission";
   const [step, setStep] = useState(0);
-  // L'étape « Qui envoie » (index 2) est sautée : émetteur = profil connecté
+  // L'étape « Ce courrier est envoyé par » (index 2) est sautée : émetteur = profil connecté
   const goNext = () => setStep((s) => (s === 1 ? 3 : Math.min(3, s + 1)));
   const goBack = () => setStep((s) => (s === 3 ? 1 : Math.max(0, s - 1)));
 
@@ -144,7 +144,7 @@ export function SendDocument({
   const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
   const [customTask, setCustomTask] = useState("");
 
-  // De la part de
+  // Au nom de
   const [onBehalfType, setOnBehalfType] = useState<"internal" | "external">(
     "internal",
   );
@@ -1544,7 +1544,7 @@ export function SendDocument({
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="shrink-0 text-muted-foreground">Qui reçoit</dt>
+                    <dt className="shrink-0 text-muted-foreground">Ce courrier est adressé à</dt>
                     <dd className="max-w-[65%] text-right font-medium">
                       {selectedDestPicks.length > 0
                         ? selectedDestPicks

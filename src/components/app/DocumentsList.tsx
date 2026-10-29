@@ -389,6 +389,14 @@ export function DocumentsList({
                 mode === "inbox"
                   ? structureSender(document)
                   : structureRecipient(document);
+              const counterpartLine =
+                mode === "inbox"
+                  ? counterpart && counterpart !== "—"
+                    ? `Vient de ${counterpart}`
+                    : "Expéditeur inconnu"
+                  : counterpart && counterpart !== "—"
+                    ? `Adressé à ${counterpart}`
+                    : "Destinataire inconnu";
               const subject =
                 (document.objet && document.objet.trim()) || document.fileName;
               const unread =
@@ -433,7 +441,7 @@ export function DocumentsList({
                               : "font-medium text-foreground",
                           )}
                         >
-                          {counterpart || "—"}
+                          {counterpartLine}
                         </p>
                         <time className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
                           {formatDateTime(document.createdAt)}
