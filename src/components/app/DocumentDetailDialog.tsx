@@ -85,6 +85,9 @@ export function DocumentDetailDialog({
   const [transferNote, setTransferNote] = useState("");
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [journeyOpen, setJourneyOpen] = useState(false);
+  const generateUploadUrl = useMutation(api.documents.generateUploadUrl);
+  const traiterFileRef = useRef<HTMLInputElement>(null);
+  const [traiterBusy, setTraiterBusy] = useState(false);
 
   const [viewer, setViewer] = useState<{
     url: string;
@@ -844,30 +847,90 @@ export function DocumentDetailDialog({
                       </Button>
                     ) : null}
                     {tracking.permissions.canCompletePart ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        disabled={trackingBusy}
-                        onClick={async () => {
-                          setTrackingBusy(true);
-                          try {
-                            await completeMyPart({
-                              documentId: documentOrNull!._id,
-                            });
-                            toast.success(
-                              "Votre part a été marquée comme traitée. Le suivi reste ouvert jusqu'au classement définitif.",
-                            );
-                          } catch (e) {
-                            toast.error(
-                              e instanceof Error ? e.message : "Erreur",
-                            );
-                          } finally {
-                            setTrackingBusy(false);
-                          }
-                        }}
-                      >
-                        Marquer ma part comme traitée
-                      </Button>
+                      <>
+                        <input
+                          ref={traiterFileRef}
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.txt"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file || !documentOrNull) return;
+                            setTraiterBusy(true);
+                            setTrackingBusy(true);
+                            try {
+                              const uploadUrl = await generateUploadUrl({});
+                              const res = await fetch(uploadUrl, {
+                                method: "POST",
+                                headers: {
+                                  "Content-Type":
+                                    file.type || "application/octet-stream",
+                                },
+                                body: file,
+                              });
+                              if (!res.ok)
+                                throw new Error("Échec du téléversement.");
+                              const json = (await res.json()) as {
+                                storageId: string;
+                              };
+                              await completeMyPart({
+                                documentId: documentOrNull._id,
+                                storageId: json.storageId as Id<"_storage">,
+                                fileName: file.name,
+                                contentType: file.type || undefined,
+                                size: file.size,
+                              });
+                              toast.success(
+                                "Version envoyée et part traitée. Le dossier n'est classé que par l'émetteur.",
+                              );
+                            } catch (err) {
+                              toast.error(
+                                err instanceof Error
+                                  ? err.message
+                                  : "Erreur",
+                              );
+                            } finally {
+                              setTraiterBusy(false);
+                              setTrackingBusy(false);
+                              if (traiterFileRef.current)
+                                traiterFileRef.current.value = "";
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={trackingBusy || traiterBusy}
+                          onClick={() => traiterFileRef.current?.click()}
+                        >
+                          Traiter (joindre version)
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          disabled={trackingBusy || traiterBusy}
+                          onClick={async () => {
+                            setTrackingBusy(true);
+                            try {
+                              await completeMyPart({
+                                documentId: documentOrNull!._id,
+                              });
+                              toast.success(
+                                "Votre part est traitée. Classement définitif réservé à l'émetteur.",
+                              );
+                            } catch (e) {
+                              toast.error(
+                                e instanceof Error ? e.message : "Erreur",
+                              );
+                            } finally {
+                              setTrackingBusy(false);
+                            }
+                          }}
+                        >
+                          Traiter sans nouveau fichier
+                        </Button>
+                      </>
                     ) : null}
                     {tracking.permissions.canTransfer ? (
                       <Button

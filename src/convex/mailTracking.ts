@@ -304,9 +304,7 @@ export const getTracking = query({
             myStep.status === "active",
         ),
         canCompletePart: Boolean(
-          myStep &&
-            myStep.status === "active" &&
-            (myStep.startedAt || myStep.receivedAt),
+          myStep && myStep.status === "active",
         ),
         canTransfer: Boolean(
           !isClosed &&
@@ -315,12 +313,7 @@ export const getTracking = query({
                 (myStep.status === "done" || myStep.status === "active"))),
         ),
         canClassify: Boolean(
-          !isClosed &&
-            (doc.recipientId === userId ||
-              myStep ||
-              myDoneStep ||
-              isAdmin(user.role) ||
-              doc.senderId === userId),
+          !isClosed && (doc.senderId === userId || isAdmin(user.role)),
         ),
       },
     };
@@ -449,6 +442,11 @@ export const completeMyPart = mutation({
   args: {
     documentId: v.id("documents"),
     note: v.optional(v.string()),
+    /** Version modifiée jointe en même temps que la fin de part */
+    storageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+    contentType: v.optional(v.string()),
+    size: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
@@ -472,6 +470,30 @@ export const completeMyPart = mutation({
       note: args.note?.trim().slice(0, 500) || step.note,
     });
 
+    if (args.storageId && args.fileName) {
+      await ctx.db.patch(doc._id, {
+        storageId: args.storageId,
+        fileName: args.fileName,
+        contentType: args.contentType,
+        size: args.size,
+        revisionCount: (doc.revisionCount ?? 0) + 1,
+        lastRevisedAt: now,
+        lastRevisedByName: displayName(user),
+      });
+      await ctx.db.insert("documentRevisions", {
+        documentId: doc._id,
+        storageId: args.storageId,
+        fileName: args.fileName,
+        contentType: args.contentType,
+        size: args.size,
+        uploadedBy: user._id,
+        uploadedByName: displayName(user),
+        stepIndex: step.stepIndex,
+        note: args.note?.trim().slice(0, 500) || "Version jointe à la fin de part",
+        createdAt: now,
+      });
+    }
+
     // Activer l'étape suivante du circuit prédéfini (si encore en waiting)
     const allSteps = await loadSteps(ctx, doc._id);
     const nextWaiting = allSteps.find(
@@ -493,6 +515,7 @@ export const completeMyPart = mutation({
         status: "en_cours",
         currentStepIndex: nextWaiting.stepIndex,
         dueAt: now + 24 * 3600 * 1000,
+        // L'urgence reste pour le prochain titulaire si le dossier était urgent
         updatedAt: now,
       });
       await pushNotification(ctx, {
@@ -503,9 +526,10 @@ export const completeMyPart = mutation({
         documentId: doc._id,
       });
     } else {
-      // Global reste ouvert (en_cours), jamais traite ici
+      // Dernière part du circuit terminée : plus urgent, en attente de classement émetteur
       await ctx.db.patch(doc._id, {
         status: "en_cours",
+        urgent: false,
         updatedAt: now,
       });
     }
@@ -653,17 +677,23 @@ export const classifyDefinitively = mutation({
     }
 
     const steps = await loadSteps(ctx, doc._id);
-    const isHolder =
-      doc.recipientId === user._id ||
-      steps.some(
-        (s) =>
-          s.assigneeId === user._id &&
-          (s.status === "active" || s.status === "done" || s.status === "waiting"),
+    const isSender = doc.senderId === user._id;
+    const admin = isAdmin(user.role);
+    if (!isSender && !admin) {
+      throw new Error(
+        "Seul l'émetteur initial ou un administrateur peut classer définitivement ce courrier.",
       );
-    const allowed =
-      isHolder || isAdmin(user.role) || doc.senderId === user._id;
-    if (!allowed) {
-      throw new Error("Vous n'êtes pas habilité à classer ce courrier.");
+    }
+    const pendingSteps = steps.filter(
+      (s) => s.status === "active" || s.status === "waiting",
+    );
+    // Circuit incomplet : l'émetteur peut forcer ; message clair si étapes restantes
+    if (pendingSteps.length > 0 && !admin && isSender) {
+      // autorisé pour l'émetteur (comme demandé) — on journalise
+    } else if (pendingSteps.length > 0 && !admin && !isSender) {
+      throw new Error(
+        "Le circuit n'est pas terminé : toutes les parts doivent être traitées avant le classement.",
+      );
     }
 
     const now = Date.now();

@@ -242,6 +242,8 @@ async function collectInboxDocuments(
       .withIndex("by_assignee", (q) => q.eq("assigneeId", userId))
       .collect();
     for (const s of steps) {
+      // Part déjà traitée : ne plus apparaître dans « reçus » pour cet intervenant
+      if (s.status === "done" || s.status === "rejected") continue;
       if (map.has(String(s.documentId))) continue;
       accept(await ctx.db.get(s.documentId));
     }
@@ -2994,7 +2996,14 @@ export const assistantMailBrief = query({
         const due = d.dueAt ?? (d.createdAt ?? d._creationTime) + DAY;
         if (now > due) overdue += 1;
       }
-      if (d.urgent && d.status !== "traite") urgent += 1;
+      const isHolder =
+        String(d.recipientId ?? "") === String(userId) ||
+        d.status === "envoye" ||
+        d.status === "consulte" ||
+        d.status === "en_cours" ||
+        d.status === "en_retard";
+      // Urgent visible seulement si le dossier me concerne encore (inbox filtré)
+      if (d.urgent && d.status !== "traite" && isHolder) urgent += 1;
       const age = now - (d.createdAt ?? d._creationTime);
       if (age < DAY) recentNew += 1;
       recentItems.push({
