@@ -1104,7 +1104,7 @@ export function DocumentDetailDialog({
     </Dialog>
 
       <Dialog open={journeyOpen} onOpenChange={setJourneyOpen}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[95vh] w-[min(96vw,56rem)] max-w-5xl overflow-y-auto sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>Parcours du document</DialogTitle>
             <DialogDescription>
