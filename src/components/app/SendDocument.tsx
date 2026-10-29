@@ -493,9 +493,9 @@ export function SendDocument({
     return out;
   })();
 
-  const selectedDestPicks: DestPick[] = allDestOptions.filter((o) =>
-    memberDestIds.includes(o.id as Id<"users">),
-  );
+  const selectedDestPicks: DestPick[] = memberDestIds
+    .map((id) => allDestOptions.find((o) => o.id === id))
+    .filter((o): o is DestPick => Boolean(o));
 
   /** Suggestions type e-mail : uniquement si du texte est saisi, classées par pertinence */
   const destSuggestions = (() => {
@@ -1075,26 +1075,34 @@ export function SendDocument({
                         {selectedDestPicks.length > 1 ? "s" : ""} (
                         {selectedDestPicks.length})
                       </p>
-                      {memberDestIds.length >= 2 ? (
-                        <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
-                          <input
-                            type="checkbox"
-                            className="mt-1"
-                            checked={circuitMode}
-                            onChange={(e) => setCircuitMode(e.target.checked)}
-                          />
-                          <span>
-                            <span className="font-medium text-foreground">
-                              Créer un circuit ordonné
+                      <div className="rounded-lg border border-brand/30 bg-brand-soft/40 px-3 py-2.5 text-sm">
+                        {memberDestIds.length < 2 ? (
+                          <p className="text-xs text-muted-foreground">
+                            Pour un <strong className="text-foreground">circuit</strong>,
+                            ajoutez au moins <strong className="text-foreground">2 personnes</strong>.
+                            Elles traiteront le même dossier dans l&apos;ordre.
+                          </p>
+                        ) : (
+                          <label className="flex cursor-pointer items-start gap-2">
+                            <input
+                              type="checkbox"
+                              className="mt-1 size-4 accent-[var(--brand)]"
+                              checked={circuitMode}
+                              onChange={(e) => setCircuitMode(e.target.checked)}
+                            />
+                            <span>
+                              <span className="font-semibold text-foreground">
+                                Créer un circuit ordonné
+                              </span>
+                              <span className="mt-0.5 block text-xs text-muted-foreground">
+                                Un seul dossier : le n°1 traite en premier, puis le n°2, etc.
+                                Utilisez ▲ ▼ pour changer l&apos;ordre. Sans case = un envoi
+                                séparé par personne.
+                              </span>
                             </span>
-                            <span className="mt-0.5 block text-xs text-muted-foreground">
-                              Un seul dossier : le 1er traite, puis le 2e, etc.
-                              (réordonnez avec les flèches). Sans circuit = un
-                              envoi séparé à chaque personne.
-                            </span>
-                          </span>
-                        </label>
-                      ) : null}
+                          </label>
+                        )}
+                      </div>
                       <ul className="flex flex-col gap-2">
                         {selectedDestPicks.map((o) => (
                           <li
