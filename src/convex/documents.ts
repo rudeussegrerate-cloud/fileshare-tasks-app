@@ -3065,6 +3065,8 @@ export const trackingOverview = query({
       objet: string;
       publicRef: string | null;
       counterpart: string;
+      currentlyWith: string;
+      currentlyWithService: string | null;
       status: string;
       urgent: boolean;
       createdAt: number;
@@ -3073,6 +3075,35 @@ export const trackingOverview = query({
       isOverdue: boolean;
       nextAction: string;
     }> = [];
+
+    async function locationOf(d: Doc<"documents">) {
+      if (d.status === "traite" || d.closedAt) {
+        return {
+          currentlyWith: d.closedByName || "Classé",
+          currentlyWithService: d.closedByDepartment ?? null,
+        };
+      }
+      try {
+        const steps = await ctx.db
+          .query("documentSteps")
+          .withIndex("by_document", (q) => q.eq("documentId", d._id))
+          .collect();
+        steps.sort((a, b) => a.stepIndex - b.stepIndex);
+        const active = steps.find((s) => s.status === "active");
+        if (active) {
+          return {
+            currentlyWith: active.assigneeName,
+            currentlyWithService: active.assigneeDepartmentName ?? null,
+          };
+        }
+      } catch {
+        /* */
+      }
+      return {
+        currentlyWith: d.recipientName || "—",
+        currentlyWithService: await departmentName(ctx, d.recipientDepartmentId),
+      };
+    }
 
     for (const d of received) {
       const due = d.dueAt ?? null;
