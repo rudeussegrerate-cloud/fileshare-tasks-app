@@ -29,7 +29,6 @@ import {
   Newspaper,
   Menu,
   Send,
-  Route,
   Settings,
   Upload,
   UserCheck,
@@ -49,7 +48,6 @@ export type AppView =
   | "send"
   | "inbox"
   | "sent"
-  | "tracking"
   | "departments"
   | "accounts"
   | "settings";
@@ -81,7 +79,6 @@ const NAV_GROUPS: Array<{ title: string; items: NavItem[] }> = [
       { key: "send", label: "Nouveau courrier", icon: Upload },
       { key: "inbox", label: "Courriers reçus", icon: Inbox },
       { key: "sent", label: "Courriers envoyés", icon: Send },
-      { key: "tracking", label: "Suivi des courriers", icon: Route },
     ],
   },
   {

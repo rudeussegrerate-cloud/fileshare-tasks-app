@@ -1,4 +1,6 @@
-/**
- * Ancien suivi par circuit — redirige vers le suivi unifié.
- */
-export { TrackingView as CircuitTrackingView } from "./TrackingView";
+/** Ancien composant circuit — non utilisé. */
+export function CircuitTrackingView(_props: {
+  onOpenDocument?: (id: string) => void;
+}) {
+  return null;
+}

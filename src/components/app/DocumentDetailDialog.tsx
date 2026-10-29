@@ -25,7 +25,6 @@ import {
   CheckCircle2,
   Reply,
   Trash2,
-  History as HistoryIcon,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -57,10 +56,6 @@ export function DocumentDetailDialog({
 }) {
   const courrier = useQuery(
     api.documents.get,
-    documentId ? { documentId } : "skip",
-  );
-  const trackingHistory = useQuery(
-    api.documents.documentHistory,
     documentId ? { documentId } : "skip",
   );
   const markViewed = useMutation(api.documents.markViewed);
@@ -731,59 +726,6 @@ export function DocumentDetailDialog({
               </section>
             )}
 
-
-            <section className="space-y-3" data-scandoc-tour="tracking-history">
-              <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <HistoryIcon className="size-3.5" />
-                Historique de suivi
-              </h4>
-              {trackingHistory === undefined ? (
-                <p className="text-xs text-muted-foreground">Chargement…</p>
-              ) : !trackingHistory?.events?.length ? (
-                <p className="text-xs text-muted-foreground">
-                  Aucun événement enregistré pour ce dossier.
-                </p>
-              ) : (
-                <ol className="relative space-y-0 border-l border-border pl-4">
-                  {trackingHistory.events.map(
-                    (
-                      ev: {
-                        at: number;
-                        structure: string;
-                        status: string;
-                        statusLabel?: string;
-                        note?: string | null;
-                        kind: string;
-                      },
-                      idx: number,
-                    ) => (
-                      <li
-                        key={`${ev.at}-${ev.status}-${idx}`}
-                        className="relative pb-4 last:pb-0"
-                      >
-                        <span className="absolute -left-[1.15rem] top-1.5 size-2.5 rounded-full border-2 border-brand bg-card" />
-                        <p className="text-sm font-medium text-foreground">
-                          {ev.statusLabel ?? ev.status}
-                          <span className="ml-2 text-xs font-normal text-muted-foreground">
-                            {formatDateTime(ev.at)}
-                          </span>
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {ev.structure}
-                          {ev.note ? ` — ${ev.note}` : ""}
-                        </p>
-                      </li>
-                    ),
-                  )}
-                </ol>
-              )}
-              {trackingHistory?.publicRef ? (
-                <p className="text-[11px] text-muted-foreground">
-                  Réf. suivi :{" "}
-                  <span className="font-mono">{trackingHistory.publicRef}</span>
-                </p>
-              ) : null}
-            </section>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
               <p className="text-xs text-muted-foreground">

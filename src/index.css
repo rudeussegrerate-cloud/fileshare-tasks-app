@@ -65,53 +65,53 @@
     - Cyan #00A3E0  → lettre T
     Fond clair neutre pour lisibilité institutionnelle.
   */
-  /* Palette alignée maquette login (violet profond) + contenu lisible */
-  --background: #f4f2fb;
-  --foreground: #1a1238;
+  /* Palette maquette ScanDoc (suivi interactive HTML) */
+  --background: #F5F6FB;
+  --foreground: #17162B;
   --card: #ffffff;
-  --card-foreground: #1a1238;
+  --card-foreground: #17162B;
   --popover: #ffffff;
-  --popover-foreground: #1a1238;
-  --primary: #5b4cdb;
+  --popover-foreground: #17162B;
+  --primary: #4C3EC7;
   --primary-foreground: #ffffff;
-  --secondary: #ebe7f8;
-  --secondary-foreground: #1a1238;
-  --muted: #ebe7f8;
-  --muted-foreground: #3f3a5c;
-  --accent: #ebe7f8;
-  --accent-foreground: #3b2f7a;
-  --destructive: #dc2626;
-  --border: #ddd6f3;
-  --input: #c4bce0;
-  --ring: #5b4cdb;
+  --secondary: #F0EEFF;
+  --secondary-foreground: #17162B;
+  --muted: #FAFAFE;
+  --muted-foreground: #78788F;
+  --accent: #F0EEFF;
+  --accent-foreground: #4C3EC7;
+  --destructive: #C04452;
+  --border: #E8E8F1;
+  --input: #D9D8E8;
+  --ring: #4C3EC7;
 
-  --brand: #5b4cdb;
-  --brand-deep: #3b2f7a;
-  --brand-sky: #7c6ff0;
-  --brand-accent: #007a3d;
-  --brand-soft: #efeaff;
+  --brand: #4C3EC7;
+  --brand-deep: #211D4D;
+  --brand-sky: #7967D8;
+  --brand-accent: #16845B;
+  --brand-soft: #F0EEFF;
 
-  --chart-1: #5b4cdb;
-  --chart-2: #007a3d;
-  --chart-3: #f36c00;
-  --chart-4: #dc2626;
-  --chart-5: #00a3e0;
+  --chart-1: #4C3EC7;
+  --chart-2: #16845B;
+  --chart-3: #A96910;
+  --chart-4: #C04452;
+  --chart-5: #3375C8;
 
-  /* Sidebar = violet maquette Colorlib */
-  --sidebar: #1b1440;
-  --sidebar-foreground: #f3f0ff;
-  --sidebar-primary: #8b7cf6;
+  /* Sidebar maquette */
+  --sidebar: #211D4D;
+  --sidebar-foreground: #EEEAFE;
+  --sidebar-primary: #BDB4FF;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #2a2158;
-  --sidebar-accent-foreground: #f3f0ff;
-  --sidebar-border: #2f275c;
-  --sidebar-ring: #8b7cf6;
-  --sidebar-muted: #b7b0d6;
+  --sidebar-accent: rgba(255, 255, 255, 0.12);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: #BDB4FF;
+  --sidebar-muted: #9F9ABB;
 
-  --shadow-sm: 0 1px 2px rgba(27, 20, 64, 0.05);
-  --shadow-md: 0 4px 14px rgba(27, 20, 64, 0.08);
-  --shadow-lg: 0 14px 32px rgba(27, 20, 64, 0.12);
-  --shadow-brand: 0 6px 18px rgba(91, 76, 219, 0.28);
+  --shadow-sm: 0 2px 5px rgba(30, 24, 60, 0.015);
+  --shadow-md: 0 12px 38px rgba(24, 20, 60, 0.08);
+  --shadow-lg: 0 12px 38px rgba(24, 20, 60, 0.1);
+  --shadow-brand: 0 4px 10px rgba(76, 62, 199, 0.14);
 }
 
 .dark {
@@ -1017,53 +1017,53 @@ a:focus-visible,
     - Cyan #00A3E0  → lettre T
     Fond clair neutre pour lisibilité institutionnelle.
   */
-  /* Palette alignée maquette login (violet profond) + contenu lisible */
-  --background: #f4f2fb;
-  --foreground: #1a1238;
+  /* Palette maquette ScanDoc (suivi interactive HTML) */
+  --background: #F5F6FB;
+  --foreground: #17162B;
   --card: #ffffff;
-  --card-foreground: #1a1238;
+  --card-foreground: #17162B;
   --popover: #ffffff;
-  --popover-foreground: #1a1238;
-  --primary: #5b4cdb;
+  --popover-foreground: #17162B;
+  --primary: #4C3EC7;
   --primary-foreground: #ffffff;
-  --secondary: #ebe7f8;
-  --secondary-foreground: #1a1238;
-  --muted: #ebe7f8;
-  --muted-foreground: #3f3a5c;
-  --accent: #ebe7f8;
-  --accent-foreground: #3b2f7a;
-  --destructive: #dc2626;
-  --border: #ddd6f3;
-  --input: #c4bce0;
-  --ring: #5b4cdb;
+  --secondary: #F0EEFF;
+  --secondary-foreground: #17162B;
+  --muted: #FAFAFE;
+  --muted-foreground: #78788F;
+  --accent: #F0EEFF;
+  --accent-foreground: #4C3EC7;
+  --destructive: #C04452;
+  --border: #E8E8F1;
+  --input: #D9D8E8;
+  --ring: #4C3EC7;
 
-  --brand: #5b4cdb;
-  --brand-deep: #3b2f7a;
-  --brand-sky: #7c6ff0;
-  --brand-accent: #007a3d;
-  --brand-soft: #efeaff;
+  --brand: #4C3EC7;
+  --brand-deep: #211D4D;
+  --brand-sky: #7967D8;
+  --brand-accent: #16845B;
+  --brand-soft: #F0EEFF;
 
-  --chart-1: #5b4cdb;
-  --chart-2: #007a3d;
-  --chart-3: #f36c00;
-  --chart-4: #dc2626;
-  --chart-5: #00a3e0;
+  --chart-1: #4C3EC7;
+  --chart-2: #16845B;
+  --chart-3: #A96910;
+  --chart-4: #C04452;
+  --chart-5: #3375C8;
 
-  /* Sidebar = violet maquette Colorlib */
-  --sidebar: #1b1440;
-  --sidebar-foreground: #f3f0ff;
-  --sidebar-primary: #8b7cf6;
+  /* Sidebar maquette */
+  --sidebar: #211D4D;
+  --sidebar-foreground: #EEEAFE;
+  --sidebar-primary: #BDB4FF;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #2a2158;
-  --sidebar-accent-foreground: #f3f0ff;
-  --sidebar-border: #2f275c;
-  --sidebar-ring: #8b7cf6;
-  --sidebar-muted: #b7b0d6;
+  --sidebar-accent: rgba(255, 255, 255, 0.12);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(255, 255, 255, 0.12);
+  --sidebar-ring: #BDB4FF;
+  --sidebar-muted: #9F9ABB;
 
-  --shadow-sm: 0 1px 2px rgba(27, 20, 64, 0.05);
-  --shadow-md: 0 4px 14px rgba(27, 20, 64, 0.08);
-  --shadow-lg: 0 14px 32px rgba(27, 20, 64, 0.12);
-  --shadow-brand: 0 6px 18px rgba(91, 76, 219, 0.28);
+  --shadow-sm: 0 2px 5px rgba(30, 24, 60, 0.015);
+  --shadow-md: 0 12px 38px rgba(24, 20, 60, 0.08);
+  --shadow-lg: 0 12px 38px rgba(24, 20, 60, 0.1);
+  --shadow-brand: 0 4px 10px rgba(76, 62, 199, 0.14);
 }
 
 .dark {
@@ -2001,4 +2001,13 @@ html, body, #root {
   .sc-shell-main {
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
+}
+
+
+/* Alignement léger sur maquette interactive ScanDoc */
+.sc-shell-main {
+  background: var(--background);
+}
+.sc-shell-sidebar {
+  background: var(--sidebar) !important;
 }
