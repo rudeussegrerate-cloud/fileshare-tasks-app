@@ -82,6 +82,9 @@ export function DocumentDetailDialog({
   );
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferUserId, setTransferUserId] = useState("");
+  const [transferUserLabel, setTransferUserLabel] = useState("");
+  const [transferQuery, setTransferQuery] = useState("");
+  const [transferSuggestOpen, setTransferSuggestOpen] = useState(false);
   const [transferNote, setTransferNote] = useState("");
   const [trackingBusy, setTrackingBusy] = useState(false);
   const [journeyOpen, setJourneyOpen] = useState(false);
@@ -834,19 +837,112 @@ export function DocumentDetailDialog({
                 {transferOpen && !tracking.isClosed ? (
                   <div className="space-y-2 rounded-lg border border-border bg-card p-3">
                     <Label>Destinataire du transfert</Label>
-                    <select
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-                      value={transferUserId}
-                      onChange={(e) => setTransferUserId(e.target.value)}
-                    >
-                      <option value="">— Choisir —</option>
-                      {(transferTargets ?? []).map((u: { _id: string; name: string; fonction: string | null }) => (
-                        <option key={u._id} value={u._id}>
-                          {u.name}
-                          {u.fonction ? ` · ${u.fonction}` : ""}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <Input
+                        value={
+                          transferUserId && !transferSuggestOpen
+                            ? transferUserLabel
+                            : transferQuery
+                        }
+                        onChange={(e) => {
+                          setTransferUserId("");
+                          setTransferUserLabel("");
+                          setTransferQuery(e.target.value);
+                          setTransferSuggestOpen(true);
+                        }}
+                        onFocus={() => setTransferSuggestOpen(true)}
+                        onBlur={() =>
+                          setTimeout(() => setTransferSuggestOpen(false), 150)
+                        }
+                        placeholder="Rechercher une personne…"
+                        autoComplete="off"
+                      />
+                      {transferSuggestOpen ? (
+                        <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-56 overflow-y-auto rounded-lg border border-border bg-card py-1 shadow-lg">
+                          {(transferTargets ?? [])
+                            .filter((u: {
+                              _id: string;
+                              name: string;
+                              fonction: string | null;
+                              email?: string | null;
+                            }) => {
+                              const q = transferQuery.trim().toLowerCase();
+                              if (!q) return true;
+                              const hay = `${u.name} ${u.fonction ?? ""} ${u.email ?? ""}`.toLowerCase();
+                              return q
+                                .split(/\s+/)
+                                .filter(Boolean)
+                                .every((tok) => hay.includes(tok));
+                            })
+                            .slice(0, 12)
+                            .map((u: {
+                              _id: string;
+                              name: string;
+                              fonction: string | null;
+                            }) => {
+                              const label = u.fonction
+                                ? `${u.name} · ${u.fonction}`
+                                : u.name;
+                              const initial = (u.name || "?").charAt(0).toUpperCase();
+                              return (
+                                <li key={u._id}>
+                                  <button
+                                    type="button"
+                                    className="flex w-full items-center gap-3 px-3 py-2.5 text-left hover:bg-muted/70"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => {
+                                      setTransferUserId(u._id);
+                                      setTransferUserLabel(label);
+                                      setTransferQuery("");
+                                      setTransferSuggestOpen(false);
+                                    }}
+                                  >
+                                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand">
+                                      {initial}
+                                    </span>
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate text-sm font-medium text-foreground">
+                                        {u.name}
+                                      </span>
+                                      {u.fonction ? (
+                                        <span className="block truncate text-xs text-muted-foreground">
+                                          {u.fonction}
+                                        </span>
+                                      ) : null}
+                                    </span>
+                                  </button>
+                                </li>
+                              );
+                            })}
+                          {(transferTargets ?? []).length === 0 ? (
+                            <li className="px-3 py-2 text-sm text-muted-foreground">
+                              Aucune personne disponible
+                            </li>
+                          ) : null}
+                        </ul>
+                      ) : null}
+                    </div>
+                    {transferUserId ? (
+                      <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+                        <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-semibold text-white">
+                          {(transferUserLabel || "?").charAt(0).toUpperCase()}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                          {transferUserLabel}
+                        </span>
+                        <button
+                          type="button"
+                          className="text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => {
+                            setTransferUserId("");
+                            setTransferUserLabel("");
+                            setTransferQuery("");
+                          }}
+                        >
+                          Retirer
+                        </button>
+                      </div>
+                    ) : null}
                     <Textarea
                       rows={2}
                       placeholder="Instruction (optionnel)"
@@ -869,6 +965,8 @@ export function DocumentDetailDialog({
                             toast.success("Courrier transmis");
                             setTransferOpen(false);
                             setTransferUserId("");
+                            setTransferUserLabel("");
+                            setTransferQuery("");
                             setTransferNote("");
                           } catch (e) {
                             toast.error(
@@ -885,7 +983,12 @@ export function DocumentDetailDialog({
                         type="button"
                         size="sm"
                         variant="ghost"
-                        onClick={() => setTransferOpen(false)}
+                        onClick={() => {
+                          setTransferOpen(false);
+                          setTransferUserId("");
+                          setTransferUserLabel("");
+                          setTransferQuery("");
+                        }}
                       >
                         Annuler
                       </Button>
