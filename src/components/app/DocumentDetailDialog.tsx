@@ -659,97 +659,7 @@ export function DocumentDetailDialog({
               </div>
             </section>
 
-            {documentOrNull.canUpdateStatus || documentOrNull.isRecipient ? (
-              <section className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span data-scandoc-tour="doc-status">
-                    Traitement du courrier
-                  </span>
-                </h4>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Indiquez où en est le traitement de ce courrier. L&apos;émetteur
-                  voit ces mises à jour.
-                </p>
-                <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                  {(
-                    [
-                      {
-                        status: "consulte" as DocumentStatus,
-                        title: "Marquer lu",
-                        desc: "Prise de connaissance",
-                      },
-                      {
-                        status: "en_cours" as DocumentStatus,
-                        title: "En traitement",
-                        desc: "Vous traitez ou préparez une réponse",
-                      },
-                      {
-                        status: "traite" as DocumentStatus,
-                        title: "Classer",
-                        desc: "Affaire terminée de votre côté",
-                      },
-                    ] as const
-                  ).map((item) => {
-                    const active = documentOrNull.status === item.status;
-                    const Icon = STATUS_META[item.status].icon;
-                    return (
-                      <button
-                        key={item.status}
-                        type="button"
-                        onClick={() => void handleStatus(item.status)}
-                        className={cn(
-                          "rounded-sm border px-3 py-3 text-left transition-all",
-                          active
-                            ? "border-brand bg-brand-soft shadow-sm"
-                            : "border-border bg-card hover:border-brand-sky/50",
-                        )}
-                      >
-                        <span className="flex items-center gap-1.5 text-sm font-semibold">
-                          <Icon className="size-3.5 shrink-0" />
-                          {item.title}
-                        </span>
-                        <span className="mt-1 block text-[11px] text-muted-foreground">
-                          {item.desc}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            ) : (
-              <section className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Suivi du courrier
-                </h4>
-                <ol className="mt-3 space-y-2">
-                  {STATUS_ORDER.map((status, index) => {
-                    const reached =
-                      STATUS_ORDER.indexOf(documentOrNull.status) >= index;
-                    return (
-                      <li
-                        key={status}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <CheckCircle2
-                          className={cn(
-                            "size-4",
-                            reached ? "text-emerald-500" : "text-muted-foreground/40",
-                          )}
-                        />
-                        <span
-                          className={cn(
-                            reached ? "text-foreground" : "text-muted-foreground",
-                          )}
-                        >
-                          {STATUS_META[status].label}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </section>
-            )}
-
+            {/* Une seule zone d'actions : Suivi du dossier (plus de doublons Marquer lu / Classer) */}
 
             {tracking ? (
               <section className="space-y-3 rounded-xl border border-border bg-muted/20 p-4">
@@ -796,7 +706,7 @@ export function DocumentDetailDialog({
 
                 {!tracking.isClosed && tracking.permissions ? (
                   <div className="flex flex-wrap gap-2">
-                    {tracking.permissions.canReceive ? (
+                    {tracking.permissions.canReceive && !tracking.permissions.canCompletePart ? (
                       <Button
                         type="button"
                         size="sm"
@@ -819,31 +729,6 @@ export function DocumentDetailDialog({
                         }}
                       >
                         Réceptionner
-                      </Button>
-                    ) : null}
-                    {tracking.permissions.canTakeCharge ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={trackingBusy}
-                        onClick={async () => {
-                          setTrackingBusy(true);
-                          try {
-                            await takeCharge({
-                              documentId: documentOrNull!._id,
-                            });
-                            toast.success("Prise en charge enregistrée");
-                          } catch (e) {
-                            toast.error(
-                              e instanceof Error ? e.message : "Erreur",
-                            );
-                          } finally {
-                            setTrackingBusy(false);
-                          }
-                        }}
-                      >
-                        Prendre en charge
                       </Button>
                     ) : null}
                     {tracking.permissions.canCompletePart ? (
@@ -881,7 +766,7 @@ export function DocumentDetailDialog({
                                 size: file.size,
                               });
                               toast.success(
-                                "Version envoyée et part traitée. Le dossier n'est classé que par l'émetteur.",
+                                "Part traitée avec la nouvelle version.",
                               );
                             } catch (err) {
                               toast.error(
@@ -901,15 +786,6 @@ export function DocumentDetailDialog({
                           type="button"
                           size="sm"
                           disabled={trackingBusy || traiterBusy}
-                          onClick={() => traiterFileRef.current?.click()}
-                        >
-                          Traiter (joindre version)
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="secondary"
-                          disabled={trackingBusy || traiterBusy}
                           onClick={async () => {
                             setTrackingBusy(true);
                             try {
@@ -917,7 +793,7 @@ export function DocumentDetailDialog({
                                 documentId: documentOrNull!._id,
                               });
                               toast.success(
-                                "Votre part est traitée. Classement définitif réservé à l'émetteur.",
+                                "Votre part est traitée. Le classement définitif est réservé à l'émetteur.",
                               );
                             } catch (e) {
                               toast.error(
@@ -928,7 +804,16 @@ export function DocumentDetailDialog({
                             }
                           }}
                         >
-                          Traiter sans nouveau fichier
+                          Traiter ma part
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={trackingBusy || traiterBusy}
+                          onClick={() => traiterFileRef.current?.click()}
+                        >
+                          Traiter + joindre un fichier
                         </Button>
                       </>
                     ) : null}
