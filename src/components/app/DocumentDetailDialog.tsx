@@ -635,23 +635,6 @@ export function DocumentDetailDialog({
               </div>
             </section>
 
-            {documentOrNull.canReply ? (
-              <section className="space-y-2 rounded-lg border border-brand/30 bg-brand-soft/40 p-3">
-                <p className="text-xs text-muted-foreground">
-                  Rédigez un courrier de réponse (champs + aperçu éditable), puis
-                  imprimez, téléchargez ou envoyez à l&apos;expéditeur.
-                </p>
-                <Button
-                  type="button"
-                  className="w-full gap-2 sm:w-auto"
-                  onClick={() => setReplyOpen(true)}
-                >
-                  <Reply className="size-4" />
-                  Rédiger une réponse
-                </Button>
-              </section>
-            ) : null}
-
             {documentOrNull.canUpdateStatus || documentOrNull.isRecipient ? (
               <section className="space-y-3">
                 <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -755,15 +738,16 @@ export function DocumentDetailDialog({
                   : ""}
               </p>
               <div className="flex flex-wrap gap-2">
-                    {documentOrNull.downloadUrl ? (
-                  <>
+                    {documentOrNull.canReply ? (
                     <Button
                       className="gap-2"
-                      onClick={() => void openDocumentViewer()}
+                      onClick={() => setReplyOpen(true)}
                     >
-                      <ExternalLink className="size-4" />
-                      Visualiser
+                      <Reply className="size-4" />
+                      Répondre
                     </Button>
+                  ) : null}
+                  {documentOrNull.downloadUrl ? (
                     <Button
                       className="gap-2"
                       variant="outline"
@@ -780,8 +764,7 @@ export function DocumentDetailDialog({
                       <Download className="size-4" />
                       Télécharger
                     </Button>
-                  </>
-                ) : null}
+                  ) : null}
 
                 {documentOrNull.archivedAt ? (
                   <>
