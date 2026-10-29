@@ -11,6 +11,7 @@ import { SendDocument } from "@/components/app/SendDocument";
 import { InactivityLogout } from "@/components/app/InactivityLogout";
 import { PresenceHeartbeat } from "@/components/app/PresenceHeartbeat";
 import { SettingsView } from "@/components/app/SettingsView";
+import { TrackingView } from "@/components/app/TrackingView";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { useMutation, useQuery } from "convex/react";
@@ -215,6 +216,10 @@ export default function Dashboard() {
           onOpen={setOpenDocumentId}
           onCreate={() => setView("send")}
         />
+      ) : null}
+
+      {view === "tracking" ? (
+        <TrackingView onOpen={(id) => setOpenDocumentId(id)} />
       ) : null}
 
 {view === "departments" ? (

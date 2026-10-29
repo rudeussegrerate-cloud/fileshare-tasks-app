@@ -74,10 +74,10 @@ export function TrackingView({
           </div>
           <div>
             <h2 className="text-lg font-semibold tracking-tight text-foreground">
-              Suivi des courriers
+              Suivi
             </h2>
             <p className="text-sm text-muted-foreground">
-              Parcours de vos envois et réceptions — statut, échéance, prochaine
+              Tous vos courriers en cours ou classés — ouvrez un dossier pour le détail — statut, échéance, prochaine
               action.
             </p>
           </div>
