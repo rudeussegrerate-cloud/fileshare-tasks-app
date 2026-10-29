@@ -2573,11 +2573,30 @@ export const documentHistory = query({
       deduped.push(ev);
     }
 
+    try {
+      const logs = await ctx.db
+        .query("auditLogs")
+        .withIndex("by_document", (q) => q.eq("documentId", args.documentId))
+        .collect();
+      for (const log of logs) {
+        events.push({
+          at: log.createdAt,
+          structure: log.actorName || "Utilisateur",
+          status: "statut",
+          note: log.details || log.action,
+          kind: "statut",
+        });
+      }
+    } catch {
+      /* index ou table */
+    }
+
     const statusLabel = (s: string) => {
       const map: Record<string, string> = {
-        envoye: "Envoyé",
+        envoye: "Envoyé / Reçu",
         consulte: "Consulté",
         en_cours: "En traitement",
+        en_retard: "En retard",
         traite: "Classé",
         annule: "Annulé",
         archive: "Archivé",
@@ -2963,6 +2982,111 @@ export const assistantMailBrief = query({
       latestUrgentId: urgentDoc ? String(urgentDoc._id) : null,
       latestOverdueId: overdueDoc ? String(overdueDoc._id) : null,
     };
+  },
+});
+
+
+/** Vue suivi : tous les courriers de l'utilisateur avec état et échéance. */
+export const trackingOverview = query({
+  args: {
+    scope: v.optional(
+      v.union(v.literal("all"), v.literal("sent"), v.literal("received")),
+    ),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return [];
+    const limit = Math.min(Math.max(args.limit ?? 50, 1), 100);
+    const scope = args.scope ?? "all";
+    const received =
+      scope === "sent" ? [] : await collectInboxDocuments(ctx, userId, false);
+    const sent =
+      scope === "received"
+        ? []
+        : (
+            await ctx.db
+              .query("documents")
+              .withIndex("by_sender", (q) => q.eq("senderId", userId))
+              .collect()
+          ).filter((d) => !d.archivedAt);
+
+    const now = Date.now();
+    const rows: Array<{
+      _id: string;
+      direction: "sent" | "received";
+      objet: string;
+      publicRef: string | null;
+      counterpart: string;
+      status: string;
+      urgent: boolean;
+      createdAt: number;
+      updatedAt: number;
+      dueAt: number | null;
+      isOverdue: boolean;
+      nextAction: string;
+    }> = [];
+
+    for (const d of received) {
+      const due = d.dueAt ?? null;
+      const isOverdue =
+        d.status !== "traite" &&
+        (d.status === "en_retard" || (due != null && now > due));
+      rows.push({
+        _id: String(d._id),
+        direction: "received",
+        objet: (d.objet || d.fileName || "Courrier").slice(0, 120),
+        publicRef: d.publicRef ?? null,
+        counterpart: d.senderName || "—",
+        status: d.status,
+        urgent: Boolean(d.urgent) && d.status !== "traite",
+        createdAt: d.createdAt ?? d._creationTime,
+        updatedAt: d.updatedAt ?? d.createdAt ?? d._creationTime,
+        dueAt: due,
+        isOverdue,
+        nextAction:
+          d.status === "traite"
+            ? "Classé"
+            : d.status === "envoye"
+              ? "Prendre en charge"
+              : d.status === "en_cours" || d.status === "consulte"
+                ? "Traiter / classer"
+                : isOverdue
+                  ? "En retard — traiter"
+                  : "Suivre",
+      });
+    }
+    for (const d of sent) {
+      const due = d.dueAt ?? null;
+      const isOverdue =
+        d.status !== "traite" &&
+        (d.status === "en_retard" || (due != null && now > due));
+      rows.push({
+        _id: String(d._id),
+        direction: "sent",
+        objet: (d.objet || d.fileName || "Courrier").slice(0, 120),
+        publicRef: d.publicRef ?? null,
+        counterpart: d.recipientName || "—",
+        status: d.status,
+        urgent: Boolean(d.urgent) && d.status !== "traite",
+        createdAt: d.createdAt ?? d._creationTime,
+        updatedAt: d.updatedAt ?? d.createdAt ?? d._creationTime,
+        dueAt: due,
+        isOverdue,
+        nextAction:
+          d.status === "traite"
+            ? "Clôturé"
+            : d.status === "envoye"
+              ? "En attente de lecture"
+              : d.status === "en_cours" || d.status === "consulte"
+                ? "En traitement chez le destinataire"
+                : isOverdue
+                  ? "En retard chez le destinataire"
+                  : "Suivre",
+      });
+    }
+    rows.sort((a, b) => b.updatedAt - a.updatedAt);
+    return rows.slice(0, limit);
   },
 });
 
