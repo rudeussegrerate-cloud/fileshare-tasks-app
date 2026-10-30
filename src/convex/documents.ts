@@ -1621,7 +1621,13 @@ export const get = query({
        * Répondre : tout utilisateur qui peut ouvrir le courrier
        * (sauf l'émetteur) — envoi structurel n'a souvent pas de recipientId.
        */
-      canReply: false, // réponse depuis la fiche désactivée
+      canReply: Boolean(
+        !isSender &&
+          document.senderId &&
+          (document.recipientId === userId ||
+            isStructureViewer ||
+            isStepAssignee),
+      ),
       /** Émetteur peut modifier tant que personne n'a lu (statut encore « envoyé ») */
       canEdit: isSender && document.status === "envoye" && !document.archivedAt,
       canCancel: isSender && document.status === "envoye" && !document.archivedAt,
