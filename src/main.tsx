@@ -136,7 +136,7 @@ function NotFoundInline({
           </a>
         </div>
         <p className="mt-10 text-xs text-muted-foreground/70">
-          ScanDoc · Partage de documents professionnel
+          Mailaka · Partage de documents professionnel
         </p>
       </div>
     </div>
@@ -224,7 +224,7 @@ createRoot(document.getElementById("root")!).render(
                 element={
                   <RequireAuth
                     title="Connexion requise"
-                    description="Connectez-vous pour accéder à votre espace de travail ScanDoc."
+                    description="Connectez-vous pour accéder à votre espace de travail Mailaka."
                     redirectImmediately
                   >
                     <Dashboard />

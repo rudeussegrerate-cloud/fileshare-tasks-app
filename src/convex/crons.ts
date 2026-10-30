@@ -2,7 +2,7 @@ import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
 
 /**
- * Tâches planifiées ScanDoc.
+ * Tâches planifiées Mailaka.
  * - Alertes automatiques d'échéance circuit (proche / retard)
  */
 const crons = cronJobs();

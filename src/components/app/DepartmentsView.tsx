@@ -66,7 +66,7 @@ type AssignablePerson = {
 };
 
 const EMPTY_PEOPLE =
-  "Aucun compte disponible pour l'instant. Une personne doit d'abord se connecter à ScanDoc et compléter ses informations (nom, fonction) pour être sélectionnable.";
+  "Aucun compte disponible pour l'instant. Une personne doit d'abord se connecter à Mailaka et compléter ses informations (nom, fonction) pour être sélectionnable.";
 
 function PersonSelect({
   people,
@@ -517,7 +517,7 @@ function CreateDepartmentDialog({
             )}
             <p className="text-[11px] text-muted-foreground">
               Le chef est choisi parmi les personnes qui ont déjà un compte
-              ScanDoc. Il pourra ensuite ajouter les membres de son
+              Mailaka. Il pourra ensuite ajouter les membres de son
               département. Vous pouvez aussi le désigner plus tard.
             </p>
             {people !== undefined && list.length === 0 ? (

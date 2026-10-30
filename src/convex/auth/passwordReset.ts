@@ -18,7 +18,7 @@ export const passwordResetEmail = Email({
   },
   async sendVerificationRequest({ identifier: email, token }) {
     const appName =
-      process.env.VLY_APP_NAME || "ScanDoc — réinitialisation du mot de passe";
+      process.env.VLY_APP_NAME || "Mailaka — réinitialisation du mot de passe";
 
     // 1) Freebuff OTP API
     const emailApiKey = process.env.EMAIL_API_KEY;
@@ -46,9 +46,9 @@ export const passwordResetEmail = Email({
         const vly = createVlyIntegrations({ deploymentToken: vlyKey });
         const result = await vly.email.send({
           to: email,
-          subject: `[ScanDoc] Code de réinitialisation : ${token}`,
+          subject: `[Mailaka] Code de réinitialisation : ${token}`,
           text: [
-            `Votre code de réinitialisation ScanDoc est : ${token}`,
+            `Votre code de réinitialisation Mailaka est : ${token}`,
             ``,
             `Il est valable 15 minutes.`,
             `Si vous n'êtes pas à l'origine de cette demande, ignorez ce message.`,
@@ -56,7 +56,7 @@ export const passwordResetEmail = Email({
           html: `
             <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto">
               <h2 style="color:#1e40af">Réinitialisation du mot de passe</h2>
-              <p>Votre code ScanDoc :</p>
+              <p>Votre code Mailaka :</p>
               <p style="font-size:28px;font-weight:700;letter-spacing:4px">${token}</p>
               <p style="color:#6b7280;font-size:13px">Valable 15 minutes. Ignorez ce message si vous n'êtes pas à l'origine de la demande.</p>
             </div>

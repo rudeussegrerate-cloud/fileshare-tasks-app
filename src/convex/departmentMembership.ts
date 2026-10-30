@@ -442,7 +442,7 @@ export const inviteByEmail = mutation({
     // Uniquement comptes existants + validés par le DG
     if (!existingUser) {
       throw new Error(
-        "Aucun compte ScanDoc pour cet email. La personne doit d'abord s'inscrire et être validée par le DG.",
+        "Aucun compte Mailaka pour cet email. La personne doit d'abord s'inscrire et être validée par le DG.",
       );
     }
     if (existingUser.accountStatus !== "valide") {

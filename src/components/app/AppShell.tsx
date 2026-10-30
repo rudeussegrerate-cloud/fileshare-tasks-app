@@ -61,7 +61,7 @@ type NavItem = {
 };
 
 /**
- * Arborescence ScanDoc (structure hiérarchique) :
+ * Arborescence Mailaka (structure hiérarchique) :
  * Niveau 1 — Accueil (tableau de bord)
  * Niveau 2 — Rubriques thématiques
  * Niveau 3 — Pages d'action
@@ -205,7 +205,7 @@ export function AppShell({
   };
 
   const current =
-    ALL_NAV.find((item) => item.key === view)?.label ?? "ScanDoc";
+    ALL_NAV.find((item) => item.key === view)?.label ?? "Mailaka";
 
   const userMenu = (
     <DropdownMenu>
@@ -294,7 +294,7 @@ export function AppShell({
                   className="sc-shell-sidebar flex w-[min(18rem,90vw)] flex-col border-0 bg-[#1e1b4b] p-4 text-white"
                 >
                   <SheetHeader className="p-0">
-                    <SheetTitle className="sr-only">Menu ScanDoc</SheetTitle>
+                    <SheetTitle className="sr-only">Menu Mailaka</SheetTitle>
                   </SheetHeader>
                   <div className="flex flex-1 flex-col overflow-y-auto">
                     <BrandMark />

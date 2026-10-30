@@ -824,7 +824,7 @@ export function FloatingAssistant() {
                   Bonjour ! Je suis {botName}.
                 </p>
                 <p className="mt-1">
-                  Posez-moi une question sur ScanDoc, par exemple :
+                  Posez-moi une question sur Mailaka, par exemple :
                 </p>
                 <ul className="mt-1 list-inside list-disc">
                   <li>Inventaire de mes courriers</li>

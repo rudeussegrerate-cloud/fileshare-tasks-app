@@ -57,7 +57,7 @@ export function AccountStatusScreen({
           </span>
           <span className="leading-tight">
             <span className="block text-sm font-semibold text-white">
-              ScanDoc
+              Mailaka
             </span>
             <span className="block text-[10px] uppercase tracking-wide text-white/60">
               Fichiers inter-départements

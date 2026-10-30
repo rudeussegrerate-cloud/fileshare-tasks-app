@@ -6,21 +6,21 @@ import { api, internal } from "./_generated/api";
 import { action } from "./_generated/server";
 
 const SITE_HELP = `
-Tu es l'assistant personnel de l'utilisateur dans ScanDoc (courriers MNDPT).
+Tu es l'assistant personnel de l'utilisateur dans Mailaka (courriers MNDPT).
 
-PÉRIMÈTRE STRICT — tu ne réponds QU'aux questions liées à ScanDoc :
+PÉRIMÈTRE STRICT — tu ne réponds QU'aux questions liées à Mailaka :
 - navigation et menus du site
 - envoi, réception, réponse, classement de courriers
 - retards, urgents, non lus, inventaire, filtres, tri
-- structures / directions / services, comptes, paramètres liés à ScanDoc
+- structures / directions / services, comptes, paramètres liés à Mailaka
 - aide sur les écrans et boutons de l'application
 
 INTERDIT :
-- culture générale, actualités, sport, politique, cuisine, code hors ScanDoc
+- culture générale, actualités, sport, politique, cuisine, code hors Mailaka
 - devoirs scolaires, blagues hors contexte, conseil personnel non lié au site
-- toute question sans rapport avec l'utilisation de ScanDoc
+- toute question sans rapport avec l'utilisation de Mailaka
 
-Si hors sujet : refuse poliment en 1–2 phrases et propose une aide ScanDoc
+Si hors sujet : refuse poliment en 1–2 phrases et propose une aide Mailaka
 (ex. « inventaire », « courriers reçus », « nouveau courrier »). Ne réponds pas au fond hors sujet.
 
 MISSION (dans le périmètre) :
@@ -33,7 +33,7 @@ MENUS : Accueil, Nouveau courrier, Courriers reçus / envoyés, Recherche, Struc
 RÈGLES :
 1. Français clair, 2 à 6 phrases.
 2. Chiffres uniquement depuis CONTEXTE COURRIER.
-3. Action concrète dans ScanDoc quand c'est possible.
+3. Action concrète dans Mailaka quand c'est possible.
 `;
 
 type SiteAction =
@@ -196,7 +196,7 @@ function detectSiteAction(text: string): SiteAction {
 
 /** Hors sujet clair uniquement — le reste est accepté (évite les non-réponses). */
 const OFF_TOPIC_REPLY =
-  "Je suis l'assistant ScanDoc : je ne réponds qu'aux questions sur ce site (courriers, menus, retards, envoi…). Essayez par exemple : « inventaire », « voir les retards » ou « comment envoyer un courrier ».";
+  "Je suis l'assistant Mailaka : je ne réponds qu'aux questions sur ce site (courriers, menus, retards, envoi…). Essayez par exemple : « inventaire », « voir les retards » ou « comment envoyer un courrier ».";
 
 function isSiteRelated(text: string): boolean {
   const q = text
@@ -279,7 +279,7 @@ function ruleBasedReply(
   const guide = guideLine(action);
 
   if (/bonjour|salut|hello|bonsoir/.test(q)) {
-    return `${prefix} Bonjour ! Content de vous voir. Dites-moi ce que vous cherchez sur ScanDoc — documents, messages, départements… et je vous y emmène.`;
+    return `${prefix} Bonjour ! Content de vous voir. Dites-moi ce que vous cherchez sur Mailaka — documents, messages, départements… et je vous y emmène.`;
   }
   if (action === "open_send") {
     return `${prefix}\n${guide}\nChoisissez le fichier, le destinataire (ou le circuit), l’objet et les tâches, puis envoyez.`;
@@ -356,7 +356,7 @@ export const ask = action({
     const message = args.message.trim().slice(0, 1000);
     if (!message) {
       return {
-        reply: "Écrivez votre question, je vous guide sur ScanDoc.",
+        reply: "Écrivez votre question, je vous guide sur Mailaka.",
         action: null,
         emotion: "curious" as BotEmotion,
       };
@@ -512,7 +512,7 @@ ${guideLine("inventory")}`;
       reply =
         action !== "reply"
           ? `${moodPrefix(name, mood)} ${guideLine(action)}`
-          : `${moodPrefix(name, mood)} Posez votre question sur ScanDoc (courriers, menus, retards, envoi…). Ex. : « inventaire » ou « comment envoyer un courrier ».`;
+          : `${moodPrefix(name, mood)} Posez votre question sur Mailaka (courriers, menus, retards, envoi…). Ex. : « inventaire » ou « comment envoyer un courrier ».`;
     }
 
     try {
@@ -539,7 +539,7 @@ ${guideLine("inventory")}`;
             role: "system",
             content: `${SITE_HELP}
 
-RAPPEL FINAL : si la question n'est pas liée à ScanDoc, réponds uniquement par un refus poli et recentre sur le site. Ne fournis aucune information hors sujet.
+RAPPEL FINAL : si la question n'est pas liée à Mailaka, réponds uniquement par un refus poli et recentre sur le site. Ne fournis aucune information hors sujet.
 
 
 Ton nom : ${name}.
@@ -564,7 +564,7 @@ ${navHint}`,
     }
 
     if (!reply || !String(reply).trim()) {
-      reply = `${name} : je suis là pour ScanDoc. Essayez « inventaire », « voir les retards », « nouveau courrier » ou « courriers reçus ».`;
+      reply = `${name} : je suis là pour Mailaka. Essayez « inventaire », « voir les retards », « nouveau courrier » ou « courriers reçus ».`;
     }
 
     try {

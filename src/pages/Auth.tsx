@@ -590,7 +590,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             Connexion
           </h1>
           <p className="mb-6 text-sm font-medium text-white/95">
-            Accédez à ScanDoc avec votre compte professionnel MNDPT.
+            Accédez à Mailaka avec votre compte professionnel MNDPT.
           </p>
           <div className="auth-glass-form">
 
@@ -1057,7 +1057,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       <a href="#cgu" className="font-medium text-foreground underline">
                         conditions d&apos;utilisation
                       </a>{" "}
-                      et la politique de confidentialité de ScanDoc (données
+                      et la politique de confidentialité de Mailaka (données
                       professionnelles, usage interne uniquement).
                     </span>
                   </label>

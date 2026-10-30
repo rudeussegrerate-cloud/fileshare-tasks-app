@@ -682,7 +682,7 @@ const stats = useQuery(api.documents.stats);
               Posture de sécurité
             </CardTitle>
             <CardDescription>
-              Mesures actives sur ScanDoc (bonnes pratiques applications web).
+              Mesures actives sur Mailaka (bonnes pratiques applications web).
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -758,7 +758,7 @@ const stats = useQuery(api.documents.stats);
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Info className="size-4" />
-            À propos de ScanDoc
+            À propos de Mailaka
           </CardTitle>
           <CardDescription>
             Plateforme professionnelle d&apos;échange de documents entre

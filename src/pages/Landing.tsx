@@ -199,7 +199,7 @@ export default function Landing() {
                 en route.
               </h1>
               <p className="mt-5 max-w-xl text-base leading-relaxed text-white/75">
-                ScanDoc digitalise le courrier interne : l'émetteur
+                Mailaka digitalise le courrier interne : l'émetteur
                 dépose un fichier et précise la tâche à réaliser, le
                 destinataire reçoit un résumé automatique et met à jour le
                 statut du traitement.
@@ -252,7 +252,7 @@ export default function Landing() {
                     </span>
                     <div className="leading-tight">
                       <p className="text-xs font-semibold">
-                        Resume_Projet_ScanDoc.docx
+                        Resume_Projet_Mailaka.docx
                       </p>
                       <p className="text-[10px] text-muted-foreground">
                         Fichiers de Phoenix · 2,4 Mo
@@ -321,7 +321,7 @@ export default function Landing() {
               Le courrier interne, enfin traçable
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              ScanDoc remplace les envois informels par un flux clair : chaque
+              Mailaka remplace les envois informels par un flux clair : chaque
               document a un émetteur, un destinataire, une tâche, un résumé et
               un statut.
             </p>
@@ -465,7 +465,7 @@ export default function Landing() {
               className="mt-7 gap-2 bg-white text-brand hover:bg-white/90"
             >
               <Link to="/auth">
-                Se connecter à ScanDoc
+                Se connecter à Mailaka
                 <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -479,7 +479,7 @@ export default function Landing() {
             <span className="flex size-6 items-center justify-center rounded-lg bg-brand text-primary-foreground">
               <FileText className="size-3" />
             </span>
-            ScanDoc — gestion des fichiers inter-départements
+            Mailaka — gestion des fichiers inter-départements
           </div>
           <p>Version 1 · envoi d'un fichier + tâche</p>
         </div>

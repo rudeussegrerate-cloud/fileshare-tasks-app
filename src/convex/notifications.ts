@@ -68,7 +68,7 @@ export const sendDocumentReceivedEmail = internalAction({
     try {
       const result = await vly.email.send({
         to: args.toEmail,
-        subject: `[ScanDoc] Nouveau document : ${args.objet}`,
+        subject: `[Mailaka] Nouveau document : ${args.objet}`,
         html,
         text,
       });
@@ -116,7 +116,7 @@ export const sendStatusChangedEmail = internalAction({
     try {
       return await vly.email.send({
         to: args.toEmail,
-        subject: `[ScanDoc] Statut mis à jour : ${args.documentObjet}`,
+        subject: `[Mailaka] Statut mis à jour : ${args.documentObjet}`,
         html,
         text: `Le document « ${args.documentObjet} » est passé au statut ${label} (par ${args.changedByName}).`,
       });

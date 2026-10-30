@@ -18,13 +18,13 @@ export function SmartAutomations() {
   const did = useRef(false);
   const prevUnread = useRef<number | null>(null);
 
-  // Titre d'onglet style Messenger : "(3) ScanDoc"
+  // Titre d'onglet style Messenger : "(3) Mailaka"
   useEffect(() => {
     if (typeof document === "undefined") return;
     const total =
       (unread ?? 0) + (notifCount ?? 0) + (stats?.awaiting ?? 0);
     document.title =
-      total > 0 ? `(${total > 99 ? "99+" : total}) ScanDoc` : "ScanDoc";
+      total > 0 ? `(${total > 99 ? "99+" : total}) Mailaka` : "Mailaka";
   }, [unread, notifCount, stats?.awaiting]);
 
   // Nouveau message pendant la session

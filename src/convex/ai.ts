@@ -30,7 +30,7 @@ Ligne 5 (optionnelle) : si un objet d'envoi ou des tâches sont fournis, écrire
 TON
 Professionnel, neutre, accessible aux non-spécialistes. Phrases courtes.`;
 
-const IMAGE_PROMPT = `Tu analyses une image ou une photo jointe à un envoi professionnel (ScanDoc).
+const IMAGE_PROMPT = `Tu analyses une image ou une photo jointe à un envoi professionnel (Mailaka).
 
 OBJECTIF
 - S'il y a du TEXTE lisible (scan de courrier, capture d'écran, photo de document) : explique le contenu comme un document (max 5 lignes).

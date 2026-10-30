@@ -1551,9 +1551,16 @@ export const get = query({
       batchRootId === document._id
         ? document
         : await ctx.db.get(batchRootId);
+    // Même envoi multi-fichiers uniquement (même émetteur).
+    // Les réponses utilisent aussi parentCourrierId mais un autre senderId.
     const batchDocs = [
       ...(rootDoc ? [rootDoc] : []),
-      ...children.filter((c) => c._id !== rootDoc?._id),
+      ...children.filter(
+        (c) =>
+          c._id !== rootDoc?._id &&
+          rootDoc != null &&
+          c.senderId === rootDoc.senderId,
+      ),
     ];
     const relatedFiles: Array<{
       _id: typeof document._id;
@@ -1581,6 +1588,7 @@ export const get = query({
           isStructureViewer,
       ),
       isSender,
+      senderId: document.senderId,
       publicRef: document.publicRef ?? null,
       mailKind: document.mailKind ?? "envoi",
       referenceText: document.referenceText ?? null,

@@ -23,7 +23,7 @@ export const MNDPT_FIXED = {
   directionGenerale: "DIRECTION GÉNÉRALE DU DÉVELOPPEMENT NUMÉRIQUE",
   modelLabel: "Courrier administratif MNDPT",
   disclaimer:
-    "Brouillon ScanDoc — à valider et signer hors application avant usage officiel.",
+    "Brouillon Mailaka — à valider et signer hors application avant usage officiel.",
 } as const;
 
 /** Champs que l'utilisateur complète (équivalent des zones marquées en rouge) */

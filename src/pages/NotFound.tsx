@@ -79,7 +79,7 @@ export default function NotFound({
         </div>
 
         <p className="mt-10 text-xs text-muted-foreground/70">
-          ScanDoc · Partage de documents professionnel
+          Mailaka · Partage de documents professionnel
         </p>
       </div>
     </div>

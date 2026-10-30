@@ -241,7 +241,7 @@ export function DocumentDetailDialog({
   @media print{body{margin:0}}
 </style></head><body>
 <h1>${esc(documentOrNull.objet || documentOrNull.fileName)}</h1>
-<div class="meta">ScanDoc · Fiche courrier</div>
+<div class="meta">Mailaka · Fiche courrier</div>
 <div class="box"><div class="label">Fichier</div>${esc(documentOrNull.fileName)}</div>
 <div class="box"><div class="label">De</div>${esc(structureSender(documentOrNull))} → ${esc(structureRecipient(documentOrNull))}</div>
 <div class="box"><div class="label">Tâches</div>${esc(String(tasks))}</div>
